@@ -14,6 +14,9 @@ stepsCompleted:
   - step-10-nonfunctional
   - step-11-polish
   - step-12-complete
+  - step-e-01-discovery
+  - step-e-02-review
+  - step-e-03-edit
 inputDocuments: []
 workflowType: 'prd'
 briefCount: 0
@@ -25,6 +28,11 @@ classification:
   domain: govtech
   complexity: high
   projectContext: greenfield
+date: '2026-02-18'
+lastEdited: '2026-02-19'
+editHistory:
+  - date: '2026-02-19'
+    changes: 'Fixed validation warnings: traceability cross-references, govtech compliance scope, NFR5 implementation leakage, FR25/FR26/FR27/FR33 measurability, added date field'
 ---
 
 # Product Requirements Document — Write Your Legislator
@@ -54,9 +62,9 @@ Form letters get ignored. Legislators in heavily gerrymandered states like Utah 
 
 - Return usage without account creation — a user who comes back a second time is a meaningful victory
 - Geographic distribution: messages composed from constituents across all 29 Utah senate districts
-- Legislator acknowledgment: any Utah legislator's office noticing or responding to an increase in specific constituent contact — positive or negative
+- Legislator acknowledgment: any Utah legislator's office noticing or responding to an increase in specific constituent contact — positive or negative *(lagging indicator; validated through constituent usage in Journeys 1 & 2 at scale)*
 - Organizational adoption: Elevate Utah (or similar PACs) publicly promotes the tool
-- Press coverage: any earned media mention in Utah-focused political press
+- Press coverage: any earned media mention in Utah-focused political press *(lagging indicator; validated through constituent usage in Journeys 1 & 2 at scale)*
 
 ### Technical Success
 
@@ -196,6 +204,13 @@ A civic tech developer in Denver reads a Mastodon thread about Write Your Legisl
 - **Utah AI regulation compliance:** Utah AI Policy Act applies. Track applicable requirements. An unobtrusive AI disclosure on generated messages is low-cost insurance; implementation deferred to post-MVP but designed for in message output.
 - **No federal AI regulation dependency:** Current federal posture requires no AI disclosure; design must not assume this remains true.
 
+### Govtech Compliance Scope
+
+Write Your Legislator is public civic technology operated independently, not government-contracted software. The following standard govtech compliance categories are explicitly not applicable:
+
+- **Procurement compliance:** N/A — no government procurement, RFP process, or vendor certification applies; the tool is free, open-source, and publicly available
+- **Security clearance:** N/A — no classified data, government network access, or personnel clearance requirements apply; all data used (legislative records, GIS lookups) is publicly available
+
 ### Technical Constraints
 
 - **Legislature API caching (mandatory):** `glen.le.utah.gov` is "experimental basis only" — can be altered or removed without notice. Developer token required. Cache refresh limits must be respected or the app risks being blocked: bills/reading calendar ≤ hourly; legislators ≤ daily; committees ≤ 3×/day. Local caching is required, not optional.
@@ -319,9 +334,9 @@ Single Page Application with a statically generated, SEO-optimized landing page 
 
 ### Chatbot Platform Integration (BYOLLM / MCP)
 
-- **FR25:** The MCP legislator-lookup tool can be connected to and invoked by a user's existing chatbot platform (Claude.ai, ChatGPT, and compatible clients)
-- **FR26:** The MCP bill-search tool can be connected to and invoked by a user's existing chatbot platform
-- **FR27:** The system can provide a guided system prompt that instructs a connected chatbot to execute the 4-step civic drafting flow
+- **FR25:** The MCP legislator-lookup tool can be connected to and invoked by a user's existing chatbot platform (Claude.ai, ChatGPT, and compatible clients), verified by successful end-to-end address-to-legislator lookup within each supported platform's documented MCP connection flow
+- **FR26:** The MCP bill-search tool can be connected to and invoked by a user's existing chatbot platform, verified by successful legislator-scoped bill retrieval within each supported platform's documented MCP connection flow
+- **FR27:** The system can provide a guided system prompt that instructs a connected chatbot to execute the 4-step civic drafting flow, validated by consistent step-completion across Claude.ai and ChatGPT with no manual intervention beyond initial setup
 - **FR28:** A developer or civic tech contributor can install and run the MCP tools locally from the public repository
 
 ### Onboarding & Public Discovery
@@ -330,7 +345,7 @@ Single Page Application with a statically generated, SEO-optimized landing page 
 - **FR30:** A visitor can find the tool via search engines using civic-engagement-related search terms
 - **FR31:** A visitor can navigate from the landing page to setup instructions for their specific chatbot platform
 - **FR32:** A visitor can access the platform's privacy policy from the landing page
-- **FR33:** A developer or civic tech contributor can access MCP tool documentation and local development setup instructions from the public repository
+- **FR33:** A developer or civic tech contributor can access MCP tool documentation and local development setup instructions from the public repository, enabling a working local development environment in under 30 minutes following the README alone without additional knowledge transfer
 
 ### Operator & System
 
@@ -351,7 +366,7 @@ Single Page Application with a statically generated, SEO-optimized landing page 
 
 ### Security
 
-- **NFR5:** All traffic between users, web app, and MCP backend is served over HTTPS (TLS via Let's Encrypt)
+- **NFR5:** All traffic between users, web app, and MCP backend is encrypted in transit via HTTPS with valid TLS certificates
 - **NFR6:** Utah Legislature API developer token is stored as a server-side environment variable and never exposed to the client
 - **NFR7:** The system does not persistently store user addresses, personal stories, or any PII beyond the duration of a session
 - **NFR8:** The MCP backend public endpoint implements basic rate limiting to prevent abuse and automated scraping
