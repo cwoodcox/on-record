@@ -29,10 +29,12 @@ classification:
   complexity: high
   projectContext: greenfield
 date: '2026-02-18'
-lastEdited: '2026-02-19'
+lastEdited: '2026-02-21'
 editHistory:
   - date: '2026-02-19'
     changes: 'Fixed validation warnings: traceability cross-references, govtech compliance scope, NFR5 implementation leakage, FR25/FR26/FR27/FR33 measurability, added date field'
+  - date: '2026-02-21'
+    changes: 'Full measurability pass: NFR verification methods, FR SMART improvements, traceability cross-refs for 10 orphan FRs, transparency requirements section, Section 508/data residency N/A, responsive design section, implementation leakage cleanup across FRs and NFRs, added FR39 analytics'
 ---
 
 # Product Requirements Document — Write Your Legislator
@@ -68,9 +70,9 @@ Form letters get ignored. Legislators in heavily gerrymandered states like Utah 
 
 ### Technical Success
 
-- MCP tools reliably resolve a Utah address to the correct state legislators via GIS API
-- Bill and vote lookup surfaces relevant, recent legislative activity for the identified legislator
-- LLM output consistently passes the voice-authenticity bar — specific, concise, non-generic — across at least two major chatbot platforms (Claude.ai, ChatGPT)
+- MCP tools resolve a Utah address to the correct state legislators via GIS API for 95% of valid street-address inputs, as measured during pre-launch testing across at least 5 Utah senate districts
+- Bill and vote lookup surfaces legislative activity for the identified legislator from the current or most recently completed session, served from cache in under 1 second
+- LLM output passes the voice-authenticity bar — specific, concise, non-generic — in qualitative review by at least 3 of 5 target users before public launch, across Claude.ai and ChatGPT
 
 ### Measurable Outcomes
 
@@ -113,7 +115,7 @@ The MVP exists to validate two questions: (1) Is the BYOLLM setup accessible eno
 ### Phase 3 — Expansion
 
 - All 50 US state legislatures and US Congress
-- Native mobile app (iOS and Android)
+- Native mobile app (iOS and Android) *(roadmap only — outside web app scope)*
 - PAC/advocacy org integrations and white-label options
 - Multi-language support (Spanish first)
 - Full WCAG 2.1 AA accessibility audit
@@ -210,6 +212,15 @@ Write Your Legislator is public civic technology operated independently, not gov
 
 - **Procurement compliance:** N/A — no government procurement, RFP process, or vendor certification applies; the tool is free, open-source, and publicly available
 - **Security clearance:** N/A — no classified data, government network access, or personnel clearance requirements apply; all data used (legislative records, GIS lookups) is publicly available
+- **Section 508:** N/A — not a federally procured system; WCAG 2.1 AA is the applicable accessibility standard and meets equivalent outcomes for public-facing civic tech
+- **Data residency:** N/A — no regulated data types and no jurisdictional mandates apply; the tool collects only addresses transiently for legislator lookup with no cross-border data transfer requirements
+
+### Transparency Requirements
+
+- **AI disclosure:** Generated messages must carry an unobtrusive disclosure that they were AI-assisted; implementation deferred to post-MVP but message output structure must accommodate it without layout changes
+- **Data sourcing:** All legislative data surfaced in drafts must be attributable to a specific source (bill number, session, vote date); the system must not present inferred or unsourced claims as fact
+- **Non-editorializing:** The system must present a legislator's record without characterizing intent, motivation, or judgment — factual record only
+- **Data practices:** Privacy policy must accurately describe what data is collected (address for lookup), how long it is retained (session duration only), and that it is not sold or shared with third parties
 
 ### Technical Constraints
 
@@ -272,6 +283,12 @@ Single Page Application with a statically generated, SEO-optimized landing page 
 - Mobile browsers (iOS Safari, Android Chrome) must work well at MVP — first users will access the tool on phones directly after Elevate Utah meetings
 - No IE11 or legacy browser support
 
+### Responsive Design
+
+- Mobile-first layout: all primary user flows (landing page, onboarding, chatbot UI) designed and verified at 375px viewport width before scaling to tablet and desktop
+- Minimum supported viewport: 320px width
+- No hover-dependent functionality in primary user flows; all interactions accessible via touch
+
 ### SEO & Discoverability
 
 - SEO applies to the landing page only; chatbot UI is not indexed
@@ -298,33 +315,33 @@ Single Page Application with a statically generated, SEO-optimized landing page 
 - **FR1:** A constituent can enter their home address to identify their Utah state House and Senate representatives
 - **FR2:** The system can resolve a Utah street address to the correct legislative districts via GIS lookup
 - **FR3:** A constituent can view both their House and Senate representatives and select which one to contact
-- **FR4:** The system can surface a legislator's name, chamber, district, and available contact information alongside identification results
-- **FR5:** The system can surface the type of contact number (cell, office, or switchboard) where known, and flag ambiguity where the type is unclear
+- **FR4:** The system can surface a legislator's name, chamber, district, email address, and phone number(s) with type label alongside identification results
+- **FR5:** The system can surface the contact number type (cell, district office, or chamber switchboard) where the API provides a type label, and explicitly flags the number as type-unknown when the label is absent *(supports Journey 2: Marcus uses phone/text to contact rep)*
 
 ### Legislative Research
 
-- **FR6:** The system can retrieve bills sponsored or co-sponsored by a specific Utah legislator for the current or most recent legislative session
+- **FR6:** The system can retrieve bills sponsored or co-sponsored by a specific Utah legislator for the active session, or the most recently completed session when the legislature is not in session
 - **FR7:** The system can retrieve a specific bill's summary, status, and the identified legislator's vote record
 - **FR8:** The system can search bills by issue theme (healthcare, education, housing, redistricting, etc.) filtered to a specific legislator
-- **FR9:** The system can surface relevant bills from past sessions when the legislature is not in active session
-- **FR10:** The system can cache legislative data locally and refresh on schedule (bills/votes: up to hourly; legislators: up to daily)
-- **FR11:** The system can maintain a per-legislator bill index derived from session-level bill data
+- **FR9:** The system can surface up to 5 bills matching the issue theme from the most recent 2 completed legislative sessions when the legislature is not in active session *(supports Journeys 1 & 2: inter-session constituent usage)*
+- **FR10:** The system can cache legislative data locally and refresh on schedule (bills/votes: up to hourly; legislators: up to daily) *(supports Journey 3: Operator)*
+- **FR11:** The system can maintain a per-legislator bill index derived from session-level bill data *(supports Journey 3: Operator)*
 
 ### Guided Issue Discovery
 
-- **FR12:** A constituent can describe their concerns in their own words, including personal stories and family situations, to initiate the drafting flow
-- **FR13:** The chatbot can guide a constituent who does not know which specific bill or issue they care about through open-ended issue elicitation
+- **FR12:** A constituent can describe their concerns in their own words, including personal stories and family situations, to initiate the drafting flow; at least one personal-impact detail must be captured before draft generation begins
+- **FR13:** The chatbot can guide a constituent who does not know which specific bill or issue they care about by presenting 2–3 issue framings derived from the legislator's record for the constituent to confirm or redirect before proceeding
 - **FR14:** A constituent can confirm or refine the issue and legislator context surfaced by the chatbot before draft generation begins
 - **FR15:** A constituent can specify the desired medium for their message (email or text/SMS)
 - **FR16:** A constituent can specify the desired formality level for their message
 
 ### Message Composition
 
-- **FR17:** The system can generate a draft message grounded in the constituent's stated concerns and the legislator's specific legislative record, without editorializing the legislator's positions
+- **FR17:** The system can generate a draft message grounded in the constituent's stated concerns and the legislator's specific legislative record; the draft must include at least one source citation and must not contain unsupported claims about legislator intent or motivation
 - **FR18:** The system can generate a draft appropriate in length for the chosen medium (email: multi-paragraph; text: brief)
 - **FR19:** The system can include a source citation in the draft (bill number, session, vote date) so the constituent can verify referenced facts before sending
-- **FR20:** A constituent can review the generated draft and request revisions
-- **FR21:** The system can revise a draft message based on constituent feedback
+- **FR20:** A constituent can review the generated draft and request revisions *(supports Journey 1: Deb changes one word before sending)*
+- **FR21:** The system can revise a draft message based on constituent feedback *(supports Journey 1)*
 
 ### Message Delivery
 
@@ -334,61 +351,62 @@ Single Page Application with a statically generated, SEO-optimized landing page 
 
 ### Chatbot Platform Integration (BYOLLM / MCP)
 
-- **FR25:** The MCP legislator-lookup tool can be connected to and invoked by a user's existing chatbot platform (Claude.ai, ChatGPT, and compatible clients), verified by successful end-to-end address-to-legislator lookup within each supported platform's documented MCP connection flow
-- **FR26:** The MCP bill-search tool can be connected to and invoked by a user's existing chatbot platform, verified by successful legislator-scoped bill retrieval within each supported platform's documented MCP connection flow
-- **FR27:** The system can provide a guided system prompt that instructs a connected chatbot to execute the 4-step civic drafting flow, validated by consistent step-completion across Claude.ai and ChatGPT with no manual intervention beyond initial setup
+- **FR25:** The MCP legislator-lookup tool can be connected to and invoked by a user's existing chatbot platform (Claude.ai, ChatGPT, and compatible clients), verified by successful end-to-end address-to-legislator lookup within each supported platform's standard tool-connection flow
+- **FR26:** The MCP bill-search tool can be connected to and invoked by a user's existing chatbot platform, verified by successful legislator-scoped bill retrieval within each supported platform's standard tool-connection flow
+- **FR27:** The system can provide a guided system prompt that instructs a connected chatbot to execute the 4-step civic drafting flow, validated by step-completion in at least 4 of 5 test runs across Claude.ai and ChatGPT with no manual intervention beyond initial setup *(supports Journey 1: Deb opens Claude.ai)*
 - **FR28:** A developer or civic tech contributor can install and run the MCP tools locally from the public repository
 
 ### Onboarding & Public Discovery
 
 - **FR29:** A visitor can access a landing page that explains the tool's purpose and how to connect it to their preferred chatbot
-- **FR30:** A visitor can find the tool via search engines using civic-engagement-related search terms
+- **FR30:** A visitor can find the tool via search engines using civic-engagement-related search terms, targeting top-20 organic ranking for at least 2 of the 3 target keyword phrases within 6 months of launch *(supports Journeys 1 & 2: organic discovery)*
 - **FR31:** A visitor can navigate from the landing page to setup instructions for their specific chatbot platform
-- **FR32:** A visitor can access the platform's privacy policy from the landing page
-- **FR33:** A developer or civic tech contributor can access MCP tool documentation and local development setup instructions from the public repository, enabling a working local development environment in under 30 minutes following the README alone without additional knowledge transfer
+- **FR32:** A visitor can access the platform's privacy policy from the landing page *(supports Domain compliance: privacy policy requirement)*
+- **FR33:** A developer or civic tech contributor can access MCP tool documentation and local development setup instructions from the public repository, enabling a working local development environment in under 30 minutes without additional knowledge transfer from the original author
 
 ### Operator & System
 
 - **FR34:** The operator can access structured logs of MCP tool requests and responses for debugging and error investigation
 - **FR35:** The system can distinguish and log API errors (GIS, Legislature) separately from application logic errors
-- **FR36:** The system can handle Utah Legislature API transient failures with automatic retry without surfacing errors to the user
-- **FR37:** The system can handle non-residential or ambiguous addresses (P.O. Boxes, rural addresses) with a graceful error message and user guidance
-- **FR38:** The operator can update the legislative data cache refresh schedule and data-provider configuration without redeploying the application
+- **FR36:** The system can handle Utah Legislature API transient failures without surfacing errors to the user *(supports Journey 3: retry logic handled transparently)*
+- **FR37:** The system can handle non-residential or ambiguous addresses (P.O. Boxes, rural routes, out-of-state addresses) by returning an error message that identifies the address issue type and suggests a corrective action (e.g., use street address rather than P.O. Box)
+- **FR38:** The operator can update the legislative data cache refresh schedule and data-provider configuration without service interruption *(supports Journey 3: Operator)*
+- **FR39:** The system can record anonymous usage events (session initiated, draft generated, message delivered) to support measurement of return usage rates and geographic distribution across Utah senate districts, without collecting or storing PII *(supports Business Success: return usage, geographic distribution, 12-month analytics)*
 
 ## Non-Functional Requirements
 
 ### Performance
 
-- **NFR1:** Landing page achieves Lighthouse performance score ≥ 90 on mobile and desktop
+- **NFR1:** Landing page achieves a performance score ≥ 90 on mobile and desktop as measured by a web performance audit at time of release
 - **NFR2:** Address-to-legislator GIS lookup completes in under 3 seconds under normal conditions
 - **NFR3:** Bill/vote lookups served from local cache respond in under 1 second
-- **NFR4:** The system displays a loading state for any operation expected to exceed 1 second
+- **NFR4:** The system displays a loading state for any operation expected to exceed 1 second, verified by manual user testing of all async operations
 
 ### Security
 
-- **NFR5:** All traffic between users, web app, and MCP backend is encrypted in transit via HTTPS with valid TLS certificates
-- **NFR6:** Utah Legislature API developer token is stored as a server-side environment variable and never exposed to the client
-- **NFR7:** The system does not persistently store user addresses, personal stories, or any PII beyond the duration of a session
-- **NFR8:** The MCP backend public endpoint implements basic rate limiting to prevent abuse and automated scraping
+- **NFR5:** All traffic between users, web app, and MCP backend is encrypted in transit via HTTPS with valid TLS certificates, verified by passing TLS configuration check on all public endpoints at time of deployment
+- **NFR6:** Utah Legislature API developer token is stored in server-side configuration inaccessible to client-side code, verified by absence of the token in any client-accessible response or browser-visible source
+- **NFR7:** The system does not persistently store user addresses, personal stories, or any PII beyond the duration of a session, verified by absence of PII in server logs and persistent storage after session completion
+- **NFR8:** The MCP backend public endpoint limits requests to 60 per minute per IP address to prevent abuse and automated scraping
 
 ### Scalability
 
 - **NFR9:** System supports up to 100 concurrent sessions without performance degradation (PAC meeting spike scenario)
-- **NFR10:** Legislative data cache serves all bill/legislator requests without per-request upstream API calls, enabling horizontal MCP backend scaling
+- **NFR10:** Legislative data cache serves all bill/legislator requests without per-request upstream API calls, enabling the backend to scale under load without upstream rate limit exposure, verified under simulated concurrent load testing
 
 ### Accessibility
 
 - **NFR11:** Web application meets WCAG 2.1 AA baseline at MVP: semantic HTML, full keyboard navigability, color contrast ≥ 4.5:1 for normal text, screen reader compatibility for the core chatbot flow
-- **NFR12:** Mobile tap targets meet minimum 44×44px throughout the application
+- **NFR12:** Mobile tap targets meet minimum 44×44px throughout the application, verified by automated accessibility audit
 
 ### Integration
 
-- **NFR13:** MCP tools conform to the MCP specification version current at time of development, ensuring compatibility with Claude.ai, ChatGPT, and compliant clients
-- **NFR14:** The legislative data provider is implemented behind an abstraction interface — swapping from the Utah Legislature API to a third-party provider requires no changes to the MCP tool's public interface
-- **NFR15:** GIS address lookup degrades gracefully on API failure with a meaningful error message rather than a silent failure or crash
+- **NFR13:** MCP tools conform to the MCP specification version pinned at time of development, verified by successful tool invocation in Claude.ai and ChatGPT at time of release
+- **NFR14:** Swapping the legislative data provider from the Utah Legislature API to a third-party source requires no changes to the MCP tool's public interface
+- **NFR15:** GIS address lookup on API failure returns a human-readable error message identifying the failure source within the same response time budget as a successful request, with no silent failure or crash
 
 ### Reliability
 
-- **NFR16:** System targets 99% uptime on managed hosting free/hobby tier; major platform outages are outside operator control
+- **NFR16:** System targets 99% uptime; availability above this threshold depends on hosting platform SLA and is outside operator control
 - **NFR17:** Legislative data cache serves bill and legislator requests during Utah Legislature API outages using the most recently cached data
-- **NFR18:** System is deployable by a new contributor following only the public README, without direct knowledge transfer from the original author
+- **NFR18:** System is deployable by a new contributor without direct knowledge transfer from the original author, verified by independent setup test
