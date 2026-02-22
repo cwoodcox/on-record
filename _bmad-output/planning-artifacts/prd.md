@@ -39,6 +39,8 @@ editHistory:
     changes: 'Full measurability pass: NFR verification methods, FR SMART improvements, traceability cross-refs for 10 orphan FRs, transparency requirements section, Section 508/data residency N/A, responsive design section, implementation leakage cleanup across FRs and NFRs, added FR39 analytics'
   - date: '2026-02-21'
     changes: 'Validation report remediation: implementation leakage removed from FR10/FR11/FR27/FR35/NFR3/NFR8/NFR10/NFR11; measurement methods added to NFR2/NFR3/NFR8/NFR9/NFR11/NFR14/NFR15/NFR16/NFR17/NFR18; SMART improvements to FR8/FR11/FR14/FR16/FR18/FR28/FR29/FR33/FR36/FR38; FR3 traceability tag; added FR40 for Journey 4 community touchpoint; browser matrix table; traceability matrix section'
+  - date: '2026-02-22'
+    changes: 'Final polish: FR36 exponential backoff → increasing delay; NFR10 proportionality threshold defined (1.5x per 10x users); NFR16 measurement window added (rolling 30-day)'
 ---
 
 # Product Requirements Document — Write Your Legislator
@@ -381,7 +383,7 @@ First users will access the tool on phones directly after Elevate Utah meetings;
 
 - **FR34:** The operator can access structured logs of MCP tool requests and responses for debugging and error investigation
 - **FR35:** The operator can identify the source of any recorded error (external API failure vs. application logic failure) from structured log output without additional tooling
-- **FR36:** The system can handle Utah Legislature API transient failures transparently, retrying at least 2 times with exponential backoff before returning a user-facing error; the user sees no error for failures resolved within 10 seconds *(supports Journey 3: retry logic handled transparently)*
+- **FR36:** The system can handle Utah Legislature API transient failures transparently, retrying at least 2 times with increasing delay between retries before returning a user-facing error; the user sees no error for failures resolved within 10 seconds *(supports Journey 3: retry logic handled transparently)*
 - **FR37:** The system can handle non-residential or ambiguous addresses (P.O. Boxes, rural routes, out-of-state addresses) by returning an error message that identifies the address issue type and suggests a corrective action (e.g., use street address rather than P.O. Box)
 - **FR38:** The operator can update the legislative data cache refresh schedule and data-provider configuration while the service remains available, with no more than 30 seconds of request failure during the configuration change *(supports Journey 3: Operator)*
 - **FR39:** The system can record anonymous usage events (session initiated, draft generated, message delivered) to support measurement of return usage rates and geographic distribution across Utah senate districts, without collecting or storing PII *(supports Business Success: return usage, geographic distribution, 12-month analytics)*
@@ -405,7 +407,7 @@ First users will access the tool on phones directly after Elevate Utah meetings;
 ### Scalability
 
 - **NFR9:** The system supports up to 100 concurrent sessions without performance degradation, verified by load testing at 100 concurrent simulated users with no increase in error rate and median response times within the bounds of NFR2 and NFR3
-- **NFR10:** The system's upstream API call rate does not increase proportionally with concurrent user load, verified by confirming no increase in upstream API call volume during load testing at 100 concurrent users
+- **NFR10:** The system's upstream API call rate does not increase proportionally with concurrent user load — upstream API calls increase by no more than 1.5x when concurrent users increase by 10x — verified by confirming upstream call volume during load testing at 10 and 100 concurrent users
 
 ### Accessibility
 
@@ -420,7 +422,7 @@ First users will access the tool on phones directly after Elevate Utah meetings;
 
 ### Reliability
 
-- **NFR16:** System targets 99% uptime as reported by hosting platform uptime monitoring; availability above this threshold depends on hosting platform SLA and is outside operator control
+- **NFR16:** System targets 99% uptime measured on a rolling 30-day basis as reported by hosting platform uptime monitoring; availability above this threshold depends on hosting platform SLA and is outside operator control
 - **NFR17:** Legislative data cache serves bill and legislator requests during Utah Legislature API outages using the most recently cached data, verified by simulating API unavailability and confirming cached responses are returned within normal response time budgets
 - **NFR18:** System is deployable by a new contributor without direct knowledge transfer from the original author, verified by an independent contributor completing setup and achieving a successful end-to-end tool invocation using only repository documentation
 

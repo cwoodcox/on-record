@@ -405,11 +405,11 @@ Functional Requirements demonstrate excellent SMART quality. Average score 4.84/
 
 ### Top 3 Improvements
 
-1. **Fix FR36 implementation leakage** — Replace "exponential backoff" with "with increasing delay between retries." One-line edit; removes the only remaining implementation leakage in the requirements.
+1. **Fix FR36 implementation leakage** ✅ Fixed — replaced "exponential backoff" with "with increasing delay between retries."
 
-2. **Specify NFR10 proportionality threshold** — Add "upstream API calls do not increase by more than 1.5x for every 10x increase in concurrent user load" or equivalent. Makes the non-proportionality claim testable.
+2. **Specify NFR10 proportionality threshold** ✅ Fixed — added "no more than 1.5x when concurrent users increase by 10x."
 
-3. **Add NFR16 measurement window** — Append "measured on a rolling 30-day basis" to the 99% uptime target. Makes the SLA claim unambiguous.
+3. **Add NFR16 measurement window** ✅ Fixed — appended "measured on a rolling 30-day basis" to the 99% uptime target.
 
 ### Summary
 
