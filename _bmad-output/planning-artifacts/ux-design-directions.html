@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Design Directions — write-your-legislator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+  <style>
+    /* ── Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --primary: #1e3a4f;
+      --accent:  #c47d2e;
+      --surface: #fafaf8;
+      --text:    #1a1a1a;
+      --subtle:  #e5e3df;
+      --muted:   #6b7280;
+      --error:   #b91c1c;
+      --success: #2e7d52;
+      --font: 'Atkinson Hyperlegible', sans-serif;
+    }
+    body {
+      font-family: var(--font);
+      background: #f0ede8;
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Nav ── */
+    .nav {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--primary);
+      padding: 12px 16px;
+      display: flex; gap: 8px; flex-wrap: wrap;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .nav-label {
+      color: rgba(255,255,255,0.6);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      align-self: center;
+      margin-right: 4px;
+    }
+    .nav button {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: white;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-family: var(--font);
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .nav button:hover, .nav button.active {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    /* ── Layout ── */
+    .stage {
+      padding: 32px 16px;
+      display: none;
+    }
+    .stage.visible { display: block; }
+    .stage-header {
+      max-width: 680px;
+      margin: 0 auto 24px;
+      padding: 16px;
+      background: white;
+      border-radius: 6px;
+      border-left: 4px solid var(--accent);
+    }
+    .stage-header h2 { font-size: 16px; color: var(--primary); margin-bottom: 4px; }
+    .stage-header p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+    /* ── Phone Frame ── */
+    .screens {
+      display: flex;
+      gap: 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .screen-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .screen-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .phone {
+      width: 375px;
+      min-height: 640px;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ════════════════════════════════════════
+       D1: Pure Minimal
+    ════════════════════════════════════════ */
+    .d1 { background: #ffffff; }
+    .d1 .bar { height: 4px; background: var(--accent); }
+    .d1 .content { padding: 40px 28px; flex: 1; }
+    .d1 .eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 16px; }
+    .d1 .headline { font-size: 28px; font-weight: 700; line-height: 1.25; color: var(--primary); margin-bottom: 20px; }
+    .d1 .body { font-size: 16px; line-height: 1.6; color: #374151; margin-bottom: 32px; }
+    .d1 .cta { display: inline-block; color: var(--accent); font-weight: 700; font-size: 16px; text-decoration: none; border-bottom: 2px solid var(--accent); padding-bottom: 2px; }
+    .d1 .divider { border: none; border-top: 1px solid var(--subtle); margin: 32px 0; }
+    .d1 .small { font-size: 13px; color: var(--muted); }
+
+    .d1 .card { padding: 24px 28px; flex: 1; }
+    .d1 .rep-name { font-size: 22px; font-weight: 700; color: var(--primary); margin-bottom: 4px; }
+    .d1 .rep-meta { font-size: 14px; color: var(--muted); margin-bottom: 20px; }
+    .d1 .bill-box { border-left: 3px solid var(--accent); padding: 12px 16px; margin-bottom: 20px; background: #fafafa; }
+    .d1 .bill-num { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); font-weight: 700; }
+    .d1 .bill-title { font-size: 15px; font-weight: 700; color: var(--text); margin: 4px 0; }
+    .d1 .bill-vote { font-size: 13px; color: var(--muted); }
+    .d1 .draft-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 12px; }
+    .d1 .draft-body { font-size: 15px; line-height: 1.65; color: var(--text); margin-bottom: 24px; }
+    .d1 .draft-cite { font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 24px; }
+    .d1 .send-btn { display: block; width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 4px; font-family: var(--font); font-size: 16px; font-weight: 700; cursor: pointer; text-align: center; }
+
+    /* ════════════════════════════════════════
+       D2: Warm Inviting (Baseline / Recommended)
+    ════════════════════════════════════════ */
+    .d2 { background: var(--surface); }
+    .d2 .topbar { background: var(--primary); padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; }
+    .d2 .logo { font-size: 14px; font-weight: 700; color: white; letter-spacing: -0.02em; }
+    .d2 .logo span { color: var(--accent); }
+    .d2 .content { padding: 32px 20px; flex: 1; }
+    .d2 .headline { font-size: 26px; font-weight: 700; line-height: 1.3; color: var(--primary); margin-bottom: 12px; }
+    .d2 .subhead { font-size: 15px; line-height: 1.6; color: #4b5563; margin-bottom: 28px; }
+    .d2 .card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); margin-bottom: 16px; }
+    .d2 .card-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); font-weight: 700; margin-bottom: 6px; }
+    .d2 .card-value { font-size: 16px; font-weight: 700; color: var(--primary); }
+    .d2 .card-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+    .d2 .cta { display: block; width: 100%; padding: 16px; background: var(--accent); color: white; border: none; border-radius: 10px; font-family: var(--font); font-size: 16px; font-weight: 700; cursor: pointer; text-align: center; }
+    .d2 .ai-note { font-size: 12px; color: var(--muted); text-align: center; margin-top: 12px; }
+
+    .d2 .rep-card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); margin-bottom: 16px; border-top: 3px solid var(--accent); }
+    .d2 .rep-name { font-size: 20px; font-weight: 700; color: var(--primary); }
+    .d2 .rep-badge { display: inline-block; background: #e8f0f8; color: var(--primary); font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 4px; margin-top: 4px; }
+    .d2 .bill-card { background: white; border-radius: 10px; padding: 16px 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); margin-bottom: 16px; }
+    .d2 .pill { display: inline-block; background: #fef3e2; color: var(--accent); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 20px; margin-bottom: 8px; }
+    .d2 .bill-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+    .d2 .bill-vote { font-size: 13px; color: var(--muted); }
+    .d2 .draft-card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); margin-bottom: 16px; }
+    .d2 .draft-header { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 700; margin-bottom: 12px; }
+    .d2 .draft-body { font-size: 14px; line-height: 1.65; color: var(--text); margin-bottom: 12px; }
+    .d2 .cite-tag { font-size: 11px; background: #f3f4f6; color: var(--muted); padding: 4px 8px; border-radius: 4px; display: inline-block; }
+
+    /* ════════════════════════════════════════
+       D3: Editorial
+    ════════════════════════════════════════ */
+    .d3 { background: #fff; }
+    .d3 .topbar { background: white; padding: 16px 20px; border-bottom: 3px double #1a1a1a; }
+    .d3 .logo { font-size: 18px; font-weight: 700; color: var(--text); letter-spacing: -0.03em; text-transform: uppercase; }
+    .d3 .logo-sub { font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--muted); margin-top: 2px; }
+    .d3 .content { padding: 24px 20px; flex: 1; }
+    .d3 .rule { border: none; border-top: 1px solid var(--text); margin-bottom: 20px; }
+    .d3 .kicker { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent); font-weight: 700; margin-bottom: 8px; }
+    .d3 .headline { font-size: 24px; font-weight: 700; line-height: 1.2; color: var(--text); margin-bottom: 16px; }
+    .d3 .deck { font-size: 15px; line-height: 1.5; color: #374151; margin-bottom: 20px; border-left: 4px solid var(--subtle); padding-left: 14px; }
+    .d3 .cta { display: inline-block; background: var(--text); color: white; padding: 12px 20px; font-family: var(--font); font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; border: none; cursor: pointer; }
+    .d3 .footnote { font-size: 12px; color: var(--muted); margin-top: 12px; }
+
+    .d3 .rep-block { padding: 20px; flex: 1; }
+    .d3 .rep-header { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); font-weight: 700; margin-bottom: 8px; }
+    .d3 .rep-name { font-size: 22px; font-weight: 700; color: var(--text); }
+    .d3 .rep-district { font-size: 14px; color: var(--muted); margin-bottom: 20px; }
+    .d3 .record-rule { border: none; border-top: 1px solid var(--subtle); margin: 16px 0; }
+    .d3 .record-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); font-weight: 700; margin-bottom: 8px; }
+    .d3 .bill-row { display: flex; gap: 8px; margin-bottom: 12px; }
+    .d3 .bill-num { font-size: 12px; font-weight: 700; color: var(--accent); min-width: 52px; }
+    .d3 .bill-desc { font-size: 13px; color: var(--text); line-height: 1.4; }
+    .d3 .vote-tag { font-size: 11px; color: var(--error); font-weight: 700; }
+    .d3 .draft-section { padding: 20px; flex: 1; background: #fafaf8; }
+    .d3 .draft-rule { border: none; border-top: 3px double var(--text); margin-bottom: 16px; }
+    .d3 .draft-body { font-size: 14px; line-height: 1.7; color: var(--text); margin-bottom: 16px; }
+    .d3 .source-line { font-size: 11px; color: var(--muted); border-top: 1px solid var(--subtle); padding-top: 10px; margin-bottom: 16px; }
+    .d3 .send-row { display: flex; gap: 10px; }
+    .d3 .send-primary { flex: 1; background: var(--text); color: white; border: none; padding: 12px; font-family: var(--font); font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; }
+    .d3 .send-secondary { flex: 1; background: white; color: var(--text); border: 2px solid var(--text); padding: 12px; font-family: var(--font); font-size: 14px; font-weight: 700; cursor: pointer; }
+
+    /* ════════════════════════════════════════
+       D4: App-Forward (progress steps)
+    ════════════════════════════════════════ */
+    .d4 { background: #f3f4f6; }
+    .d4 .topbar { background: var(--primary); padding: 12px 16px; }
+    .d4 .progress { display: flex; gap: 4px; }
+    .d4 .step { flex: 1; height: 3px; background: rgba(255,255,255,0.25); border-radius: 2px; }
+    .d4 .step.done { background: var(--accent); }
+    .d4 .step.active { background: white; }
+    .d4 .step-labels { display: flex; justify-content: space-between; margin-top: 6px; }
+    .d4 .step-label { font-size: 9px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.06em; }
+    .d4 .step-label.active { color: white; }
+    .d4 .content { padding: 24px 16px; flex: 1; }
+    .d4 .step-heading { font-size: 18px; font-weight: 700; color: var(--primary); margin-bottom: 6px; }
+    .d4 .step-sub { font-size: 14px; color: var(--muted); margin-bottom: 20px; }
+    .d4 .input-group { background: white; border-radius: 10px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 16px; }
+    .d4 .input-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 700; margin-bottom: 6px; }
+    .d4 .input-mock { font-size: 16px; color: var(--primary); font-weight: 700; }
+    .d4 .input-mock.placeholder { color: #d1d5db; font-weight: 400; }
+    .d4 .next-btn { display: block; width: 100%; background: var(--accent); color: white; border: none; border-radius: 10px; padding: 16px; font-family: var(--font); font-size: 16px; font-weight: 700; cursor: pointer; }
+
+    .d4 .rep-result { background: white; border-radius: 10px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 12px; display: flex; align-items: center; gap: 12px; }
+    .d4 .rep-avatar { width: 44px; height: 44px; background: var(--primary); border-radius: 22px; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px; font-weight: 700; flex-shrink: 0; }
+    .d4 .rep-info .name { font-size: 16px; font-weight: 700; color: var(--primary); }
+    .d4 .rep-info .meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .d4 .checkmark { color: var(--success); font-size: 18px; margin-left: auto; }
+
+    .d4 .draft-wrap { background: white; border-radius: 10px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 12px; }
+    .d4 .draft-chip { display: inline-flex; align-items: center; gap: 4px; background: #f0fdf4; color: var(--success); font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px; margin-bottom: 10px; }
+    .d4 .draft-text { font-size: 14px; line-height: 1.65; color: var(--text); }
+    .d4 .send-actions { display: flex; flex-direction: column; gap: 10px; }
+    .d4 .send-primary { background: var(--primary); color: white; border: none; border-radius: 10px; padding: 14px; font-family: var(--font); font-size: 15px; font-weight: 700; cursor: pointer; }
+    .d4 .send-secondary { background: white; color: var(--primary); border: 2px solid var(--subtle); border-radius: 10px; padding: 13px; font-family: var(--font); font-size: 15px; font-weight: 700; cursor: pointer; }
+
+    /* ════════════════════════════════════════
+       D5: High Contrast Accessible
+    ════════════════════════════════════════ */
+    .d5 { background: #ffffff; }
+    .d5 .topbar { background: #000000; padding: 16px 20px; }
+    .d5 .logo { font-size: 16px; font-weight: 700; color: white; }
+    .d5 .logo-accent { color: #fbbf24; }
+    .d5 .content { padding: 28px 20px; flex: 1; }
+    .d5 .headline { font-size: 26px; font-weight: 700; line-height: 1.2; color: #000000; margin-bottom: 16px; }
+    .d5 .body { font-size: 17px; line-height: 1.6; color: #111111; margin-bottom: 28px; }
+    .d5 .cta { display: block; width: 100%; background: #000000; color: white; border: none; border-radius: 4px; padding: 18px; font-family: var(--font); font-size: 18px; font-weight: 700; cursor: pointer; text-align: center; }
+    .d5 .skip { font-size: 14px; color: #374151; text-align: center; margin-top: 12px; text-decoration: underline; display: block; }
+
+    .d5 .rep-wrap { padding: 20px; flex: 1; }
+    .d5 .confirm-label { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; background: #fbbf24; color: #000; display: inline-block; padding: 4px 10px; margin-bottom: 16px; }
+    .d5 .rep-name { font-size: 24px; font-weight: 700; color: #000; margin-bottom: 4px; }
+    .d5 .rep-detail { font-size: 16px; color: #374151; margin-bottom: 24px; }
+    .d5 .record-box { border: 3px solid #000; padding: 16px; margin-bottom: 24px; }
+    .d5 .record-heading { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
+    .d5 .record-item { font-size: 15px; color: #111; line-height: 1.5; margin-bottom: 6px; }
+    .d5 .vote-voted-no { color: var(--error); font-weight: 700; }
+    .d5 .draft-wrap { padding: 20px; flex: 1; border-top: 4px solid #000; }
+    .d5 .draft-label { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 16px; }
+    .d5 .draft-text { font-size: 16px; line-height: 1.7; color: #000; margin-bottom: 20px; }
+    .d5 .send-btn { display: block; width: 100%; background: #000; color: white; border: none; padding: 18px; font-family: var(--font); font-size: 18px; font-weight: 700; cursor: pointer; margin-bottom: 10px; }
+    .d5 .copy-btn { display: block; width: 100%; background: white; color: #000; border: 3px solid #000; padding: 15px; font-family: var(--font); font-size: 18px; font-weight: 700; cursor: pointer; }
+
+    /* ════════════════════════════════════════
+       D6: Letter-Centered
+    ════════════════════════════════════════ */
+    .d6 { background: var(--surface); }
+    .d6 .topbar { background: var(--primary); padding: 12px 16px; }
+    .d6 .logo { font-size: 13px; color: rgba(255,255,255,0.7); letter-spacing: 0.05em; text-transform: uppercase; }
+    .d6 .content { padding: 24px 16px; flex: 1; }
+    .d6 .headline { font-size: 22px; font-weight: 700; color: var(--primary); line-height: 1.3; margin-bottom: 10px; }
+    .d6 .body { font-size: 15px; line-height: 1.6; color: #374151; margin-bottom: 20px; }
+    .d6 .letter-preview { background: white; border: 1px solid var(--subtle); padding: 20px; margin-bottom: 16px; box-shadow: 2px 4px 12px rgba(0,0,0,0.06); position: relative; }
+    .d6 .letter-preview::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--accent); }
+    .d6 .letter-to { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .d6 .letter-subject { font-size: 14px; font-weight: 700; color: var(--primary); margin-bottom: 12px; }
+    .d6 .letter-body-preview { font-size: 13px; line-height: 1.6; color: #6b7280; font-style: italic; }
+    .d6 .cta { display: block; width: 100%; background: var(--primary); color: white; border: none; border-radius: 6px; padding: 16px; font-family: var(--font); font-size: 16px; font-weight: 700; cursor: pointer; text-align: center; }
+
+    .d6 .rep-wrap { padding: 20px; flex: 1; }
+    .d6 .found-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--success); font-weight: 700; margin-bottom: 16px; }
+    .d6 .rep-card { background: white; border-radius: 8px; padding: 16px; border-left: 4px solid var(--accent); margin-bottom: 16px; }
+    .d6 .chamber { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 700; }
+    .d6 .rep-name { font-size: 20px; font-weight: 700; color: var(--primary); margin: 4px 0; }
+    .d6 .district { font-size: 13px; color: var(--muted); }
+    .d6 .full-letter { background: white; border: 1px solid var(--subtle); padding: 20px; flex: 1; box-shadow: 2px 4px 12px rgba(0,0,0,0.06); margin: 0 16px 16px; position: relative; }
+    .d6 .full-letter::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--accent); }
+    .d6 .letter-header { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--subtle); }
+    .d6 .letter-to-line { font-size: 13px; color: var(--muted); }
+    .d6 .letter-rep { font-size: 15px; font-weight: 700; color: var(--primary); }
+    .d6 .letter-body { font-size: 14px; line-height: 1.7; color: var(--text); margin-bottom: 16px; }
+    .d6 .letter-sig { font-size: 13px; color: var(--muted); }
+    .d6 .letter-cite { font-size: 11px; color: var(--muted); padding-top: 12px; border-top: 1px solid var(--subtle); margin-top: 12px; }
+    .d6 .send-bar { padding: 12px 16px; background: white; border-top: 1px solid var(--subtle); display: flex; gap: 10px; }
+    .d6 .send-primary { flex: 2; background: var(--primary); color: white; border: none; border-radius: 6px; padding: 12px; font-family: var(--font); font-size: 14px; font-weight: 700; cursor: pointer; }
+    .d6 .send-secondary { flex: 1; background: white; color: var(--primary); border: 2px solid var(--subtle); border-radius: 6px; padding: 12px; font-family: var(--font); font-size: 13px; font-weight: 700; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <span class="nav-label">Direction:</span>
+  <button class="active" onclick="show('d1', this)">D1 Pure Minimal</button>
+  <button onclick="show('d2', this)">D2 Warm Civic ★</button>
+  <button onclick="show('d3', this)">D3 Editorial</button>
+  <button onclick="show('d4', this)">D4 App-Forward</button>
+  <button onclick="show('d5', this)">D5 High Contrast</button>
+  <button onclick="show('d6', this)">D6 Letter-Centered</button>
+</nav>
+
+<!-- ══════════════════════════════════════
+     D1: Pure Minimal
+══════════════════════════════════════ -->
+<div id="d1" class="stage visible">
+  <div class="stage-header">
+    <h2>D1 — Pure Minimal</h2>
+    <p>Almost no UI chrome. Typography does all the work. Maximum white space. Signals "we trust you" rather than guiding you. Inspired by Signal's restraint. The product identity comes entirely from copy and color accent — not structure.</p>
+  </div>
+  <div class="screens">
+
+    <div class="screen-wrap">
+      <div class="screen-label">Landing</div>
+      <div class="phone d1">
+        <div class="bar"></div>
+        <div class="content">
+          <div class="eyebrow">Write Your Legislator</div>
+          <div class="headline">Your senator voted on it. Here's how to make sure they know you noticed.</div>
+          <div class="body">Enter your address. We'll find your representatives and pull their actual voting record. You describe what you care about — we'll help you say it in a way they can't dismiss.</div>
+          <a href="#" class="cta">Get started →</a>
+          <hr class="divider">
+          <div class="small">Uses your existing Claude.ai or ChatGPT account. No new subscription required. AI-assisted — your words, your voice.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen-wrap">
+      <div class="screen-label">Legislator Reveal</div>
+      <div class="phone d1">
+        <div class="bar"></div>
+        <div class="card">
+          <div class="eyebrow">Your Representatives</div>
+          <div class="rep-name">Sen. John Johnson</div>
+          <div class="rep-meta">Utah State Senate · District 14 · Senate District</div>
+          <div class="bill-box">
+            <div class="bill-num">HB 0234 · 2024 General Session</div>
+            <div class="bill-title">Independent Redistricting Commission Amendment</div>
+            <div class="bill-vote">Voted NO · March 4, 2024</div>
+          </div>
+          <div class="draft-label">Your draft</div>
+          <div class="draft-body">Senator Johnson — I've lived in District 14 for 22 years. Your vote against HB 0234 tells me you'd rather keep drawing lines than let voters draw them. I'm asking you directly: what does it take for you to support an independent process?</div>
+          <div class="draft-cite">Source: HB 0234, 2024 General Session, floor vote March 4, 2024</div>
+          <button class="send-btn">Open in Gmail →</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     D2: Warm Civic (Recommended)
+══════════════════════════════════════ -->
+<div id="d2" class="stage">
+  <div class="stage-header">
+    <h2>D2 — Warm Civic ★ Recommended</h2>
+    <p>The baseline "Restrained Civic" direction. Cards, soft shadows, amber accent used warmly. Feels human and approachable without being soft. The primary + amber palette is non-partisan but clearly civic. Closest to what was specified in the Visual Foundation step.</p>
+  </div>
+  <div class="screens">
+
+    <div class="screen-wrap">
+      <div class="screen-label">Landing</div>
+      <div class="phone d2">
+        <div class="topbar">
+          <div class="logo">On <span>Record</span></div>
+        </div>
+        <div class="content">
+          <div class="headline">Your frustration is valid. Your legislator's record is real. Let's connect them.</div>
+          <div class="subhead">Enter your address. We'll find your representatives and pull their actual voting record. You describe what matters to you — we'll help you draft a message they can't ignore.</div>
+          <div class="card">
+            <div class="card-label">Your address</div>
+            <div class="input-mock placeholder">123 Main St, Salt Lake City</div>
+          </div>
+          <button class="cta">Find my representatives</button>
+          <div class="ai-note">AI-assisted · uses your existing chatbot · your voice, not ours</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen-wrap">
+      <div class="screen-label">Legislator Reveal</div>
+      <div class="phone d2">
+        <div class="topbar">
+          <div class="logo">On <span>Record</span></div>
+        </div>
+        <div class="content" style="padding-top:20px;">
+          <div class="rep-card">
+            <div class="card-label">Your State Senator</div>
+            <div class="rep-name">Sen. John Johnson</div>
+            <div class="rep-badge">District 14 · Utah Senate</div>
+          </div>
+          <div class="bill-card">
+            <div class="pill">Redistricting</div>
+            <div class="bill-title">Independent Redistricting Commission Amendment</div>
+            <div class="bill-vote">Voted NO · HB 0234 · March 4, 2024</div>
+          </div>
+          <button class="cta">Draft my message</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen-wrap">
+      <div class="screen-label">Draft + Send</div>
+      <div class="phone d2">
+        <div class="topbar">
+          <div class="logo">On <span>Record</span></div>
+        </div>
+        <div class="content" style="padding-top:20px;">
+          <div class="draft-card">
+            <div class="draft-header">Your draft · Email · Conversational</div>
+            <div class="draft-body">Senator Johnson — I've lived in District 14 for 22 years and I'm paying attention. Your vote against HB 0234 tells me you'd rather keep the current lines than let voters draw them. I'm one of your constituents asking you directly: when will you support an independent redistricting process?<br><br>— Deb M., Murray</div>
+            <div class="cite-tag">Source: HB 0234, 2024 General Session, floor vote Mar 4</div>
+          </div>
+          <button class="cta" style="margin-bottom:10px;">Open in Gmail →</button>
+          <button class="cta" style="background: white; color: var(--primary); border: 2px solid var(--subtle);">Copy for text message</button>
+          <div class="ai-note">AI-assisted · verify before sending · <u>privacy policy</u></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     D3: Editorial
+══════════════════════════════════════ -->
+<div id="d3" class="stage">
+  <div class="stage-header">
+    <h2>D3 — Editorial</h2>
+    <p>Newspaper/journalism aesthetic. Strong typographic hierarchy, double rules, kickers, footnote-style citations. Signals credibility and accountability. The product feels like it belongs next to journalism, not tech. High trust signal for the AI-skeptical audience — this looks like something that takes facts seriously.</p>
+  </div>
+  <div class="screens">
+
+    <div class="screen-wrap">
+      <div class="screen-label">Landing</div>
+      <div class="phone d3">
+        <div class="topbar">
+          <div class="logo">On Record</div>
+          <div class="logo-sub">Utah Constituent Tool</div>
+        </div>
+        <div class="content">
+          <hr class="rule">
+          <div class="kicker">Civic Action</div>
+          <div class="headline">Your senator's actual record. Your words. One message they can't ignore.</div>
+          <div class="deck">Grounded in real bills, real votes, real dates. Not a form letter. Not AI fluff. A specific message from a constituent who's paying attention.</div>
+          <button class="cta">Start here</button>
+          <div class="footnote">AI-assisted. Uses your existing chatbot subscription. Your voice, sourced to the record.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen-wrap">
+      <div class="screen-label">Legislator + Record</div>
+      <div class="phone d3">
+        <div class="rep-block">
+          <div class="rep-header">Your State Senator</div>
+          <div class="rep-name">Sen. John Johnson</div>
+          <div class="rep-district">Utah Senate, District 14 · (801) 555-0134</div>
+          <hr class="record-rule">
+          <div class="record-label">Recent Record — Redistricting</div>
+          <div class="bill-row">
+            <div class="bill-num">HB 0234</div>
+            <div>
+              <div class="bill-desc">Independent Redistricting Commission Amendment</div>
+              <div class="vote-tag">VOTED NO · Mar 4, 2024</div>
+            </div>
+          </div>
+          <hr class="record-rule">
+          <button class="cta">Draft my message</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen-wrap">
+      <div class="screen-label">Draft + Send</div>
+      <div class="phone d3">
+        <div class="draft-section">
+          <hr class="draft-rule">
+          <div class="draft-body">Senator Johnson —<br><br>I've lived in District 14 for 22 years and I am one of your constituents watching your votes. Your no vote on HB 0234 tells me you'd rather keep the current lines than let an independent process draw them. I'm asking you directly: what will it take for you to support redistricting reform?<br><br>— Deb M., Murray</div>
+          <div class="source-line">Source: HB 0234, 2024 General Session, Utah Legislature floor vote March 4, 2024</div>
+          <div class="send-row">
+            <button class="send-primary">Open in Gmail</button>
+            <button class="send-secondary">Copy text</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     D4: App-Forward
+══════════════════════════════════════ -->
+<div id="d4" class="stage">
+  <div class="stage-header">
+    <h2>D4 — App-Forward</h2>
+    <p>Progress steps, input-group cards, app-like chrome. Makes the flow feel guided and structured — clearer for first-time users who want to know where they are. More friction by design; more hand-holding. Better for users who feel anxious without visible structure (like Deb). Tradeoff: feels more like software, less like a human tool.</p>
+  </div>
+  <div class="screens">
+
+    <div class="screen-wrap">
+      <div class="screen-label">Step 1 — Address</div>
+      <div class="phone d4">
+        <div class="topbar">
+          <div class="progress">
+            <div class="step active"></div>
+            <div class="step"></div>
+            <div class="step"></div>
+            <div class="step"></div>
+          </div>
+          <div class="step-labels">
+            <span class="step-label active">Address</span>
+            <span class="step-label">Your rep</span>
+            <span class="step-label">Issue</span>
+            <span class="step-label">Send</span>
+          </div>
+        </div>
+        <div class="content">
+          <div class="step-heading">Find your representatives</div>
+          <div class="step-sub">Enter your home address to identify your Utah state legislators.</div>
+          <div class="input-group">
+            <div class="input-label">Home address</div>
+            <div class="input-mock">147 East Vine St, Murray UT</div>
+          </div>
+          <button class="next-btn">Find my legislators →</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen-wrap">
+      <div class="screen-label">Step 2 — Rep Found</div>
+      <div class="phone d4">
+        <div class="topbar">
+          <div class="progress">
+            <div class="step done"></div>
+            <div class="step active"></div>
+            <div class="step"></div>
+            <div class="step"></div>
+          </div>
+          <div class="step-labels">
+            <span class="step-label">Address</span>
+            <span class="step-label active">Your rep</span>
+            <span class="step-label">Issue</span>
+            <span class="step-label">Send</span>
+          </div>
+        </div>
+        <div class="content">
+          <div class="step-heading">We found your legislators</div>
+          <div class="step-sub">Select who you'd like to contact.</div>
+          <div class="rep-result">
+            <div class="rep-avatar">J</div>
+            <div class="rep-info">
+              <div class="name">Sen. John Johnson</div>
+              <div class="meta">Utah Senate · District 14</div>
+            </div>
+            <div class="checkmark">✓</div>
+          </div>
+          <div class="rep-result" style="opacity:0.5;">
+            <div class="rep-avatar">M</div>
+            <div class="rep-info">
+              <div class="name">Rep. Maria Santos</div>
+              <div class="meta">Utah House · District 40</div>
+            </div>
+          </div>
+          <button class="next-btn">Contact this senator →</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen-wrap">
+      <div class="screen-label">Step 4 — Send</div>
+      <div class="phone d4">
+        <div class="topbar">
+          <div class="progress">
+            <div class="step done"></div>
+            <div class="step done"></div>
+            <div class="step done"></div>
+            <div class="step active"></div>
+          </div>
+          <div class="step-labels">
+            <span class="step-label">Address</span>
+            <span class="step-label">Your rep</span>
+            <span class="step-label">Issue</span>
+            <span class="step-label active">Send</span>
+          </div>
+        </div>
+        <div class="content">
+          <div class="draft-wrap">
+            <div class="draft-chip">✓ Draft ready</div>
+            <div class="draft-text">Senator Johnson — I've lived in District 14 for 22 years. Your vote against HB 0234 tells me you'd rather keep the current lines than let voters draw them. I'm asking you directly: when will you support redistricting reform?<br><br>— Deb M., Murray</div>
+          </div>
+          <div class="send-actions">
+            <button class="send-primary">Open in Gmail →</button>
+            <button class="send-secondary">Copy for text message</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     D5: High Contrast Accessible
+══════════════════════════════════════ -->
+<div id="d5" class="stage">
+  <div class="stage-header">
+    <h2>D5 — High Contrast Accessible</h2>
+    <p>Maximum contrast, larger type defaults, minimal decoration. Black and white primary palette with amber highlights only. Designed to work for users with low vision, older screens, and bright sunlight (outdoor/phone context). Every element passes WCAG AAA. Least visually distinctive but highest accessibility floor.</p>
+  </div>
+  <div class="screens">
+
+    <div class="screen-wrap">
+      <div class="screen-label">Landing</div>
+      <div class="phone d5">
+        <div class="topbar">
+          <div class="logo">On <span class="logo-accent">Record</span></div>
+        </div>
+        <div class="content">
+          <div class="headline">Your legislator's real record. Your message. One click to send.</div>
+          <div class="body">Tell us your address. We'll find your reps and show you what they actually voted on. You tell us what you care about — we'll help draft a message that's specific enough to matter.</div>
+          <button class="cta">Start — it's free</button>
+          <span class="skip">Learn how it works first</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen-wrap">
+      <div class="screen-label">Rep + Record</div>
+      <div class="phone d5">
+        <div class="rep-wrap">
+          <div class="confirm-label">Found your senator</div>
+          <div class="rep-name">Sen. John Johnson</div>
+          <div class="rep-detail">Utah State Senate · District 14</div>
+          <div class="record-box">
+            <div class="record-heading">Record: Redistricting</div>
+            <div class="record-item">HB 0234 — Independent Redistricting Commission Amendment</div>
+            <div class="record-item vote-voted-no">VOTED NO · March 4, 2024</div>
+          </div>
+          <button class="cta">Draft my message</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen-wrap">
+      <div class="screen-label">Draft + Send</div>
+      <div class="phone d5">
+        <div class="draft-wrap">
+          <div class="draft-label">Your draft — Email</div>
+          <div class="draft-text">Senator Johnson — I've lived in District 14 for 22 years. Your no vote on HB 0234 tells me you'd rather keep the current lines than let voters draw them. I'm one of your constituents asking: when will you support an independent redistricting process?<br><br>— Deb M., Murray</div>
+          <button class="send-btn">Open in Gmail →</button>
+          <button class="copy-btn">Copy for text</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     D6: Letter-Centered
+══════════════════════════════════════ -->
+<div id="d6" class="stage">
+  <div class="stage-header">
+    <h2>D6 — Letter-Centered</h2>
+    <p>The draft letter is the visual hero of the product. Everything else is scaffolding around the document itself. The output is shown as a formatted letter with letterhead treatment — makes the artifact feel real and send-ready. Strong "Aha #2" moment. Tradeoff: more UI complexity on earlier screens.</p>
+  </div>
+  <div class="screens">
+
+    <div class="screen-wrap">
+      <div class="screen-label">Landing</div>
+      <div class="phone d6">
+        <div class="topbar">
+          <div class="logo">On Record · Utah Constituent Tool</div>
+        </div>
+        <div class="content">
+          <div class="headline">A message your legislator can't dismiss.</div>
+          <div class="body">Specific. Personal. Grounded in their actual voting record. Here's what we'll build together:</div>
+          <div class="letter-preview">
+            <div class="letter-to">To: Sen. John Johnson, District 14</div>
+            <div class="letter-subject">Re: HB 0234 — Independent Redistricting</div>
+            <div class="letter-body-preview">Senator Johnson — I've lived in District 14 for 22 years and your vote against HB 0234 tells me...</div>
+          </div>
+          <button class="cta">Build my message</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen-wrap">
+      <div class="screen-label">Rep Found</div>
+      <div class="phone d6">
+        <div class="topbar">
+          <div class="logo">On Record</div>
+        </div>
+        <div class="rep-wrap">
+          <div class="found-label">✓ Representatives found</div>
+          <div class="rep-card">
+            <div class="chamber">State Senate</div>
+            <div class="rep-name">Sen. John Johnson</div>
+            <div class="district">District 14 · Murray, Midvale area</div>
+          </div>
+          <div class="rep-card" style="opacity:0.5; border-left-color: var(--subtle);">
+            <div class="chamber">State House</div>
+            <div class="rep-name">Rep. Maria Santos</div>
+            <div class="district">District 40 · Murray</div>
+          </div>
+          <button class="cta" style="width:100%;background:var(--primary);color:white;border:none;border-radius:6px;padding:14px;font-family:var(--font);font-size:15px;font-weight:700;cursor:pointer;">Contact Sen. Johnson</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen-wrap">
+      <div class="screen-label">The Letter</div>
+      <div class="phone d6" style="min-height:720px;">
+        <div class="topbar">
+          <div class="logo">On Record</div>
+        </div>
+        <div class="full-letter">
+          <div class="letter-header">
+            <div class="letter-to-line">To:</div>
+            <div class="letter-rep">Sen. John Johnson, District 14</div>
+          </div>
+          <div class="letter-body">Senator Johnson —<br><br>I've lived in District 14 for 22 years and I am one of your constituents paying attention to your votes. Your no vote on HB 0234 tells me you'd rather preserve the current lines than let an independent process draw them. I'd like to know what it would take for you to support redistricting reform.<br><br>— Deb M., Murray</div>
+          <div class="letter-cite">Source: HB 0234, Independent Redistricting Commission Amendment, Utah 2024 General Session, floor vote March 4, 2024. AI-assisted draft.</div>
+        </div>
+        <div class="send-bar">
+          <button class="send-primary">Open in Gmail →</button>
+          <button class="send-secondary">Copy text</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  function show(id, btn) {
+    document.querySelectorAll('.stage').forEach(s => s.classList.remove('visible'));
+    document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+    document.getElementById(id).classList.add('visible');
+    btn.classList.add('active');
+  }
+</script>
+</body>
+</html>
