@@ -1,0 +1,111 @@
+# generated: 2026-02-23
+# project: write-your-legislator
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-02-23
+project: write-your-legislator
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+
+development_status:
+  # ─── Epic 1: Project Foundation & Infrastructure ───────────────────────────
+  epic-1: backlog
+  1-1-initialize-pnpm-workspaces-monorepo: backlog
+  1-2-mcp-server-with-hono-rate-limiting-and-pino-logging: backlog
+  1-3-sqlite-cache-schema-initialization: backlog
+  1-4-shared-retry-utility-and-apperror-type: backlog
+  1-5-cicd-pipeline-and-developer-readme: backlog
+  epic-1-retrospective: optional
+
+  # ─── Epic 2: Constituent Can Identify Their Utah Legislators ────────────────
+  epic-2: backlog
+  2-1-ugrc-gis-address-to-district-lookup: backlog
+  2-2-legislaturedataprovider-interface-and-utah-legislature-api-legislators: backlog
+  2-3-legislators-sqlite-cache-with-daily-refresh: backlog
+  2-4-lookup-legislator-mcp-tool: backlog
+  2-5-address-error-handling-with-errorbanner-component: backlog
+  2-6-legislatorcard-ui-component-with-tailwind-design-tokens: backlog
+  epic-2-retrospective: optional
+
+  # ─── Epic 3: Constituent Can Explore Their Legislator's Legislative Record ──
+  epic-3: backlog
+  3-1-utah-legislature-api-integration-bills-by-session: backlog
+  3-2-bills-sqlite-cache-with-hourly-refresh-and-per-legislator-sponsor-index: backlog
+  3-3-fts5-bill-theme-search: backlog
+  3-4-inter-session-bill-handling: backlog
+  3-5-search-bills-mcp-tool-with-retry-logic: backlog
+  3-6-billcard-and-citationtag-ui-components: backlog
+  epic-3-retrospective: optional
+
+  # ─── Epic 4: Constituent Can Get a Voiced, Cited Draft ─────────────────────
+  epic-4: backlog
+  4-1-system-prompt-and-4-step-agent-instructions: backlog
+  4-2-personal-concern-capture-and-empathetic-issue-discovery: backlog
+  4-3-medium-and-formality-selection: backlog
+  4-4-voice-calibrated-draft-generation-with-source-citations: backlog
+  4-5-draft-revision-loop: backlog
+  4-6-progressstrip-and-draftcard-ui-components: backlog
+  epic-4-retrospective: optional
+
+  # ─── Epic 5: Constituent Can Send Their Message in One Action ───────────────
+  epic-5: backlog
+  5-1-mailto-uri-email-delivery: backlog
+  5-2-clipboard-copy-for-text-sms-delivery: backlog
+  5-3-sendactions-and-bookmarkprompt-ui-components: backlog
+  epic-5-retrospective: optional
+
+  # ─── Epic 6: Anyone Can Discover and Set Up the Tool ───────────────────────
+  epic-6: backlog
+  6-1-seo-optimized-landing-page: backlog
+  6-2-byollm-setup-flow-with-platform-specific-instructions: backlog
+  6-3-privacy-policy-and-open-graph-social-sharing: backlog
+  6-4-readingpreferences-component-dark-mode-opendyslexic: backlog
+  epic-6-retrospective: optional
+
+  # ─── Epic 7: Operator Can Observe, Maintain, and Measure the System ─────────
+  epic-7: backlog
+  7-1-structured-mcp-tool-request-response-logging: backlog
+  7-2-error-source-categorization: backlog
+  7-3-anonymous-analytics-events-endpoint: backlog
+  7-4-cache-configuration-update-without-downtime: backlog
+  7-5-load-testing-and-scalability-verification: backlog
+  epic-7-retrospective: optional
+
+  # ─── Epic 8: Developer Can Contribute in Under 30 Minutes ──────────────────
+  epic-8: backlog
+  8-1-complete-mcp-tool-documentation: backlog
+  8-2-local-development-setup-verification: backlog
+  8-3-public-repository-issue-tracker-and-contributing-guide: backlog
+  epic-8-retrospective: optional
