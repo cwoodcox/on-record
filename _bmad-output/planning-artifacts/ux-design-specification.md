@@ -305,13 +305,13 @@ Tailwind CSS as the styling foundation; shadcn/ui for accessible, composable UI 
 
 ### Implementation Approach
 
-- Install Tailwind CSS via PostCSS; configure design tokens (colors, typography, spacing) in `tailwind.config` before any component work
+- Install Tailwind CSS via PostCSS; configure design tokens (colors, typography, spacing) using Tailwind v4's `@theme` directive in `globals.css` — note: Tailwind v4 uses CSS-first configuration (`@theme` in `globals.css`), not `tailwind.config.js` as in v3. See architecture document for the canonical implementation.
 - Add shadcn/ui components on demand via CLI (`npx shadcn@latest add button`); components live in `src/components/ui/` and are fully editable
 - Mobile-first by default: Tailwind's responsive prefixes (`sm:`, `md:`, `lg:`) enforce mobile-first discipline at the class level
 
 ### Customization Strategy
 
-- Define a small, intentional color palette in Tailwind config reflecting the brand direction (human, civic, not government) — 1 primary, 1 accent, neutral grays, accessible contrast ratios baked in from the start
+- Define a small, intentional color palette using Tailwind v4 `@theme` tokens in `globals.css`, reflecting the brand direction (human, civic, not government) — 1 primary, 1 accent, neutral grays, accessible contrast ratios baked in from the start
 - Typography: single typeface, strong hierarchy — the copy does the work; the type system stays out of the way
 - Override shadcn/ui defaults minimally — the components are starting points, not constraints
 - No custom component built until a shadcn/ui primitive is confirmed insufficient — avoid premature abstraction
@@ -522,12 +522,9 @@ All custom components are built on top of shadcn/ui primitives using Tailwind de
 ### Implementation Roadmap
 
 **Phase 1 — MVP critical:**
-CitationTag → ProgressStrip → LegislatorCard → BillCard → DraftCard → SendActions → ErrorBanner → Skeleton (shadcn/ui)
+CitationTag → ProgressStrip → LegislatorCard → BillCard → DraftCard → SendActions → ErrorBanner → ReadingPreferences (dark mode + dyslexia toggle) → BookmarkPrompt → Skeleton (shadcn/ui) · Toast (shadcn/ui)
 
-**Phase 2 — Enhancement (early post-launch):**
-ReadingPreferences (dark mode + dyslexia toggle) · BookmarkPrompt · Toast (shadcn/ui)
-
-**Phase 3 — Polish:**
+**Phase 2 — Polish:**
 LegislatorCard reveal animation (Aha #1 beat) · DraftCard revision pulse state
 
 ## User Journey Flows
@@ -755,7 +752,7 @@ On Record has minimal traditional form input — most "forms" are conversational
 
 **ProgressStrip** (custom component)
 - **When:** Visible throughout the core flow (Journeys 1–3). Hidden on landing, hidden on success state.
-- **Pattern:** Linear steps with current step highlighted. Steps are: Find → Choose Bill → Draft → Send.
+- **Pattern:** Linear steps with current step highlighted. Steps are: Address / Your Rep / Your Issue / Send.
 - **Behavior:** Steps before current are visually completed (checkmark or filled). Current step is active. Future steps are visible but muted — shows users the whole arc.
 - **Back Navigation:** Browser back button fully supported. State persists via URL parameters where possible so back works as expected.
 - **No Sidebar Nav:** On Record has no persistent navigation sidebar in the core flow. Navigation is the flow itself.

@@ -498,24 +498,7 @@ So that the chatbot can surface specific legislation from my legislator's record
 
 ---
 
-### Story 3.6: Cache Configuration Update Without Downtime
-
-As an **operator**,
-I want to update the cache refresh schedule and data-provider configuration while the service stays available,
-So that I can adjust to rate limit changes or switch providers without taking the service offline.
-
-**Acceptance Criteria:**
-
-**Given** the MCP server is running and serving requests
-**When** environment variables controlling the cache schedule or data provider are updated and the server restarts
-**Then** the service experiences no more than 30 seconds of request failure during the restart (FR38)
-**And** the node-cron scheduler initializes with the new schedule on startup
-**And** stale cache data continues to be served during the restart window (NFR17)
-**And** all cache refresh configuration is controlled via env vars — no code changes required to adjust schedules
-
----
-
-### Story 3.7: BillCard and CitationTag UI Components
+### Story 3.6: BillCard and CitationTag UI Components
 
 As a **constituent**,
 I want to see bills displayed as cards with an inline citation pill,
@@ -850,7 +833,24 @@ So that I can track return usage and geographic distribution without storing any
 
 ---
 
-### Story 7.4: Load Testing and Scalability Verification
+### Story 7.4: Cache Configuration Update Without Downtime
+
+As an **operator**,
+I want to update the cache refresh schedule and data-provider configuration while the service stays available,
+So that I can adjust to rate limit changes or switch providers without taking the service offline.
+
+**Acceptance Criteria:**
+
+**Given** the MCP server is running and serving requests
+**When** environment variables controlling the cache schedule or data provider are updated and the server restarts
+**Then** the service experiences no more than 30 seconds of request failure during the restart (FR38)
+**And** the node-cron scheduler initializes with the new schedule on startup
+**And** stale cache data continues to be served during the restart window (NFR17)
+**And** all cache refresh configuration is controlled via env vars — no code changes required to adjust schedules
+
+---
+
+### Story 7.5: Load Testing and Scalability Verification
 
 As an **operator**,
 I want the system verified to handle 100 concurrent sessions without performance degradation,
@@ -930,18 +930,18 @@ So that there is a clear, organized path for civic tech developers to get involv
 
 ### Epic 1: Project Foundation & Infrastructure
 Developers can clone the repo, run both services locally, and deploy to production — a working, observable foundation that makes every subsequent epic buildable.
-**FRs covered:** FR34 (logging infra), FR40 (issue tracker)
-**NFRs:** NFR5, NFR6, NFR8, NFR13, NFR16
+**FRs covered:** FR40 (issue tracker); provides pino logging infrastructure that enables FR34 (implemented in Epic 7, Story 7.1)
+**NFRs:** NFR5, NFR6, NFR8, NFR16
 
 ### Epic 2: Constituent Can Identify Their Utah Legislators
 A constituent enters their home address and sees their House and Senate legislators with name, chamber, district, and contact info — including phone type labels. The lookup_legislator MCP tool is invokable from Claude.ai and ChatGPT.
 **FRs covered:** FR1, FR2, FR3, FR4, FR5, FR25, FR37
-**NFRs:** NFR2, NFR6, NFR7, NFR14, NFR15
+**NFRs:** NFR2, NFR6, NFR7, NFR13, NFR14, NFR15
 
 ### Epic 3: Constituent Can Explore Their Legislator's Legislative Record
 A constituent can find bills their legislator sponsored or voted on, searchable by issue theme, served from a cache that stays fresh and resilient during API outages. The search_bills MCP tool is invokable from chatbot platforms.
-**FRs covered:** FR6, FR7, FR8, FR9, FR10, FR11, FR26, FR36, FR38
-**NFRs:** NFR3, NFR10, NFR14, NFR17
+**FRs covered:** FR6, FR7, FR8, FR9, FR10, FR11, FR26, FR36
+**NFRs:** NFR3, NFR10, NFR13, NFR14, NFR17
 
 ### Epic 4: Constituent Can Get a Voiced, Cited Draft
 A constituent describes their concern in their own words, the chatbot guides them to a specific bill, and they receive a draft in their voice grounded in their legislator's actual record — with citations — that they can revise. The system prompt drives the full 4-step BYOLLM flow.
