@@ -3,11 +3,7 @@
   "compilerOptions": {
     "noEmit": true,
     "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "react-jsx",
-    "paths": {
-      "@/*": ["./src/*"]
-    }
+    "isolatedModules": true
   },
   "include": [
     "next-env.d.ts",

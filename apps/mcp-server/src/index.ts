@@ -7,8 +7,7 @@
 
 const port = process.env['PORT'] ?? '3001'
 
-console.error(`[mcp-server] Placeholder — listening on port ${port}`)
-console.error('[mcp-server] Story 1.2 will initialize Hono + MCP transport')
+console.error(`[mcp-server] Placeholder starting on port ${port} — Story 1.2 will initialize Hono + MCP transport`)
 
 // Keep process alive for tsx watch hot-reload
 process.stdin.resume()

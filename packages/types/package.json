@@ -2,6 +2,9 @@
   "name": "@on-record/types",
   "version": "0.0.1",
   "private": true,
+  "exports": {
+    ".": "./index.ts"
+  },
   "main": "./index.ts",
   "types": "./index.ts"
 }

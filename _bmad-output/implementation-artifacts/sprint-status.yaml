@@ -42,7 +42,7 @@ story_location: _bmad-output/implementation-artifacts
 development_status:
   # ─── Epic 1: Project Foundation & Infrastructure ───────────────────────────
   epic-1: in-progress
-  1-1-initialize-pnpm-workspaces-monorepo: review
+  1-1-initialize-pnpm-workspaces-monorepo: done
   1-2-mcp-server-with-hono-rate-limiting-and-pino-logging: backlog
   1-3-sqlite-cache-schema-initialization: backlog
   1-4-shared-retry-utility-and-apperror-type: backlog
