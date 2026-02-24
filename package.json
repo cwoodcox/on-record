@@ -1,0 +1,16 @@
+{
+  "name": "on-record",
+  "private": true,
+  "scripts": {
+    "dev:web": "pnpm --filter web dev",
+    "dev:mcp": "pnpm --filter mcp-server dev",
+    "test": "pnpm --filter mcp-server test",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "sharp", "unrs-resolver"]
+  }
+}
