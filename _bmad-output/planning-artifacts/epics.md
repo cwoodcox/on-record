@@ -668,7 +668,7 @@ So that I can contact my legislator by phone or text without typing it out mysel
 **Given** a draft text/SMS has been generated
 **When** the constituent taps "Copy message"
 **Then** `navigator.clipboard.writeText()` writes the draft to the clipboard (FR23)
-**And** a Toast confirmation appears immediately on successful copy
+**And** a small inline check animation appears near the "Copy message" button on successful copy, fading after 2 seconds (no Toast library — inline feedback only at MVP)
 **And** if the Clipboard API is denied or unavailable, the draft is displayed as selectable plain text as a fallback — the constituent can always copy manually
 **And** the legislator's phone number with type label (or "type unknown" flag) is visible alongside the draft (FR24)
 

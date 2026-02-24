@@ -522,7 +522,7 @@ All custom components are built on top of shadcn/ui primitives using Tailwind de
 ### Implementation Roadmap
 
 **Phase 1 — MVP critical:**
-CitationTag → ProgressStrip → LegislatorCard → BillCard → DraftCard → SendActions → ErrorBanner → ReadingPreferences (dark mode + dyslexia toggle) → BookmarkPrompt → Skeleton (shadcn/ui) · Toast (shadcn/ui)
+CitationTag → ProgressStrip → LegislatorCard → BillCard → DraftCard → SendActions → ErrorBanner → ReadingPreferences (dark mode + dyslexia toggle) → BookmarkPrompt → Skeleton (shadcn/ui)
 
 **Phase 2 — Polish:**
 LegislatorCard reveal animation (Aha #1 beat) · DraftCard revision pulse state
