@@ -700,3 +700,4 @@ Note: `pnpm install` must be run from monorepo root to install new packages befo
 ### Change Log
 
 - 2026-02-24: Story 1.2 implementation — Hono server with MCP transport, env validation, pino logging, rate limiting, CORS middleware created.
+- 2026-02-25: Code review finding — `src/middleware/rate-limit.ts` trusts client-provided forwarding headers for IP identity, which can allow rate-limit bypass via spoofed `x-forwarded-for` values.

@@ -54,5 +54,16 @@
 
 ## Slash Commands
 
-Type `/bmad-` in Copilot Chat to see all available BMAD workflows and agent activators. Agents are also available in the agents dropdown.
+Use `/bmad-help` first to discover the next recommended BMAD workflow for your phase.
+
+Available BMAD workflow/tool commands in this repo (from `_bmad/_config/bmad-help.csv`):
+
+- **Core**: `/bmad-help`, `/bmad-brainstorming`, `/bmad-party-mode`, `/bmad-index-docs`, `/bmad-shard-doc`, `/bmad-editorial-review-prose`, `/bmad-editorial-review-structure`, `/bmad-review-adversarial-general`
+- **BMM**: `/bmad-bmm-market-research`, `/bmad-bmm-domain-research`, `/bmad-bmm-technical-research`, `/bmad-bmm-create-product-brief`, `/bmad-bmm-create-prd`, `/bmad-bmm-validate-prd`, `/bmad-bmm-edit-prd`, `/bmad-bmm-create-ux-design`, `/bmad-bmm-create-architecture`, `/bmad-bmm-create-epics-and-stories`, `/bmad-bmm-check-implementation-readiness`, `/bmad-bmm-sprint-planning`, `/bmad-bmm-sprint-status`, `/bmad-bmm-create-story`, `/bmad-bmm-dev-story`, `/bmad-bmm-qa-automate`, `/bmad-bmm-code-review`, `/bmad-bmm-retrospective`, `/bmad-bmm-document-project`, `/bmad-bmm-generate-project-context`, `/bmad-bmm-quick-spec`, `/bmad-bmm-quick-dev`, `/bmad-bmm-correct-course`
+- **BMM agent-invoked tools** (no slash command): load `/bmad-agent-bmm-tech-writer` and use codes `WD`, `US`, `MG`, `VD`, `EC`
+- **BMB**: `/bmad_bmb_create_agent`, `/bmad_bmb_edit_agent`, `/bmad_bmb_validate_agent`, `/bmad_bmb_create_module_brief`, `/bmad_bmb_create_module`, `/bmad_bmb_edit_module`, `/bmad_bmb_validate_module`, `/bmad_bmb_create_workflow`, `/bmad_bmb_edit_workflow`, `/bmad_bmb_validate_workflow`, `/bmad_bmb_validate_max_parallel`, `/bmad_bmb_rework_workflow`
+- **CIS**: `/bmad-cis-innovation-strategy`, `/bmad-cis-problem-solving`, `/bmad-cis-design-thinking`, `/bmad-cis-brainstorming`, `/bmad-cis-storytelling`
+- **TEA**: `/bmad_tea_teach-me-testing`, `/bmad_tea_test-design`, `/bmad_tea_framework`, `/bmad_tea_ci`, `/bmad_tea_atdd`, `/bmad_tea_automate`, `/bmad_tea_test-review`, `/bmad_tea_nfr-assess`, `/bmad_tea_trace`
+
+If a command isn't visible in your Copilot command picker, invoke it directly in chat using the exact slash command above.
 <!-- BMAD:END -->
