@@ -44,6 +44,3 @@ export function getEnv(): Env {
   return _env
 }
 
-// Convenience re-export for call-site simplicity:
-// import { env } from './env'
-export { _env as env }

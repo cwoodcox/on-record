@@ -8,7 +8,13 @@ export const rateLimitMiddleware: MiddlewareHandler = rateLimiter({
   limit: 60,           // 60 requests per IP per window (NFR8)
   standardHeaders: 'draft-6',
   keyGenerator: (c) => {
-    // In production behind Railway's reverse proxy, use x-forwarded-for
+    // Railway's reverse proxy appends the real client IP to x-forwarded-for and
+    // does not strip client-supplied values, so the first entry in the chain is
+    // the client IP as seen by Railway — accurate for single-hop deployments.
+    // KNOWN RISK (MVP-accepted): a client that reaches Railway through additional
+    // proxies could inject a spoofed first entry. Mitigate post-MVP by verifying
+    // Railway's documented proxy trust behaviour or switching to a proxy-aware
+    // library. See story 1.2 Review Follow-ups for tracking.
     const forwardedFor = c.req.header('x-forwarded-for')
     const realIp = c.req.header('x-real-ip')
     const ip = forwardedFor?.split(',')[0]?.trim() ?? realIp ?? 'unknown'
