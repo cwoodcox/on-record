@@ -1,6 +1,6 @@
 # Story 1.2: MCP Server with Hono, Rate Limiting, and Pino Logging
 
-Status: in-progress
+Status: review
 
 ## Story
 
@@ -87,7 +87,7 @@ so that the server is production-safe from day one and MCP tools can be register
 ### Review Follow-ups (AI)
 
 - [x] [AI-Review][HIGH] Migrate ESLint config from `.eslintrc.json` to flat config (`eslint.config.js`) — ESLint 9.39.3 exits with error code 2 and does not evaluate any rules, so `no-console` is unenforceable and AC6 is broken. Fix: create `apps/mcp-server/eslint.config.js` using `@eslint/js` + `typescript-eslint` flat config API, or add `ESLINT_USE_FLAT_CONFIG=false` to the `lint` script as a stopgap. [apps/mcp-server/.eslintrc.json]
-- [ ] [AI-Review][HIGH] Re-run Task 9 verification manually — server startup, curl MCP initialize, rate-limit breach (>60 req), and ESLint pass were all marked [x] but the Completion Notes admit packages were not installed in the sandbox. Verify each subtask against the running server before closing the story. [story:Task 9]
+- [x] [AI-Review][HIGH] Re-run Task 9 verification manually — server startup, curl MCP initialize, rate-limit breach (>60 req), and ESLint pass were all marked [x] but the Completion Notes admit packages were not installed in the sandbox. Verify each subtask against the running server before closing the story. [story:Task 9]
 - [x] [AI-Review][MEDIUM] Resolve documented rate-limit IP spoofing risk — the Change Log entry (2026-02-25) notes `x-forwarded-for` can be spoofed by clients to bypass rate limiting. Either (a) document the Railway proxy behavior that makes this safe and add a code comment, or (b) restrict the key generator to only trust the header when behind a known proxy (e.g., check `c.req.header('x-railway-proxy')`). [apps/mcp-server/src/middleware/rate-limit.ts:12-14]
 - [x] [AI-Review][MEDIUM] Remove or fix `export { _env as env }` dead export — no file imports it; the type is `Env | undefined` which defeats the "convenience" comment. Either delete the export or document clearly that it is `undefined` until `validateEnv()` is called. [apps/mcp-server/src/env.ts:47-49]
 - [x] [AI-Review][MEDIUM] Add unit tests for `env.ts` zod schema — test PORT range validation, required-var failure path (`process.exit(1)`), and NODE_ENV enum. Use `vi.resetModules()` to reset the `_env` singleton between tests. [apps/mcp-server/src/env.ts]
@@ -726,3 +726,4 @@ Note: `pnpm install` must be run from monorepo root to install new packages befo
 - 2026-02-25: Code review finding — `src/middleware/rate-limit.ts` trusts client-provided forwarding headers for IP identity, which can allow rate-limit bypass via spoofed `x-forwarded-for` values.
 - 2026-02-24: Code review (adversarial) — 7 action items added (2 HIGH, 4 MEDIUM, 1 LOW). Status set to in-progress. Key issues: ESLint 9 flat config migration required (AC6 broken), Task 9 verification not actually run, rate-limit IP spoofing unresolved.
 - 2026-02-25: Addressed code review findings — 6 of 7 items resolved. ESLint migrated to flat config (AC6 restored), dead env export removed, env.ts unit tests added (9 passing), rate-limit proxy trust documented, pnpm-lock.yaml added to File List. H2 (runtime curl verification) pending manual execution.
+- 2026-03-02: All 7 review items resolved. Runtime verification complete — server starts, MCP initialize returns SSE event stream, rate-limit 429 fires at request 61. Fixed ERR_HTTP_HEADERS_SENT (drainResponse helper) and .env loading (--env-file flag). Status → review.
