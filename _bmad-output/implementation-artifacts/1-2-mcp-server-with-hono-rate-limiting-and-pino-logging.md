@@ -97,10 +97,10 @@ so that the server is production-safe from day one and MCP tools can be register
 - [x] [AI-Review][MEDIUM] Fix POST /mcp silent JSON parse failure — `c.req.json().catch(() => undefined)` swallowed malformed-body errors with no client feedback; replaced with try/catch that returns `c.json({ error: 'Invalid JSON body' }, 400)`. [apps/mcp-server/src/index.ts:99]
 - [ ] [AI-Review][LOW] Pin `@hono/node-server` to exact version — `^1.x` is unpinned; architecture mandates pinning packages that underpin the MCP transport pattern (`c.env.incoming/outgoing`). [apps/mcp-server/package.json:17]
 - [ ] [AI-Review][LOW] Normalize semver range format — `^1.x`, `^3.x`, `^13.x` should be `^1.0.0`, `^3.0.0`, `^13.0.0`. [apps/mcp-server/package.json]
-- [ ] [AI-Review][LOW] Add `set` trap to logger Proxy — mutations such as `logger.level = 'debug'` silently apply to the empty proxy target `{}` rather than the underlying pino instance. [apps/mcp-server/src/lib/logger.ts:36-40]
+- [x] [AI-Review][LOW] Add `set` trap to logger Proxy — mutations such as `logger.level = 'debug'` silently apply to the empty proxy target `{}` rather than the underlying pino instance. [apps/mcp-server/src/lib/logger.ts:36-40]
 - [ ] [AI-Review][LOW] Add timeout to `drainResponse` — if neither `finish` nor `close` fires (broken connection / framework edge case), the handler coroutine leaks forever; add `setTimeout(resolve, 30_000)` fallback. [apps/mcp-server/src/index.ts:37-43]
 - [ ] [AI-Review][LOW] Add `process.on('unhandledRejection')` handler — unhandled rejections crash Node.js 15+; add a handler that logs at `error` level with `source: 'app'` before exit. [apps/mcp-server/src/index.ts]
-- [ ] [AI-Review][LOW] Add unit tests for middleware — `rate-limit.ts`, `cors.ts`, and `logging.ts` have zero automated tests; AC3/AC4/AC5 rely solely on manual verification for regression protection. [apps/mcp-server/src/middleware/]
+- [x] [AI-Review][LOW] Add unit tests for middleware — `rate-limit.ts`, `cors.ts`, and `logging.ts` have zero automated tests; AC3/AC4/AC5 rely solely on manual verification for regression protection. [apps/mcp-server/src/middleware/]
 
 ## Dev Notes
 

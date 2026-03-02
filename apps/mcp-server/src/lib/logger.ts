@@ -37,4 +37,8 @@ export const logger: pino.Logger = new Proxy({} as pino.Logger, {
   get(_target: pino.Logger, prop: string | symbol): unknown {
     return (getLogger() as unknown as Record<string | symbol, unknown>)[prop]
   },
+  set(_target: pino.Logger, prop: string | symbol, value: unknown): boolean {
+    ;(getLogger() as unknown as Record<string | symbol, unknown>)[prop] = value
+    return true
+  },
 })

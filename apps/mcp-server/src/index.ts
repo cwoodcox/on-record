@@ -6,6 +6,14 @@ const env = validateEnv()
 // STEP 2: Initialize logger (now safe — env is validated)
 import { logger } from './lib/logger.js'
 
+// STEP 2.5: Initialize SQLite schema (Story 1.3)
+// DB connection singleton opens the database and enables WAL mode.
+// initializeSchema is idempotent — safe on every restart.
+import { db } from './cache/db.js'
+import { initializeSchema } from './cache/schema.js'
+initializeSchema(db)
+logger.info({ source: 'cache' }, 'SQLite schema initialized')
+
 // STEP 3: Framework imports
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
