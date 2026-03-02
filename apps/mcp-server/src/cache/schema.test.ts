@@ -1,7 +1,7 @@
 // apps/mcp-server/src/cache/schema.test.ts
 // Tests for initializeSchema using an in-memory SQLite database.
 // Does NOT import the db singleton from cache/db.ts — tests are isolated from disk.
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import Database from 'better-sqlite3'
 import { initializeSchema } from './schema.js'
 
@@ -11,6 +11,11 @@ describe('initializeSchema', () => {
   beforeEach(() => {
     // Fresh in-memory DB per test — isolated, fast, no disk I/O
     db = new Database(':memory:')
+  })
+
+  afterEach(() => {
+    // Explicitly close the in-memory DB to release WAL/shm handles and avoid resource leaks
+    db.close()
   })
 
   it('creates the legislators table', () => {
@@ -121,5 +126,19 @@ describe('initializeSchema', () => {
     expect(() => {
       db.prepare("SELECT * FROM bill_fts WHERE bill_fts MATCH 'test'").all()
     }).not.toThrow()
+  })
+
+  it('bill_fts content table is linked to bills — FTS5 search returns matching rows after rebuild', () => {
+    initializeSchema(db)
+    // Insert a row into bills (the content source for bill_fts)
+    db.prepare(`
+      INSERT INTO bills (id, session, title, summary, status, sponsor_id, cached_at)
+      VALUES ('HB0001', '2025GS', 'Healthcare Reform Act', 'Expands Medicaid coverage', 'Enrolled', 'LEG001', '2025-01-01T00:00:00Z')
+    `).run()
+    // Rebuild FTS5 index to sync content table (required after bulk insert)
+    db.prepare("INSERT INTO bill_fts(bill_fts) VALUES('rebuild')").run()
+    // FTS5 should now find the inserted bill by keyword
+    const results = db.prepare("SELECT * FROM bill_fts WHERE bill_fts MATCH 'Medicaid'").all()
+    expect(results).toHaveLength(1)
   })
 })

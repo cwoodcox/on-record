@@ -13,11 +13,27 @@ const dbPath = join(dataDir, 'on-record.db')
 
 // Ensure the data/ directory exists before opening the DB.
 // mkdirSync with { recursive: true } is a no-op if the directory already exists.
-mkdirSync(dataDir, { recursive: true })
+function openDatabase(): Database.Database {
+  try {
+    mkdirSync(dataDir, { recursive: true })
+  } catch (err) {
+    console.error('[db] Failed to create data/ directory:', err)
+    process.exit(1)
+  }
 
-export const db: Database.Database = new Database(dbPath)
+  let instance: Database.Database
+  try {
+    instance = new Database(dbPath)
+  } catch (err) {
+    console.error('[db] Failed to open SQLite database at', dbPath, ':', err)
+    process.exit(1)
+  }
 
-// WAL mode for read concurrency — required for multiple readers during cache warm-up.
-// WAL mode is persistent: once set, it stays for the DB file lifetime.
-// Produces data/on-record.db-shm and data/on-record.db-wal (both gitignored).
-db.pragma('journal_mode = WAL')
+  // WAL mode for read concurrency — required for multiple readers during cache warm-up.
+  // WAL mode is persistent: once set, it stays for the DB file lifetime.
+  // Produces data/on-record.db-shm and data/on-record.db-wal (both gitignored).
+  instance.pragma('journal_mode = WAL')
+  return instance
+}
+
+export const db: Database.Database = openDatabase()

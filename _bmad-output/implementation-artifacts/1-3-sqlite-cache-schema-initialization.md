@@ -1,6 +1,6 @@
 # Story 1.3: SQLite Cache Schema Initialization
 
-Status: review
+Status: done
 
 ## Story
 
@@ -106,13 +106,15 @@ After installation, verify `apps/mcp-server/package.json` contains:
 {
   "dependencies": {
     "@on-record/types": "workspace:*",
-    "better-sqlite3": "^12.6.2"
+    "better-sqlite3": "12.6.2"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "..."
+    "@types/better-sqlite3": "^7.6.0"
   }
 }
 ```
+
+**Pinning note:** `better-sqlite3` must be pinned (no `^`) — it is a native binary and its version must be locked to the `onlyBuiltDependencies` allowlist in root `package.json`. `@types/better-sqlite3` uses `^` (caret range) as it is a dev-only type package.
 
 **Note:** `better-sqlite3` requires a native addon build. pnpm will run `node-gyp` during installation. This requires Python and build tools available on the system. If the install fails with a build error, install build tools (`xcode-select --install` on macOS) and retry. The `pnpm.onlyBuiltDependencies` list in root `package.json` (established in Story 1.1) controls which packages are allowed to run post-install scripts — add `better-sqlite3` to this list if required.
 
@@ -570,7 +572,7 @@ claude-sonnet-4-6
 - `src/cache/db.ts`: DB singleton at `data/on-record.db`, `mkdirSync` ensures `data/` exists, WAL mode enabled. Uses `__dirname` for path resolution (CJS-compatible).
 - `src/index.ts`: Schema init added between logger init and Hono setup (Step 2.5). Logs `{ source: 'cache' }` on successful initialization.
 - `schema.test.ts`: 11 tests using `new Database(':memory:')` — all 4 tables, both indexes, idempotency, column verification, FTS5 queryability. All pass.
-- `package.json`: Added `better-sqlite3@12.6.2` (pinned) and `@types/better-sqlite3^7.6.0`. Normalized all `^N.x` version ranges to `^N.0.0`. Added `@hono/node-server` as `^1.0.0`.
+- `package.json`: Added `better-sqlite3@12.6.2` (pinned) and `@types/better-sqlite3^7.6.0`. Normalized all `^N.x` version ranges to `^N.0.0`. Added `@hono/node-server` as `^1.0.0` (subsequently pinned to `1.19.9` in story 1.2 review fix — commit `013b9c6`).
 - `typecheck`: 0 errors. `lint`: 0 violations. `test`: 35/35 pass (5 test files).
 
 ### File List
@@ -582,3 +584,33 @@ claude-sonnet-4-6
 - `apps/mcp-server/src/index.ts` (modified — schema init added to startup)
 - `package.json` (root, modified — better-sqlite3 added to onlyBuiltDependencies)
 - `pnpm-lock.yaml` (updated)
+
+### Review Follow-ups (AI)
+
+**Reviewed by:** claude-sonnet-4-6 on 2026-03-02
+**Issues Found:** 2 HIGH/MEDIUM fixed in source; 1 MEDIUM fixed in docs; 3 LOW documented below
+
+#### Fixed in Source
+
+- [x] [AI-Review][HIGH] Missing `afterEach(() => db.close())` in `schema.test.ts` — each `beforeEach` opened a `new Database(':memory:')` but never closed it, leaking WAL/shm handles across 11+ tests. **Fixed:** Added `afterEach` with `db.close()` call. `[apps/mcp-server/src/cache/schema.test.ts:13]`
+
+- [x] [AI-Review][MEDIUM] No error handling in `db.ts` — `new Database(dbPath)` and `mkdirSync` can throw synchronous exceptions (e.g., permission denied, invalid path) at module load time. Errors would propagate as opaque crashes rather than actionable log messages. **Fixed:** Wrapped both calls in try/catch inside an `openDatabase()` function; error path calls `console.error` (the only allowed console method) then `process.exit(1)`. `[apps/mcp-server/src/cache/db.ts:16-37]`
+
+- [x] [AI-Review][MEDIUM] Dev Notes documentation showed `"better-sqlite3": "^12.6.2"` (with caret) in the verification example, contradicting the actual pinned value and project pinning rules. **Fixed:** Corrected example to `"better-sqlite3": "12.6.2"` and added a pinning note clarifying why `better-sqlite3` must be pinned while `@types/better-sqlite3` may use `^`. `[_bmad-output/implementation-artifacts/1-3-sqlite-cache-schema-initialization.md, Package Installation section]`
+
+#### Fixed in Test Coverage
+
+- [x] [AI-Review][LOW] FTS5 content table linkage not proven by tests — the `bill_fts virtual table exists and can be queried` test queried an empty table, which only proves the SQL syntax is accepted. An FTS5 misconfiguration (e.g., wrong `content_rowid`) would not be caught. **Fixed:** Added a second test `'bill_fts content table is linked to bills — FTS5 search returns matching rows after rebuild'` that inserts a row into `bills`, calls `INSERT INTO bill_fts(bill_fts) VALUES('rebuild')`, and asserts FTS5 returns the expected result. `[apps/mcp-server/src/cache/schema.test.ts:125-139]`
+
+#### Action Items (not fixed — future work)
+
+- [ ] [AI-Review][LOW] Completion notes listed `@hono/node-server` as `^1.0.0` but it was subsequently pinned to `1.19.9` in a later story 1.2 fix commit. Notes updated to reflect this lineage, but no source change required. `[apps/mcp-server/package.json:18]`
+
+- [ ] [AI-Review][LOW] `db.ts` opens the database at module load time — any accidental import of `cache/db.ts` in a non-cache test file would attempt to create `data/` directories and open a real DB on disk. No architectural guard exists at the ESLint level. Recommend adding a `no-restricted-imports` rule in Story 1.5 that prevents imports of `better-sqlite3` or `cache/db.ts` from files outside `cache/`. `[apps/mcp-server/src/cache/db.ts:39]`
+
+### Change Log
+
+| Date | Author | Change |
+|---|---|---|
+| 2026-03-02 | claude-sonnet-4-6 (dev agent) | Implemented story 1.3 — SQLite schema, db singleton, schema tests, index.ts integration |
+| 2026-03-02 | claude-sonnet-4-6 (review agent) | Code review pass: fixed missing `afterEach` db.close(), added error handling to db.ts, corrected dev notes pinning example, enhanced FTS5 test to verify content table linkage, updated status to done |

@@ -44,7 +44,7 @@ development_status:
   epic-1: in-progress
   1-1-initialize-pnpm-workspaces-monorepo: done
   1-2-mcp-server-with-hono-rate-limiting-and-pino-logging: done
-  1-3-sqlite-cache-schema-initialization: review
+  1-3-sqlite-cache-schema-initialization: done
   1-4-shared-retry-utility-and-apperror-type: review
   1-5-cicd-pipeline-and-developer-readme: backlog
   epic-1-retrospective: optional
