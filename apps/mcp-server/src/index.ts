@@ -96,7 +96,13 @@ app.post('/mcp', async (c) => {
   // @hono/node-server exposes the raw Node.js req/res via c.env
   // The transport.handleRequest needs Node.js IncomingMessage and ServerResponse
   const nodeEnv = c.env as { incoming: IncomingMessage; outgoing: ServerResponse }
-  const body = await c.req.json().catch(() => undefined)
+
+  let body: unknown
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: 'Invalid JSON body' }, 400)
+  }
 
   await transport.handleRequest(nodeEnv.incoming, nodeEnv.outgoing, body)
   await drainResponse(nodeEnv.outgoing)

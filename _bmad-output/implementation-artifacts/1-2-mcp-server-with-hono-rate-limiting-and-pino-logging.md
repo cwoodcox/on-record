@@ -1,6 +1,6 @@
 # Story 1.2: MCP Server with Hono, Rate Limiting, and Pino Logging
 
-Status: review
+Status: done
 
 ## Story
 
@@ -93,6 +93,14 @@ so that the server is production-safe from day one and MCP tools can be register
 - [x] [AI-Review][MEDIUM] Add unit tests for `env.ts` zod schema — test PORT range validation, required-var failure path (`process.exit(1)`), and NODE_ENV enum. Use `vi.resetModules()` to reset the `_env` singleton between tests. [apps/mcp-server/src/env.ts]
 - [x] [AI-Review][MEDIUM] Add `pnpm-lock.yaml` to story File List — it was modified in commit `9f82b5c` as a direct consequence of dependency installs but is absent from the Dev Agent Record File List. [story:Dev Agent Record/File List]
 - [x] [AI-Review][LOW] Extend ESLint config with TypeScript-recommended ruleset — current config only has `no-console`; add `@typescript-eslint/recommended` to enforce `no-explicit-any`, `no-unused-vars`, and `no-floating-promises` when migrating to flat config (bundle with the HIGH ESLint fix above). [apps/mcp-server/.eslintrc.json]
+- [x] [AI-Review][MEDIUM] Add `no-floating-promises` ESLint rule — previous LOW item above was marked [x] but `no-floating-promises` (explicitly listed) was never implemented; added `parserOptions.project` + `tsconfigRootDir` for type-checked linting and the rule itself. [apps/mcp-server/eslint.config.js]
+- [x] [AI-Review][MEDIUM] Fix POST /mcp silent JSON parse failure — `c.req.json().catch(() => undefined)` swallowed malformed-body errors with no client feedback; replaced with try/catch that returns `c.json({ error: 'Invalid JSON body' }, 400)`. [apps/mcp-server/src/index.ts:99]
+- [ ] [AI-Review][LOW] Pin `@hono/node-server` to exact version — `^1.x` is unpinned; architecture mandates pinning packages that underpin the MCP transport pattern (`c.env.incoming/outgoing`). [apps/mcp-server/package.json:17]
+- [ ] [AI-Review][LOW] Normalize semver range format — `^1.x`, `^3.x`, `^13.x` should be `^1.0.0`, `^3.0.0`, `^13.0.0`. [apps/mcp-server/package.json]
+- [ ] [AI-Review][LOW] Add `set` trap to logger Proxy — mutations such as `logger.level = 'debug'` silently apply to the empty proxy target `{}` rather than the underlying pino instance. [apps/mcp-server/src/lib/logger.ts:36-40]
+- [ ] [AI-Review][LOW] Add timeout to `drainResponse` — if neither `finish` nor `close` fires (broken connection / framework edge case), the handler coroutine leaks forever; add `setTimeout(resolve, 30_000)` fallback. [apps/mcp-server/src/index.ts:37-43]
+- [ ] [AI-Review][LOW] Add `process.on('unhandledRejection')` handler — unhandled rejections crash Node.js 15+; add a handler that logs at `error` level with `source: 'app'` before exit. [apps/mcp-server/src/index.ts]
+- [ ] [AI-Review][LOW] Add unit tests for middleware — `rate-limit.ts`, `cors.ts`, and `logging.ts` have zero automated tests; AC3/AC4/AC5 rely solely on manual verification for regression protection. [apps/mcp-server/src/middleware/]
 
 ## Dev Notes
 
@@ -704,6 +712,8 @@ Note: `pnpm install` must be run from monorepo root to install new packages befo
 - ✅ Resolved [MEDIUM]: Added `src/env.test.ts` — 9 unit tests covering PORT default/range, required vars, NODE_ENV enum, and `getEnv()` guard. All pass.
 - ✅ Resolved [MEDIUM]: `pnpm-lock.yaml` added to File List.
 - ✅ Resolved [LOW]: `eslint.config.js` includes `@typescript-eslint/no-explicit-any` and `@typescript-eslint/no-unused-vars`.
+- ✅ Resolved [MEDIUM]: Added `no-floating-promises` ESLint rule — `parserOptions.project` and `tsconfigRootDir` configured for type-checked linting; rule added to `eslint.config.js`.
+- ✅ Resolved [MEDIUM]: Fixed POST /mcp JSON parse failure — replaced silent `.catch(() => undefined)` with try/catch that returns 400 for malformed bodies.
 
 ### File List
 
@@ -727,3 +737,4 @@ Note: `pnpm install` must be run from monorepo root to install new packages befo
 - 2026-02-24: Code review (adversarial) — 7 action items added (2 HIGH, 4 MEDIUM, 1 LOW). Status set to in-progress. Key issues: ESLint 9 flat config migration required (AC6 broken), Task 9 verification not actually run, rate-limit IP spoofing unresolved.
 - 2026-02-25: Addressed code review findings — 6 of 7 items resolved. ESLint migrated to flat config (AC6 restored), dead env export removed, env.ts unit tests added (9 passing), rate-limit proxy trust documented, pnpm-lock.yaml added to File List. H2 (runtime curl verification) pending manual execution.
 - 2026-03-02: All 7 review items resolved. Runtime verification complete — server starts, MCP initialize returns SSE event stream, rate-limit 429 fires at request 61. Fixed ERR_HTTP_HEADERS_SENT (drainResponse helper) and .env loading (--env-file flag). Status → review.
+- 2026-03-02: Second adversarial review pass. Found 2 MEDIUM + 6 LOW issues. Fixed: (1) added `no-floating-promises` ESLint rule with type-checked linting config; (2) fixed POST /mcp silent JSON parse failure with proper 400 response. 6 LOW items added as future follow-ups. Status → done.

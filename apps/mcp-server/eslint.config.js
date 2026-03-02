@@ -12,6 +12,8 @@ module.exports = [
       parserOptions: {
         ecmaVersion: 2022,
         sourceType: 'module',
+        project: './tsconfig.json',
+        tsconfigRootDir: __dirname,
       },
     },
     plugins: {
@@ -20,9 +22,10 @@ module.exports = [
     rules: {
       // Critical: console.log corrupts the MCP JSON-RPC stdout stream (architecture.md)
       'no-console': ['error', { allow: ['error'] }],
-      // TypeScript quality rules (L1 — bundled with flat config migration)
+      // TypeScript quality rules
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-floating-promises': 'error',
     },
   },
 ]
