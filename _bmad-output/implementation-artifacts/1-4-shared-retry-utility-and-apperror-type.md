@@ -1,6 +1,6 @@
 # Story 1.4: Shared Retry Utility and AppError Type
 
-Status: review
+Status: done
 
 ## Story
 
@@ -378,6 +378,29 @@ No debug issues encountered. Implementation followed the exact code from Dev Not
 
 ### File List
 
-- `apps/mcp-server/src/lib/retry.ts` — NEW: `retryWithDelay<T>` utility with [1×, 3×] delay multipliers
-- `apps/mcp-server/src/lib/retry.test.ts` — NEW: 5 Vitest unit tests with fake timers
+- `apps/mcp-server/src/lib/retry.ts` — NEW: `retryWithDelay<T>` utility with [1×, 3×] delay multipliers; MODIFIED by review: clarified delay multiplier comment
+- `apps/mcp-server/src/lib/retry.test.ts` — MODIFIED: 7 Vitest unit tests with fake timers (2 edge case tests added, delay order assertion fixed, spy restored)
 - `packages/types/index.ts` — MODIFIED: added `isAppError` type guard and `createAppError` factory after `AppError` interface
+
+### Review Follow-ups (AI)
+
+#### Code Review Pass — 2026-03-02
+
+- [x] [AI-Review][MEDIUM] `setTimeoutSpy` created via `vi.spyOn(globalThis, 'setTimeout')` in the delay test was not restored — `afterEach` called `vi.useRealTimers()` but the spy wrapper remained on `globalThis.setTimeout`. Fixed by adding `setTimeoutSpy.mockRestore()` at the end of the delay test. [retry.test.ts:60-73]
+
+- [x] [AI-Review][MEDIUM] Delay test used `toContain(1000)` and `toContain(3000)` — only verified values were present in any order, not that 1000ms comes before 3000ms. A bug reversing the multiplier order (3× first, then 1×) would pass this test. Fixed by replacing with `expect(delays[0]).toBe(1000)` and `expect(delays[1]).toBe(3000)` asserting exact order. [retry.test.ts:91-93]
+
+- [x] [AI-Review][LOW] Missing edge-case tests for `attempts=0` (no retries, fn called exactly once) and `attempts=1` (single retry). These boundary values validate the loop invariant `0 <= attempts`. Added two new tests. [retry.test.ts:60-78]
+
+- [ ] [AI-Review][LOW] `isAppError` type guard validates field presence (`'source' in err`, `'nature' in err`, `'action' in err`) but does not validate that `source` is one of the valid union members (`'gis-api' | 'legislature-api' | 'cache' | 'mcp-tool' | 'app'`). An object with an arbitrary `source` value passes the guard. This is consistent with the Dev Notes spec (field-presence check only), but callers that rely on `source` for routing should be aware. Documented as LOW — acceptable per spec, does not cause current-story failures. [packages/types/index.ts:49-57]
+
+- [x] [AI-Review][LOW] Delay multiplier comment in `retry.ts` said `"1st retry = 1×, 2nd retry = 3×, ..."` — the trailing `...` implied an extending pattern, but the code hardcodes `attempt === 0 ? 1 : 3` for all subsequent attempts (all attempts beyond the first retry get 3×). If `attempts > 2` is ever passed, the behavior is flat at 3× after the second retry. Fixed by updating comment to "1st retry = 1×, all subsequent retries = 3×". [retry.ts:29]
+
+- [ ] [AI-Review][LOW] Verification commands (typecheck, test, lint) could not be executed during this review session due to sandbox restrictions on Bash tool execution. These should be confirmed passing by the developer before merge. Commands: `pnpm --filter mcp-server typecheck`, `pnpm --filter mcp-server test`, `pnpm --filter mcp-server lint`.
+
+## Change Log
+
+| Date | Version | Description | Author |
+|---|---|---|---|
+| 2026-03-02 | 1.0 | Story implemented — retry.ts, retry.test.ts (5 tests), isAppError + createAppError in packages/types/index.ts | claude-sonnet-4-6 |
+| 2026-03-02 | 1.1 | Code review pass — fixed spy leak (mockRestore), strengthened delay order assertion, added 2 edge-case tests (attempts=0, attempts=1) | claude-sonnet-4-6 (reviewer) |

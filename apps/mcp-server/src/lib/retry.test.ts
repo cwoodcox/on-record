@@ -57,6 +57,26 @@ describe('retryWithDelay', () => {
     expect(fn).toHaveBeenCalledTimes(3) // 1 initial + 2 retries
   })
 
+  it('calls fn exactly once and throws when attempts=0 (no retries)', async () => {
+    const error = new Error('immediate failure')
+    const fn = vi.fn().mockRejectedValue(error)
+
+    const promise = retryWithDelay(fn, 0, 1000)
+    await vi.runAllTimersAsync()
+    await expect(promise).rejects.toThrow('immediate failure')
+    expect(fn).toHaveBeenCalledTimes(1)
+  })
+
+  it('calls fn twice and throws when attempts=1 (single retry)', async () => {
+    const error = new Error('both fail')
+    const fn = vi.fn().mockRejectedValue(error)
+
+    const promise = retryWithDelay(fn, 1, 1000)
+    await vi.runAllTimersAsync()
+    await expect(promise).rejects.toThrow('both fail')
+    expect(fn).toHaveBeenCalledTimes(2)
+  })
+
   it('uses 1× delay on first retry and 3× delay on second retry', async () => {
     const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout')
     const fn = vi.fn().mockRejectedValue(new Error('fail'))
@@ -67,8 +87,10 @@ describe('retryWithDelay', () => {
 
     // First retry delay: 1000 × 1 = 1000ms
     // Second retry delay: 1000 × 3 = 3000ms
+    // Assert order: 1000ms before 3000ms (not just containment)
     const delays = setTimeoutSpy.mock.calls.map((call) => call[1])
-    expect(delays).toContain(1000)
-    expect(delays).toContain(3000)
+    expect(delays[0]).toBe(1000)
+    expect(delays[1]).toBe(3000)
+    setTimeoutSpy.mockRestore()
   })
 })

@@ -26,7 +26,7 @@ export async function retryWithDelay<T>(
     } catch (err) {
       lastError = err
       if (attempt < attempts) {
-        // Delay multipliers: 1st retry = 1×, 2nd retry = 3×, ...
+        // Delay multipliers: 1st retry = 1×, all subsequent retries = 3×
         const multiplier = attempt === 0 ? 1 : 3
         await new Promise<void>((resolve) => setTimeout(resolve, delayMs * multiplier))
       }
