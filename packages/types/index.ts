@@ -36,11 +36,36 @@ export interface BillDetail extends Bill {
 }
 
 // AppError — three-field error format for all errors surfaced to users/operators (FR35, FR37)
-// Runtime helper (isAppError, createAppError) implemented in Story 1.4.
 export interface AppError {
   source: 'gis-api' | 'legislature-api' | 'cache' | 'mcp-tool' | 'app'
   nature: string // human-readable description of what failed
   action: string // what to try next
+}
+
+/**
+ * Type guard: returns true if `err` is an AppError (has source, nature, action fields).
+ * Use to distinguish AppError from generic Error in catch blocks.
+ */
+export function isAppError(err: unknown): err is AppError {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'source' in err &&
+    'nature' in err &&
+    'action' in err
+  )
+}
+
+/**
+ * Factory: creates an AppError with the three required fields.
+ * Prefer this over object literals to ensure field completeness.
+ */
+export function createAppError(
+  source: AppError['source'],
+  nature: string,
+  action: string,
+): AppError {
+  return { source, nature, action }
 }
 
 // MCP Tool Response Contracts — field names are part of the public API.

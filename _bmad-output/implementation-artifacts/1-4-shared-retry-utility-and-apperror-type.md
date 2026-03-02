@@ -1,6 +1,6 @@
 # Story 1.4: Shared Retry Utility and AppError Type
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -21,40 +21,40 @@ so that retry logic and error formatting are consistent everywhere from the firs
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create `apps/mcp-server/src/lib/retry.ts` (AC: 1, 2, 3, 5)
-  - [ ] Create `apps/mcp-server/src/lib/` directory if it does not exist (logger.ts is already there)
-  - [ ] Implement `retryWithDelay<T>(fn: () => Promise<T>, attempts: number, delayMs: number): Promise<T>`
-  - [ ] Delay schedule: attempt 1 uses `delayMs`, attempt 2 uses `delayMs * 3` (1s → 3s for default args)
-  - [ ] Throw the last error when all attempts are exhausted
-  - [ ] No `console.log` — logging is the caller's responsibility (callers use pino logger)
-  - [ ] Export `retryWithDelay` as a named export (not default)
+- [x] Task 1: Create `apps/mcp-server/src/lib/retry.ts` (AC: 1, 2, 3, 5)
+  - [x] Create `apps/mcp-server/src/lib/` directory if it does not exist (logger.ts is already there)
+  - [x] Implement `retryWithDelay<T>(fn: () => Promise<T>, attempts: number, delayMs: number): Promise<T>`
+  - [x] Delay schedule: attempt 1 uses `delayMs`, attempt 2 uses `delayMs * 3` (1s → 3s for default args)
+  - [x] Throw the last error when all attempts are exhausted
+  - [x] No `console.log` — logging is the caller's responsibility (callers use pino logger)
+  - [x] Export `retryWithDelay` as a named export (not default)
 
-- [ ] Task 2: Add `isAppError` and `createAppError` runtime helpers to `packages/types/index.ts` (AC: 4)
-  - [ ] Note: `AppError` interface is **already defined** in `packages/types/index.ts` — DO NOT redefine it
-  - [ ] Add `isAppError(err: unknown): err is AppError` type guard function
-  - [ ] Add `createAppError(source: AppError['source'], nature: string, action: string): AppError` factory
-  - [ ] Both helpers are pure functions — no side effects, no dependencies
+- [x] Task 2: Add `isAppError` and `createAppError` runtime helpers to `packages/types/index.ts` (AC: 4)
+  - [x] Note: `AppError` interface is **already defined** in `packages/types/index.ts` — DO NOT redefine it
+  - [x] Add `isAppError(err: unknown): err is AppError` type guard function
+  - [x] Add `createAppError(source: AppError['source'], nature: string, action: string): AppError` factory
+  - [x] Both helpers are pure functions — no side effects, no dependencies
 
-- [ ] Task 3: Write `apps/mcp-server/src/lib/retry.test.ts` (AC: 6, 7, 8)
-  - [ ] Co-locate test at `apps/mcp-server/src/lib/retry.test.ts` (next to `retry.ts`)
-  - [ ] Test: success on first try — fn called once, result returned
-  - [ ] Test: success on 2nd attempt — fn fails once then succeeds; total calls = 2
-  - [ ] Test: success on 3rd attempt (maxAttempts=3) — fn fails twice then succeeds; total calls = 3
-  - [ ] Test: all retries exhausted — throws the last error after `attempts` total tries
-  - [ ] Test: delay timing — verify `setTimeout` is called with correct delay values (mock `setTimeout` or use fake timers)
-  - [ ] Use `vi.useFakeTimers()` / `vi.runAllTimersAsync()` to avoid real delays in tests
-  - [ ] Do not use `vi.resetModules()` (not needed — no module-level singletons)
+- [x] Task 3: Write `apps/mcp-server/src/lib/retry.test.ts` (AC: 6, 7, 8)
+  - [x] Co-locate test at `apps/mcp-server/src/lib/retry.test.ts` (next to `retry.ts`)
+  - [x] Test: success on first try — fn called once, result returned
+  - [x] Test: success on 2nd attempt — fn fails once then succeeds; total calls = 2
+  - [x] Test: success on 3rd attempt (maxAttempts=3) — fn fails twice then succeeds; total calls = 3
+  - [x] Test: all retries exhausted — throws the last error after `attempts` total tries
+  - [x] Test: delay timing — verify `setTimeout` is called with correct delay values (mock `setTimeout` or use fake timers)
+  - [x] Use `vi.useFakeTimers()` / `vi.runAllTimersAsync()` to avoid real delays in tests
+  - [x] Do not use `vi.resetModules()` (not needed — no module-level singletons)
 
-- [ ] Task 4: Verify `packages/types/index.ts` exports (AC: 4)
-  - [ ] Confirm `AppError` interface is exported (already present from Story 1.1)
-  - [ ] Confirm new `isAppError` and `createAppError` helpers are exported
-  - [ ] Run `pnpm --filter mcp-server typecheck` — zero errors
+- [x] Task 4: Verify `packages/types/index.ts` exports (AC: 4)
+  - [x] Confirm `AppError` interface is exported (already present from Story 1.1)
+  - [x] Confirm new `isAppError` and `createAppError` helpers are exported
+  - [x] Run `pnpm --filter mcp-server typecheck` — zero errors
 
-- [ ] Task 5: Final verification (AC: 7, 8)
-  - [ ] Run `pnpm --filter mcp-server test` — all tests pass (retry.test.ts + prior tests)
-  - [ ] Run `pnpm --filter mcp-server typecheck` — zero TypeScript errors
-  - [ ] Confirm no `console.log` added anywhere in `apps/mcp-server/src/`
-  - [ ] Confirm no `better-sqlite3` imports added (this story is lib-only, no cache involvement)
+- [x] Task 5: Final verification (AC: 7, 8)
+  - [x] Run `pnpm --filter mcp-server test` — all tests pass (retry.test.ts + prior tests)
+  - [x] Run `pnpm --filter mcp-server typecheck` — zero TypeScript errors
+  - [x] Confirm no `console.log` added anywhere in `apps/mcp-server/src/`
+  - [x] Confirm no `better-sqlite3` imports added (this story is lib-only, no cache involvement)
 
 ## Dev Notes
 
@@ -359,8 +359,25 @@ From Story 1.3 (SQLite schema):
 
 ### Agent Model Used
 
+claude-sonnet-4-6
+
 ### Debug Log References
+
+No debug issues encountered. Implementation followed the exact code from Dev Notes.
 
 ### Completion Notes List
 
+- Implemented `retryWithDelay<T>` in `apps/mcp-server/src/lib/retry.ts` with exact loop logic from Dev Notes: `attempt` runs 0 to `attempts` inclusive (1 initial + N retries), delay multipliers are 1× then 3×, `lastError` typed as `unknown` per strict mode.
+- Added `isAppError` type guard and `createAppError` factory to `packages/types/index.ts` after the existing `AppError` interface. Both are pure functions with no imports, no side effects.
+- Created `apps/mcp-server/src/lib/retry.test.ts` with 5 Vitest tests using `vi.useFakeTimers()` and `vi.runAllTimersAsync()` to avoid real delays. Tests cover: success on first try, success on 2nd attempt, success on 3rd attempt, all retries exhausted (verifies call count = 3), and delay timing (verifies 1000ms and 3000ms via `setTimeout` spy).
+- No `console.log` added anywhere — retry.ts has no logging at all (callers use pino).
+- No barrel file created (`lib/index.ts` does not exist).
+- Import in test uses `.js` extension: `import { retryWithDelay } from './retry.js'` — consistent with NodeNext module resolution pattern from Story 1.2.
+- No new dependencies added — no changes to any `package.json`.
+- `packages/types/index.ts` comment about "Runtime helper implemented in Story 1.4" removed (was the old inline comment); the functions themselves are now present.
+
 ### File List
+
+- `apps/mcp-server/src/lib/retry.ts` — NEW: `retryWithDelay<T>` utility with [1×, 3×] delay multipliers
+- `apps/mcp-server/src/lib/retry.test.ts` — NEW: 5 Vitest unit tests with fake timers
+- `packages/types/index.ts` — MODIFIED: added `isAppError` type guard and `createAppError` factory after `AppError` interface
