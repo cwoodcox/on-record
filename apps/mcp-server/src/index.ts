@@ -24,6 +24,24 @@ import { rateLimitMiddleware } from './middleware/rate-limit.js'
 // StreamableHTTPServerTransport is stateful per session.
 const transports = new Map<string, StreamableHTTPServerTransport>()
 
+// ── Response drain helper ───────────────────────────────────────────────────
+// @hono/node-server checks `outgoing.writableEnded` before writing the Hono
+// Response to the socket. StreamableHTTPServerTransport.handleRequest() calls
+// writeHead() to start the response (and keeps the socket open for SSE) but
+// does not call end() until the client disconnects. Returning from the Hono
+// handler before the socket is finished causes ERR_HTTP_HEADERS_SENT because
+// @hono/node-server tries to writeHead() a second time.
+// Fix: await the 'finish' or 'close' event so writableEnded is true before
+// Hono's response pipeline runs. For SSE connections this correctly holds the
+// handler coroutine open for the lifetime of the stream.
+function drainResponse(res: ServerResponse): Promise<void> {
+  if (res.writableEnded) return Promise.resolve()
+  return new Promise<void>((resolve) => {
+    res.on('finish', resolve)
+    res.on('close', resolve)
+  })
+}
+
 // ── Hono app setup ─────────────────────────────────────────────────────────
 const app = new Hono()
 
@@ -81,9 +99,7 @@ app.post('/mcp', async (c) => {
   const body = await c.req.json().catch(() => undefined)
 
   await transport.handleRequest(nodeEnv.incoming, nodeEnv.outgoing, body)
-
-  // handleRequest writes directly to the ServerResponse — we return an empty Hono response
-  // to satisfy the framework's response contract; the actual response is already sent.
+  await drainResponse(nodeEnv.outgoing)
   return new Response(null, { status: 200 })
 })
 
@@ -97,6 +113,7 @@ app.get('/mcp', async (c) => {
 
   const nodeEnv = c.env as { incoming: IncomingMessage; outgoing: ServerResponse }
   await transport.handleRequest(nodeEnv.incoming, nodeEnv.outgoing)
+  await drainResponse(nodeEnv.outgoing)
   return new Response(null, { status: 200 })
 })
 
@@ -110,6 +127,7 @@ app.delete('/mcp', async (c) => {
 
   const nodeEnv = c.env as { incoming: IncomingMessage; outgoing: ServerResponse }
   await transport.handleRequest(nodeEnv.incoming, nodeEnv.outgoing)
+  await drainResponse(nodeEnv.outgoing)
   return new Response(null, { status: 200 })
 })
 
