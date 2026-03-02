@@ -45,8 +45,12 @@ const transports = new Map<string, StreamableHTTPServerTransport>()
 function drainResponse(res: ServerResponse): Promise<void> {
   if (res.writableEnded) return Promise.resolve()
   return new Promise<void>((resolve) => {
-    res.on('finish', resolve)
-    res.on('close', resolve)
+    // 30-second timeout guards against leaked coroutines when neither 'finish'
+    // nor 'close' fires (e.g., broken connection / framework edge case).
+    const timeout = setTimeout(resolve, 30_000)
+    const done = () => { clearTimeout(timeout); resolve() }
+    res.on('finish', done)
+    res.on('close', done)
   })
 }
 
@@ -143,6 +147,12 @@ app.delete('/mcp', async (c) => {
   await transport.handleRequest(nodeEnv.incoming, nodeEnv.outgoing)
   await drainResponse(nodeEnv.outgoing)
   return new Response(null, { status: 200 })
+})
+
+// ── Global error handlers ──────────────────────────────────────────────────
+process.on('unhandledRejection', (reason) => {
+  logger.error({ source: 'app', reason }, 'Unhandled promise rejection — exiting')
+  process.exit(1)
 })
 
 // ── Health check ───────────────────────────────────────────────────────────
