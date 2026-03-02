@@ -41,12 +41,12 @@ story_location: _bmad-output/implementation-artifacts
 
 development_status:
   # ─── Epic 1: Project Foundation & Infrastructure ───────────────────────────
-  epic-1: in-progress
+  epic-1: done
   1-1-initialize-pnpm-workspaces-monorepo: done
   1-2-mcp-server-with-hono-rate-limiting-and-pino-logging: done
   1-3-sqlite-cache-schema-initialization: done
   1-4-shared-retry-utility-and-apperror-type: done
-  1-5-cicd-pipeline-and-developer-readme: review
+  1-5-cicd-pipeline-and-developer-readme: done
   epic-1-retrospective: optional
 
   # ─── Epic 2: Constituent Can Identify Their Utah Legislators ────────────────

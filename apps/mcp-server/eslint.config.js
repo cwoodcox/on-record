@@ -31,6 +31,8 @@ module.exports = [
   {
     // Guard Boundary 4: no direct better-sqlite3 imports outside src/cache/
     // Architecture rule: only cache/ modules touch better-sqlite3 directly
+    // NOTE: both patterns are in one block — flat config does NOT merge separate
+    // no-restricted-imports rule entries; the last one wins. Keep them together.
     files: ['src/**/*.ts'],
     ignores: ['src/cache/**'],
     rules: {
@@ -40,21 +42,26 @@ module.exports = [
             group: ['better-sqlite3'],
             message: 'Direct better-sqlite3 imports are confined to src/cache/ only.',
           },
+          {
+            group: ['**/cache/db', '**/cache/db.js'],
+            message: 'Import from cache module functions (cache/legislators, cache/bills), not the db singleton. Only cache/ and the startup entry point may access the db directly.',
+          },
         ],
       }],
     },
   },
   {
-    // Guard cache/db singleton: tools, middleware, and providers must not import it directly.
-    // src/index.ts is exempt — it is the startup orchestrator and passes db to initializeSchema.
-    files: ['src/**/*.ts'],
-    ignores: ['src/cache/**', 'src/index.ts'],
+    // Guard cache/db singleton: src/index.ts IS exempt as the startup orchestrator.
+    // The broader rule above catches all other non-cache files; this block adds the
+    // exemption for src/index.ts specifically for the db-singleton pattern only.
+    // (better-sqlite3 direct import is already blocked for src/index.ts by the block above.)
+    files: ['src/index.ts'],
     rules: {
       'no-restricted-imports': ['error', {
         patterns: [
           {
-            group: ['**/cache/db', '**/cache/db.js'],
-            message: 'Import from cache module functions (cache/legislators, cache/bills), not the db singleton. Only cache/ and the startup entry point may access the db directly.',
+            group: ['better-sqlite3'],
+            message: 'Direct better-sqlite3 imports are confined to src/cache/ only.',
           },
         ],
       }],

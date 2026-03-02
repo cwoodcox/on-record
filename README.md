@@ -68,12 +68,11 @@ pnpm test
 
 # Explicit per-workspace variant
 pnpm --filter mcp-server test
-
-# Playwright E2E tests (requires both servers to be running)
-pnpm test:e2e
 ```
 
-Note: E2E tests are not yet wired up in CI — they require a running deployment environment. Unit tests run on every PR via GitHub Actions.
+Unit tests run automatically on every PR via GitHub Actions.
+
+E2E tests with Playwright are deferred to a future story. `pnpm test:e2e` is a placeholder in the root `package.json` — Playwright is not yet installed as a dev dependency.
 
 ## Code Quality
 
