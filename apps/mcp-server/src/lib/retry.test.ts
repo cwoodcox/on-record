@@ -52,8 +52,10 @@ describe('retryWithDelay', () => {
     const fn = vi.fn().mockRejectedValue(finalError)
 
     const promise = retryWithDelay(fn, 2, 1000)
+    // Attach rejection handler BEFORE running timers to avoid PromiseRejectionHandledWarning
+    const assertion = expect(promise).rejects.toThrow('permanent failure')
     await vi.runAllTimersAsync()
-    await expect(promise).rejects.toThrow('permanent failure')
+    await assertion
     expect(fn).toHaveBeenCalledTimes(3) // 1 initial + 2 retries
   })
 
@@ -62,8 +64,9 @@ describe('retryWithDelay', () => {
     const fn = vi.fn().mockRejectedValue(error)
 
     const promise = retryWithDelay(fn, 0, 1000)
+    const assertion = expect(promise).rejects.toThrow('immediate failure')
     await vi.runAllTimersAsync()
-    await expect(promise).rejects.toThrow('immediate failure')
+    await assertion
     expect(fn).toHaveBeenCalledTimes(1)
   })
 
@@ -72,8 +75,9 @@ describe('retryWithDelay', () => {
     const fn = vi.fn().mockRejectedValue(error)
 
     const promise = retryWithDelay(fn, 1, 1000)
+    const assertion = expect(promise).rejects.toThrow('both fail')
     await vi.runAllTimersAsync()
-    await expect(promise).rejects.toThrow('both fail')
+    await assertion
     expect(fn).toHaveBeenCalledTimes(2)
   })
 
@@ -82,8 +86,10 @@ describe('retryWithDelay', () => {
     const fn = vi.fn().mockRejectedValue(new Error('fail'))
 
     const promise = retryWithDelay(fn, 2, 1000)
+    // Attach rejection handler BEFORE running timers to avoid PromiseRejectionHandledWarning
+    const assertion = expect(promise).rejects.toThrow()
     await vi.runAllTimersAsync()
-    await expect(promise).rejects.toThrow()
+    await assertion
 
     // First retry delay: 1000 × 1 = 1000ms
     // Second retry delay: 1000 × 3 = 3000ms

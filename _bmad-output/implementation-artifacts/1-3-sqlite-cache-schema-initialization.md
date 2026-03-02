@@ -604,9 +604,9 @@ claude-sonnet-4-6
 
 #### Action Items (not fixed — future work)
 
-- [ ] [AI-Review][LOW] Completion notes listed `@hono/node-server` as `^1.0.0` but it was subsequently pinned to `1.19.9` in a later story 1.2 fix commit. Notes updated to reflect this lineage, but no source change required. `[apps/mcp-server/package.json:18]`
+- [x] [AI-Review][LOW] Completion notes listed `@hono/node-server` as `^1.0.0` but it was subsequently pinned to `1.19.9` in a later story 1.2 fix commit. Notes updated to reflect this lineage, but no source change required. `[apps/mcp-server/package.json:18]`
 
-- [ ] [AI-Review][LOW] `db.ts` opens the database at module load time — any accidental import of `cache/db.ts` in a non-cache test file would attempt to create `data/` directories and open a real DB on disk. No architectural guard exists at the ESLint level. Recommend adding a `no-restricted-imports` rule in Story 1.5 that prevents imports of `better-sqlite3` or `cache/db.ts` from files outside `cache/`. `[apps/mcp-server/src/cache/db.ts:39]`
+- [x] [AI-Review][LOW] `db.ts` opens the database at module load time — any accidental import of `cache/db.ts` in a non-cache test file would attempt to create `data/` directories and open a real DB on disk. No architectural guard exists at the ESLint level. Recommend adding a `no-restricted-imports` rule in Story 1.5 that prevents imports of `better-sqlite3` or `cache/db.ts` from files outside `cache/`. Fixed: added two `no-restricted-imports` config blocks to `apps/mcp-server/eslint.config.js` — one restricting `better-sqlite3` to `src/cache/**` only, and one restricting `cache/db` imports to `src/cache/**` and `src/index.ts` (startup orchestrator). `[apps/mcp-server/eslint.config.js]`
 
 ### Change Log
 

@@ -28,4 +28,36 @@ module.exports = [
       '@typescript-eslint/no-floating-promises': 'error',
     },
   },
+  {
+    // Guard Boundary 4: no direct better-sqlite3 imports outside src/cache/
+    // Architecture rule: only cache/ modules touch better-sqlite3 directly
+    files: ['src/**/*.ts'],
+    ignores: ['src/cache/**'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [
+          {
+            group: ['better-sqlite3'],
+            message: 'Direct better-sqlite3 imports are confined to src/cache/ only.',
+          },
+        ],
+      }],
+    },
+  },
+  {
+    // Guard cache/db singleton: tools, middleware, and providers must not import it directly.
+    // src/index.ts is exempt — it is the startup orchestrator and passes db to initializeSchema.
+    files: ['src/**/*.ts'],
+    ignores: ['src/cache/**', 'src/index.ts'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [
+          {
+            group: ['**/cache/db', '**/cache/db.js'],
+            message: 'Import from cache module functions (cache/legislators, cache/bills), not the db singleton. Only cache/ and the startup entry point may access the db directly.',
+          },
+        ],
+      }],
+    },
+  },
 ]
