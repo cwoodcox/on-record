@@ -44,6 +44,14 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+
+  /* On Record brand tokens */
+  --color-on-record-primary: var(--on-record-primary);
+  --color-on-record-accent: var(--on-record-accent);
+  --color-on-record-surface: var(--on-record-surface);
+  --color-on-record-text: var(--on-record-text);
+  --color-on-record-error: var(--on-record-error);
+  --color-on-record-success: var(--on-record-success);
 }
 
 :root {
@@ -79,6 +87,14 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* On Record brand tokens (light mode) */
+  --on-record-primary: #1e3a4f;
+  --on-record-accent: #c47d2e;
+  --on-record-surface: #fafaf8;
+  --on-record-text: #1a1a1a;
+  --on-record-error: #b91c1c;
+  --on-record-success: #2e7d52;
 }
 
 .dark {
@@ -113,6 +129,12 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  /* On Record brand tokens (dark mode) */
+  --on-record-primary: #0a1520;
+  --on-record-accent: #d4922a;
+  --on-record-surface: #0f1f2b;
+  --on-record-text: #e8e4dc;
 }
 
 @layer base {

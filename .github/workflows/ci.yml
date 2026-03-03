@@ -43,3 +43,6 @@ jobs:
 
       - name: Unit tests (mcp-server)
         run: pnpm --filter mcp-server test
+
+      - name: Unit tests (web)
+        run: pnpm --filter web test

@@ -1,6 +1,6 @@
 # Story 2.6: LegislatorCard UI Component with Tailwind Design Tokens
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -28,71 +28,71 @@ so that the moment I see my actual representative named feels deliberate and rea
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Extend `globals.css` with On Record design tokens (AC: 1, 6, 7)
-  - [ ] Add On Record color custom properties to `:root` block: `--on-record-primary: #1e3a4f`, `--on-record-accent: #c47d2e`, `--on-record-surface: #fafaf8`, `--on-record-text: #1a1a1a`, `--on-record-error: #b91c1c`, `--on-record-success: #2e7d52`
-  - [ ] Add dark mode variants inside `.dark {}` block: `--on-record-primary: #0a1520`, `--on-record-accent: #d4922a`, `--on-record-surface: #0f1f2b`, `--on-record-text: #e8e4dc`
-  - [ ] Expose via `@theme inline` block: `--color-on-record-primary: var(--on-record-primary)`, `--color-on-record-accent: var(--on-record-accent)`, `--color-on-record-surface: var(--on-record-surface)`, `--color-on-record-text: var(--on-record-text)`, `--color-on-record-error: var(--on-record-error)`, `--color-on-record-success: var(--on-record-success)`
-  - [ ] Verify Tailwind utility classes `bg-on-record-primary`, `border-on-record-accent`, `text-on-record-text` etc. resolve correctly (Tailwind v4 maps `--color-*` CSS vars to utility classes automatically)
-  - [ ] Do NOT alter the existing shadcn/ui OKLCH token system — add On Record tokens alongside it
+- [x] Task 1: Extend `globals.css` with On Record design tokens (AC: 1, 6, 7)
+  - [x] Add On Record color custom properties to `:root` block: `--on-record-primary: #1e3a4f`, `--on-record-accent: #c47d2e`, `--on-record-surface: #fafaf8`, `--on-record-text: #1a1a1a`, `--on-record-error: #b91c1c`, `--on-record-success: #2e7d52`
+  - [x] Add dark mode variants inside `.dark {}` block: `--on-record-primary: #0a1520`, `--on-record-accent: #d4922a`, `--on-record-surface: #0f1f2b`, `--on-record-text: #e8e4dc`
+  - [x] Expose via `@theme inline` block: `--color-on-record-primary: var(--on-record-primary)`, `--color-on-record-accent: var(--on-record-accent)`, `--color-on-record-surface: var(--on-record-surface)`, `--color-on-record-text: var(--on-record-text)`, `--color-on-record-error: var(--on-record-error)`, `--color-on-record-success: var(--on-record-success)`
+  - [x] Verify Tailwind utility classes `bg-on-record-primary`, `border-on-record-accent`, `text-on-record-text` etc. resolve correctly (Tailwind v4 maps `--color-*` CSS vars to utility classes automatically)
+  - [x] Do NOT alter the existing shadcn/ui OKLCH token system — add On Record tokens alongside it
 
-- [ ] Task 2: Create `apps/web/src/components/` directory and `LegislatorCard.tsx` (AC: 1, 2, 3, 7, 8)
-  - [ ] Create `apps/web/src/components/LegislatorCard.tsx` as Client Component (`"use client"`)
-  - [ ] Props interface: `{ legislator: Legislator; selectable?: boolean; selected?: boolean; onSelect?: () => void }` — import `Legislator` from `@on-record/types`
-  - [ ] Render as `<article>` with `aria-label` including legislator name, chamber, and district
-  - [ ] Apply amber 3px top border: `border-t-[3px] border-on-record-accent` — no hardcoded hex
-  - [ ] Apply card container styles: `bg-on-record-surface rounded-md shadow-sm p-4` (off-white surface, 10px border-radius, soft shadow matching UX spec)
-  - [ ] Chamber badge: `<span>` styled as badge; display "House" or "Senate" based on `legislator.chamber`; use `bg-on-record-primary text-white` — no hardcoded hex
-  - [ ] Legislator name as `<h2>` (required by UX spec a11y section — "LegislatorCard: `<article>` with descriptive heading. Legislator name is `<h2>`")
-  - [ ] District line: "District {number}" text in muted style
-  - [ ] Email link: `<a href="mailto:{email}">` using `legislator.email`
-  - [ ] Phone display: show `legislator.phone`; if `legislator.phoneLabel` present, show label in parens; if `legislator.phoneTypeUnknown === true`, show "number type unknown" flag (FR5)
-  - [ ] When `selectable === true`: add `role="button"`, `tabIndex={0}`, `aria-pressed={selected}`, `onClick={onSelect}`, `onKeyDown` handler for Enter/Space calling `onSelect`
-  - [ ] Focus ring: `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-on-record-accent focus-visible:ring-offset-2` — 2px amber, 2px offset (UX spec requirement; never suppress without replacement)
-  - [ ] Hover/press transitions gated on `motion-safe:` prefix (UX spec: `prefers-reduced-motion` honored)
-  - [ ] Zero hardcoded hex values — all colors via On Record design token Tailwind classes
+- [x] Task 2: Create `apps/web/src/components/` directory and `LegislatorCard.tsx` (AC: 1, 2, 3, 7, 8)
+  - [x] Create `apps/web/src/components/LegislatorCard.tsx` as Client Component (`"use client"`)
+  - [x] Props interface: `{ legislator: Legislator; selectable?: boolean; selected?: boolean; onSelect?: () => void }` — import `Legislator` from `@on-record/types`
+  - [x] Render as `<article>` with `aria-label` including legislator name, chamber, and district
+  - [x] Apply amber 3px top border: `border-t-[3px] border-on-record-accent` — no hardcoded hex
+  - [x] Apply card container styles: `bg-on-record-surface rounded-md shadow-sm p-4` (off-white surface, 10px border-radius, soft shadow matching UX spec)
+  - [x] Chamber badge: `<span>` styled as badge; display "House" or "Senate" based on `legislator.chamber`; use `bg-on-record-primary text-white` — no hardcoded hex
+  - [x] Legislator name as `<h2>` (required by UX spec a11y section — "LegislatorCard: `<article>` with descriptive heading. Legislator name is `<h2>`")
+  - [x] District line: "District {number}" text in muted style
+  - [x] Email link: `<a href="mailto:{email}">` using `legislator.email`
+  - [x] Phone display: show `legislator.phone`; if `legislator.phoneLabel` present, show label in parens; if `legislator.phoneTypeUnknown === true`, show "number type unknown" flag (FR5)
+  - [x] When `selectable === true`: add `role="button"`, `tabIndex={0}`, `aria-pressed={selected}`, `onClick={onSelect}`, `onKeyDown` handler for Enter/Space calling `onSelect`
+  - [x] Focus ring: `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-on-record-accent focus-visible:ring-offset-2` — 2px amber, 2px offset (UX spec requirement; never suppress without replacement)
+  - [x] Hover/press transitions gated on `motion-safe:` prefix (UX spec: `prefers-reduced-motion` honored)
+  - [x] Zero hardcoded hex values — all colors via On Record design token Tailwind classes
 
-- [ ] Task 3: Create `LegislatorCardSkeleton` (loading state) (AC: 4, 5)
-  - [ ] Add shadcn/ui `Skeleton` primitive via CLI: `pnpm --filter web exec npx shadcn@latest add skeleton`
-  - [ ] Add `LegislatorCardSkeleton` as a named export from `LegislatorCard.tsx` (same file — co-located variant)
-  - [ ] Skeleton container: same padding, border-radius, shadow as real card (`border-t-[3px] border-on-record-accent/30 bg-on-record-surface rounded-md shadow-sm p-4`)
-  - [ ] Skeleton rows mimic real card anatomy: badge area (w-16, h-5), name area (w-48, h-6), district line (w-24, h-4), email line (w-56, h-4), phone line (w-40, h-4)
-  - [ ] Use shadcn/ui `<Skeleton>` primitive for all shimmer rows
-  - [ ] Add `aria-busy="true"` and `aria-label="Loading legislator information"` on skeleton container
-  - [ ] Skeleton shimmer animation gated on `motion-safe:animate-pulse` (UX spec requirement)
+- [x] Task 3: Create `LegislatorCardSkeleton` (loading state) (AC: 4, 5)
+  - [x] Add shadcn/ui `Skeleton` primitive via CLI: `pnpm --filter web exec npx shadcn@latest add skeleton`
+  - [x] Add `LegislatorCardSkeleton` as a named export from `LegislatorCard.tsx` (same file — co-located variant)
+  - [x] Skeleton container: same padding, border-radius, shadow as real card (`border-t-[3px] border-on-record-accent/30 bg-on-record-surface rounded-md shadow-sm p-4`)
+  - [x] Skeleton rows mimic real card anatomy: badge area (w-16, h-5), name area (w-48, h-6), district line (w-24, h-4), email line (w-56, h-4), phone line (w-40, h-4)
+  - [x] Use shadcn/ui `<Skeleton>` primitive for all shimmer rows
+  - [x] Add `aria-busy="true"` and `aria-label="Loading legislator information"` on skeleton container
+  - [x] Skeleton shimmer animation gated on `motion-safe:animate-pulse` (UX spec requirement)
 
-- [ ] Task 4: Add Vitest setup to `apps/web` and write component tests (AC: 1–8)
-  - [ ] Install Vitest devDependencies: `vitest@^4`, `@vitejs/plugin-react@^4`, `@testing-library/react@^16`, `@testing-library/jest-dom@^6`, `jsdom@^26`
-  - [ ] Add `"test": "vitest run"` to `apps/web/package.json` scripts
-  - [ ] Create `apps/web/vitest.config.ts` with jsdom environment, React plugin, `@` path alias pointing to `src/`
-  - [ ] Create `apps/web/vitest.setup.ts` that imports `@testing-library/jest-dom`
-  - [ ] Create `apps/web/src/components/LegislatorCard.test.tsx` co-located next to source
-  - [ ] Test: renders legislator name as h2
-  - [ ] Test: renders "House" badge for house chamber
-  - [ ] Test: renders "Senate" badge for senate chamber
-  - [ ] Test: renders "District {n}" text
-  - [ ] Test: renders email as mailto anchor with correct href
-  - [ ] Test: renders phone label in parens when `phoneLabel` present
-  - [ ] Test: renders "number type unknown" when `phoneTypeUnknown === true`
-  - [ ] Test: no `role="button"` when `selectable` is false/omitted
-  - [ ] Test: `role="button"` + `aria-pressed="false"` when `selectable={true}` and `selected={false}`
-  - [ ] Test: `aria-pressed="true"` when `selectable={true}` and `selected={true}`
-  - [ ] Test: calls `onSelect` on click when selectable
-  - [ ] Test: calls `onSelect` on Enter key when selectable
-  - [ ] Test: calls `onSelect` on Space key when selectable
-  - [ ] Test: LegislatorCardSkeleton renders without error (smoke test)
-  - [ ] Test: LegislatorCardSkeleton has no heading or link (no legislator data rendered)
+- [x] Task 4: Add Vitest setup to `apps/web` and write component tests (AC: 1–8)
+  - [x] Install Vitest devDependencies: `vitest@^4`, `@vitejs/plugin-react@^4`, `@testing-library/react@^16`, `@testing-library/jest-dom@^6`, `jsdom@^26`
+  - [x] Add `"test": "vitest run"` to `apps/web/package.json` scripts
+  - [x] Create `apps/web/vitest.config.ts` with jsdom environment, React plugin, `@` path alias pointing to `src/`
+  - [x] Create `apps/web/vitest.setup.ts` that imports `@testing-library/jest-dom` (exists as `apps/web/src/test/setup.ts` from Story 2.5)
+  - [x] Create `apps/web/src/components/LegislatorCard.test.tsx` co-located next to source
+  - [x] Test: renders legislator name as h2
+  - [x] Test: renders "House" badge for house chamber
+  - [x] Test: renders "Senate" badge for senate chamber
+  - [x] Test: renders "District {n}" text
+  - [x] Test: renders email as mailto anchor with correct href
+  - [x] Test: renders phone label in parens when `phoneLabel` present
+  - [x] Test: renders "number type unknown" when `phoneTypeUnknown === true`
+  - [x] Test: no `role="button"` when `selectable` is false/omitted
+  - [x] Test: `role="button"` + `aria-pressed="false"` when `selectable={true}` and `selected={false}`
+  - [x] Test: `aria-pressed="true"` when `selectable={true}` and `selected={true}`
+  - [x] Test: calls `onSelect` on click when selectable
+  - [x] Test: calls `onSelect` on Enter key when selectable
+  - [x] Test: calls `onSelect` on Space key when selectable
+  - [x] Test: LegislatorCardSkeleton renders without error (smoke test)
+  - [x] Test: LegislatorCardSkeleton has no heading or link (no legislator data rendered)
 
-- [ ] Task 5: Update CI to run web tests (prerequisite: Task 4)
-  - [ ] Open `.github/workflows/ci.yml`
-  - [ ] After the existing `Unit tests (mcp-server)` step, add: `- name: Unit tests (web)` / `  run: pnpm --filter web test`
-  - [ ] Note: Story 1.5 explicitly deferred web Vitest to story 2.6; this closes that deferral
+- [x] Task 5: Update CI to run web tests (prerequisite: Task 4)
+  - [x] Open `.github/workflows/ci.yml`
+  - [x] After the existing `Unit tests (mcp-server)` step, add: `- name: Unit tests (web)` / `  run: pnpm --filter web test`
+  - [x] Note: Story 1.5 explicitly deferred web Vitest to story 2.6; this closes that deferral
 
-- [ ] Task 6: Final verification (AC: 1–8)
-  - [ ] `pnpm --filter web test` passes (all 15+ LegislatorCard tests green)
-  - [ ] `pnpm --filter web typecheck` passes (no TypeScript errors in new files)
-  - [ ] `pnpm --filter web lint` passes (no ESLint violations)
-  - [ ] Grep `LegislatorCard.tsx` for any hex string (`#[0-9a-fA-F]`) — expect zero matches
-  - [ ] Confirm skeleton container dimensions match the card layout (manual inspection or snapshot)
+- [x] Task 6: Final verification (AC: 1–8)
+  - [x] `pnpm --filter web test` passes (all 16 LegislatorCard tests + 6 ErrorBanner tests = 22 total green)
+  - [x] `pnpm --filter web typecheck` passes (no TypeScript errors in new files)
+  - [x] `pnpm --filter web lint` passes (no ESLint violations)
+  - [x] Grep `LegislatorCard.tsx` for any hex string (`#[0-9a-fA-F]`) — zero matches confirmed
+  - [x] Confirm skeleton container dimensions match the card layout (manual inspection — identical structure)
 
 ## Dev Notes
 
@@ -687,6 +687,29 @@ claude-sonnet-4-6
 
 ### Debug Log References
 
+None — implementation proceeded without blocking issues.
+
 ### Completion Notes List
 
+- All 6 On Record design tokens added to `globals.css` `:root` block (light mode) and `.dark` block, then exposed via `@theme inline` block with `--color-on-record-*` mapping for Tailwind v4 automatic utility generation.
+- Existing shadcn/ui OKLCH token system left fully intact; `--on-record-*` namespace cleanly separates brand tokens.
+- `LegislatorCard.tsx` created as `"use client"` component with `<article>` wrapper, `<h2>` name, chamber badge, district, email mailto link, phone with label/unknown flag, full ARIA selectable state (`role="button"`, `aria-pressed`), keyboard handler (Enter+Space), focus ring, and motion-safe transitions. Zero hardcoded hex values.
+- `LegislatorCardSkeleton` exported from same file. Uses shadcn/ui `<Skeleton>` with `[animation:none] motion-safe:animate-pulse` pattern to gate shimmer behind `prefers-reduced-motion`. Matches real card anatomy exactly.
+- shadcn/ui `Skeleton` added via CLI (`pnpm --filter web exec npx shadcn@latest add skeleton`), creating `src/components/ui/skeleton.tsx`. File not edited directly.
+- Vitest/RTL infrastructure was already in place from Story 2.5 (vitest.config.ts, src/test/setup.ts, devDependencies, test script). Task 4 found these pre-existing and created only the test file.
+- 16 tests written for `LegislatorCard` + 3 for `LegislatorCardSkeleton` = 16 total (plus pre-existing 6 ErrorBanner = 22 pass).
+- `.github/workflows/ci.yml` updated with `Unit tests (web)` step after `Unit tests (mcp-server)`, closing Story 1.5 deferral.
+- All validations: `pnpm --filter web test` (22/22), `pnpm --filter web typecheck` (0 errors), `pnpm --filter web lint` (0 violations).
+
 ### File List
+
+- `.github/workflows/ci.yml` — MODIFIED: added `Unit tests (web)` step
+- `apps/web/src/app/globals.css` — MODIFIED: added On Record brand tokens to `@theme`, `:root`, and `.dark` blocks
+- `apps/web/src/components/LegislatorCard.tsx` — NEW: `LegislatorCard` + `LegislatorCardSkeleton` exports
+- `apps/web/src/components/LegislatorCard.test.tsx` — NEW: 16 Vitest/RTL tests
+- `apps/web/src/components/ui/skeleton.tsx` — NEW (auto-generated by shadcn/ui CLI — do not edit)
+- `pnpm-lock.yaml` — MODIFIED: updated by `pnpm install` after skeleton CLI addition
+
+## Change Log
+
+- 2026-03-03: Implemented Story 2.6 — added On Record design tokens to globals.css, created LegislatorCard component with full ARIA/keyboard support and LegislatorCardSkeleton, added 16 component tests (22 total pass), added skeleton via shadcn/ui CLI, added Unit tests (web) step to CI. Status: ready-for-dev → review.
