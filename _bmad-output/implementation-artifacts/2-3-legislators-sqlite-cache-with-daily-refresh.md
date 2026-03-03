@@ -1,6 +1,6 @@
 # Story 2.3: Legislators SQLite Cache with Daily Refresh
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -19,39 +19,39 @@ So that the `lookup_legislator` tool serves results in under 3 seconds without h
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Implement `apps/mcp-server/src/cache/legislators.ts` — cache read/write module (AC: #1, #2, #5, #6)
-  - [ ] 1.1 Define `writeLegislators(db: Database.Database, legislators: Legislator[]): void` — upserts all rows using `INSERT OR REPLACE INTO legislators (...)` in a single transaction; sets `cached_at` to `new Date().toISOString()`
-  - [ ] 1.2 Define `getLegislatorsByDistrict(db: Database.Database, chamber: 'house' | 'senate', district: number): Legislator[]` — reads from `legislators` table, maps snake_case columns to camelCase `Legislator` fields
-  - [ ] 1.3 Handle `phone_label` NULL → `phoneTypeUnknown: true` on returned `Legislator`; if `phone_label` is present → populate `phoneLabel`
-  - [ ] 1.4 Accept `db: Database.Database` as a parameter (dependency injection) — do NOT import `better-sqlite3` or the `db` singleton here; receive from callers
+- [x] Task 1: Implement `apps/mcp-server/src/cache/legislators.ts` — cache read/write module (AC: #1, #2, #5, #6)
+  - [x] 1.1 Define `writeLegislators(db: Database.Database, legislators: Legislator[]): void` — upserts all rows using `INSERT OR REPLACE INTO legislators (...)` in a single transaction; sets `cached_at` to `new Date().toISOString()`
+  - [x] 1.2 Define `getLegislatorsByDistrict(db: Database.Database, chamber: 'house' | 'senate', district: number): Legislator[]` — reads from `legislators` table, maps snake_case columns to camelCase `Legislator` fields
+  - [x] 1.3 Handle `phone_label` NULL → `phoneTypeUnknown: true` on returned `Legislator`; if `phone_label` is present → populate `phoneLabel`
+  - [x] 1.4 Accept `db: Database.Database` as a parameter (dependency injection) — do NOT import `better-sqlite3` or the `db` singleton here; receive from callers
 
-- [ ] Task 2: Implement `apps/mcp-server/src/providers/types.ts` — `LegislatureDataProvider` interface (AC: #1)
-  - [ ] 2.1 Define `interface LegislatureDataProvider` with: `getLegislatorsByDistrict(chamber: 'house' | 'senate', district: number): Promise<Legislator[]>`, `getBillsBySession(session: string): Promise<Bill[]>`, `getBillDetail(billId: string): Promise<BillDetail>`
-  - [ ] 2.2 All return types use types imported from `@on-record/types`
+- [x] Task 2: Implement `apps/mcp-server/src/providers/types.ts` — `LegislatureDataProvider` interface (AC: #1)
+  - [x] 2.1 Define `interface LegislatureDataProvider` with: `getLegislatorsByDistrict(chamber: 'house' | 'senate', district: number): Promise<Legislator[]>`, `getBillsBySession(session: string): Promise<Bill[]>`, `getBillDetail(billId: string): Promise<BillDetail>`
+  - [x] 2.2 All return types use types imported from `@on-record/types`
 
-- [ ] Task 3: Implement `apps/mcp-server/src/providers/utah-legislature.ts` — Utah Legislature API provider (AC: #1, #3)
-  - [ ] 3.1 Export `UtahLegislatureProvider` class (or factory) implementing `LegislatureDataProvider`
-  - [ ] 3.2 `getLegislatorsByDistrict`: fetch from `glen.le.utah.gov` using `getEnv().UTAH_LEGISLATURE_API_KEY`; wrap with `retryWithDelay(fn, 2, 1000)`
-  - [ ] 3.3 Map API response to `Legislator` type; set `phoneTypeUnknown: true` when API provides no phone type label
-  - [ ] 3.4 Stub `getBillsBySession` and `getBillDetail` with `throw createAppError('legislature-api', 'Not implemented in Story 2.3', 'Implement in Story 3.1')` — fulfills interface contract; implemented in Epic 3
+- [x] Task 3: Implement `apps/mcp-server/src/providers/utah-legislature.ts` — Utah Legislature API provider (AC: #1, #3)
+  - [x] 3.1 Export `UtahLegislatureProvider` class (or factory) implementing `LegislatureDataProvider`
+  - [x] 3.2 `getLegislatorsByDistrict`: fetch from `glen.le.utah.gov` using `getEnv().UTAH_LEGISLATURE_API_KEY`; wrap with `retryWithDelay(fn, 2, 1000)`
+  - [x] 3.3 Map API response to `Legislator` type; set `phoneTypeUnknown: true` when API provides no phone type label
+  - [x] 3.4 Stub `getBillsBySession` and `getBillDetail` with `throw createAppError('legislature-api', 'Not implemented in Story 2.3', 'Implement in Story 3.1')` — fulfills interface contract; implemented in Epic 3
 
-- [ ] Task 4: Implement `apps/mcp-server/src/cache/refresh.ts` — cron scheduler and warm-up (AC: #1, #3, #4)
-  - [ ] 4.1 Add `node-cron` `4.2.1` to `apps/mcp-server/package.json` `dependencies`; run `pnpm install` from monorepo root and commit updated `pnpm-lock.yaml`
-  - [ ] 4.2 Implement `warmUpLegislatorsCache(db: Database.Database, provider: LegislatureDataProvider): Promise<void>` — fetches all districts (House 1–75, Senate 1–29), calls `writeLegislators(db, flattenedResults)`
-  - [ ] 4.3 Implement `scheduleLegislatorsRefresh(db: Database.Database, provider: LegislatureDataProvider): void` — registers `schedule('0 6 * * *', () => { warmUpLegislatorsCache(...).catch(...) })`; never throws from cron callback
-  - [ ] 4.4 On refresh failure: `logger.error({ source: 'legislature-api', err }, 'Legislator cache refresh failed')` — serve stale data silently
-  - [ ] 4.5 On refresh success: `logger.info({ source: 'cache' }, 'Legislators cache refreshed')`
+- [x] Task 4: Implement `apps/mcp-server/src/cache/refresh.ts` — cron scheduler and warm-up (AC: #1, #3, #4)
+  - [x] 4.1 Add `node-cron` `4.2.1` to `apps/mcp-server/package.json` `dependencies`; run `pnpm install` from monorepo root and commit updated `pnpm-lock.yaml`
+  - [x] 4.2 Implement `warmUpLegislatorsCache(db: Database.Database, provider: LegislatureDataProvider): Promise<void>` — fetches all districts (House 1–75, Senate 1–29), calls `writeLegislators(db, flattenedResults)`
+  - [x] 4.3 Implement `scheduleLegislatorsRefresh(db: Database.Database, provider: LegislatureDataProvider): void` — registers `schedule('0 6 * * *', () => { warmUpLegislatorsCache(...).catch(...) })`; never throws from cron callback
+  - [x] 4.4 On refresh failure: `logger.error({ source: 'legislature-api', err }, 'Legislator cache refresh failed')` — serve stale data silently
+  - [x] 4.5 On refresh success: `logger.info({ source: 'cache' }, 'Legislators cache refreshed')`
 
-- [ ] Task 5: Wire up in `apps/mcp-server/src/index.ts` (AC: #1, #3)
-  - [ ] 5.1 Instantiate `UtahLegislatureProvider` after env validation and schema init
-  - [ ] 5.2 Call `await warmUpLegislatorsCache(db, provider)` BEFORE `serve(...)` — server does not start accepting connections until warm-up completes
-  - [ ] 5.3 Call `scheduleLegislatorsRefresh(db, provider)` inside the `serve(...)` callback (after server is listening)
-  - [ ] 5.4 Log: `logger.info({ source: 'cache' }, 'Legislators cache warm-up complete')` after warm-up
+- [x] Task 5: Wire up in `apps/mcp-server/src/index.ts` (AC: #1, #3)
+  - [x] 5.1 Instantiate `UtahLegislatureProvider` after env validation and schema init
+  - [x] 5.2 Call `await warmUpLegislatorsCache(db, provider)` BEFORE `serve(...)` — server does not start accepting connections until warm-up completes
+  - [x] 5.3 Call `scheduleLegislatorsRefresh(db, provider)` inside the `serve(...)` callback (after server is listening)
+  - [x] 5.4 Log: `logger.info({ source: 'cache' }, 'Legislators cache warm-up complete')` after warm-up
 
-- [ ] Task 6: Write co-located tests (AC: all)
-  - [ ] 6.1 `cache/legislators.test.ts` — in-memory SQLite + `initializeSchema`; test: upsert correctness; read by chamber+district; `phone_label` NULL → `phoneTypeUnknown: true`; `phone_label` present → `phoneLabel` set
-  - [ ] 6.2 `providers/utah-legislature.test.ts` — mock `fetch`; test: correct URL construction, `retryWithDelay` wrapping, phone label mapping
-  - [ ] 6.3 `cache/refresh.test.ts` — mock provider; test: `warmUpLegislatorsCache` calls `writeLegislators` with flattened results; provider failure → logged, not thrown; cron expression is `'0 6 * * *'`
+- [x] Task 6: Write co-located tests (AC: all)
+  - [x] 6.1 `cache/legislators.test.ts` — in-memory SQLite + `initializeSchema`; test: upsert correctness; read by chamber+district; `phone_label` NULL → `phoneTypeUnknown: true`; `phone_label` present → `phoneLabel` set
+  - [x] 6.2 `providers/utah-legislature.test.ts` — mock `fetch`; test: correct URL construction, `retryWithDelay` wrapping, phone label mapping
+  - [x] 6.3 `cache/refresh.test.ts` — mock provider; test: `warmUpLegislatorsCache` calls `writeLegislators` with flattened results; provider failure → logged, not thrown; cron expression is `'0 6 * * *'`
 
 ## Dev Notes
 
@@ -273,10 +273,40 @@ packages/types/index.ts               — Legislator type already defined (Story
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+claude-sonnet-4-6
 
 ### Debug Log References
 
+- TS1309 (top-level await in CJS): `index.ts` uses CommonJS NodeNext without `"type": "module"`. Resolved by wrapping warm-up and `serve()` inside a `startServer()` async function called as a void IIFE with `.catch()` for error handling.
+- Tasks 2 and 3 (`providers/types.ts` and `providers/utah-legislature.ts`) were already fully implemented by Story 2.2. Marked complete as-is after verification; no changes needed.
+
 ### Completion Notes List
 
+- Implemented `cache/legislators.ts` with `writeLegislators` (INSERT OR REPLACE transaction) and `getLegislatorsByDistrict` (snake_case → camelCase mapping; phone_label NULL → phoneTypeUnknown: true).
+- Implemented `cache/refresh.ts` with `warmUpLegislatorsCache` (Promise.all over 75 house + 29 senate districts) and `scheduleLegislatorsRefresh` (node-cron `'0 6 * * *'`; cron callback wraps async with `.then().catch()` — never throws).
+- Wired up in `index.ts` via async `startServer()` function: warm-up awaited before `serve()`, cron registered in serve callback.
+- Added `node-cron@4.2.1` to `apps/mcp-server/package.json` and ran `pnpm install` to update `pnpm-lock.yaml`.
+- All 87 tests pass (10 test files); typecheck clean; ESLint clean.
+- Boundary 4 enforced: `cache/legislators.ts` and `cache/refresh.ts` receive `db` as parameter — no `better-sqlite3` or `cache/db` imports outside `src/cache/`.
+
 ### File List
+
+**New files created:**
+- `apps/mcp-server/src/cache/legislators.ts`
+- `apps/mcp-server/src/cache/legislators.test.ts`
+- `apps/mcp-server/src/cache/refresh.ts`
+- `apps/mcp-server/src/cache/refresh.test.ts`
+
+**Existing files modified:**
+- `apps/mcp-server/src/index.ts` — added STEP 2.6 warm-up imports and `startServer()` async wrapper
+- `apps/mcp-server/package.json` — added `node-cron: 4.2.1` to dependencies
+- `pnpm-lock.yaml` — updated by `pnpm install`
+
+**Already implemented (Story 2.2, no changes needed):**
+- `apps/mcp-server/src/providers/types.ts`
+- `apps/mcp-server/src/providers/utah-legislature.ts`
+- `apps/mcp-server/src/providers/utah-legislature.test.ts`
+
+## Change Log
+
+- 2026-03-03: Story 2.3 implemented — legislators SQLite cache with daily cron refresh. Added `cache/legislators.ts`, `cache/refresh.ts`, and co-located tests. Wired up warm-up and cron scheduler in `index.ts`. Added `node-cron@4.2.1` dependency.

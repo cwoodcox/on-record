@@ -14,6 +14,11 @@ import { initializeSchema } from './cache/schema.js'
 initializeSchema(db)
 logger.info({ source: 'cache' }, 'SQLite schema initialized')
 
+// STEP 2.6: Legislators cache warm-up (Story 2.3)
+// Imported here — warm-up awaited inside startServer() below before serve() is called.
+import { UtahLegislatureProvider } from './providers/utah-legislature.js'
+import { warmUpLegislatorsCache, scheduleLegislatorsRefresh } from './cache/refresh.js'
+
 // STEP 3: Framework imports
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
@@ -159,12 +164,28 @@ process.on('unhandledRejection', (reason) => {
 app.get('/health', (c) => c.json({ status: 'ok', service: 'on-record-mcp-server' }))
 
 // ── Start server ───────────────────────────────────────────────────────────
-serve(
-  {
-    fetch: app.fetch,
-    port: env.PORT,
-  },
-  (info) => {
-    logger.info({ source: 'app', port: info.port }, 'On Record MCP server started')
-  }
-)
+// startServer is async to support await on warm-up before accepting connections.
+// CommonJS modules do not support top-level await — wrap in an async IIFE.
+async function startServer(): Promise<void> {
+  // STEP 2.6: Legislators cache warm-up (Story 2.3)
+  // Instantiate provider and complete warm-up BEFORE serve() starts.
+  const provider = new UtahLegislatureProvider()
+  await warmUpLegislatorsCache(db, provider)
+  logger.info({ source: 'cache', districtCount: 104 }, 'Legislators cache warm-up complete')
+
+  serve(
+    {
+      fetch: app.fetch,
+      port: env.PORT,
+    },
+    (info) => {
+      logger.info({ source: 'app', port: info.port }, 'On Record MCP server started')
+      scheduleLegislatorsRefresh(db, provider)
+    }
+  )
+}
+
+startServer().catch((err: unknown) => {
+  logger.error({ source: 'app', err }, 'Failed to start server')
+  process.exit(1)
+})
