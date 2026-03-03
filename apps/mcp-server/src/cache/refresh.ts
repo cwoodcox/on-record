@@ -1,12 +1,10 @@
 // apps/mcp-server/src/cache/refresh.ts
 // Legislators cache warm-up and daily refresh scheduler.
-// Boundary 4: receives `db` as a parameter — does NOT import better-sqlite3 directly.
 // Cron callback must NOT be async or throw — async work is wrapped with .catch().
-import type Database from 'better-sqlite3'
 import { schedule } from 'node-cron'
 import { logger } from '../lib/logger.js'
 import type { LegislatureDataProvider } from '../providers/types.js'
-import { writeLegislators } from './legislators.js'
+import { upsertLegislators } from './legislators.js'
 
 // Utah legislative districts:
 //   House:  1–75  (75 districts)
@@ -19,11 +17,9 @@ const SENATE_DISTRICTS = Array.from({ length: 29 }, (_, i) => i + 1)
  * 104 total calls (75 house + 29 senate) using Promise.all — acceptable burst on startup
  * since legislators refresh at most once per day.
  *
- * @param db       - Database instance injected from index.ts
  * @param provider - Data provider (UtahLegislatureProvider or test mock)
  */
 export async function warmUpLegislatorsCache(
-  db: Database.Database,
   provider: LegislatureDataProvider,
 ): Promise<void> {
   const houseCalls = HOUSE_DISTRICTS.map((district) =>
@@ -37,7 +33,7 @@ export async function warmUpLegislatorsCache(
 
   // Flatten all Legislator[] arrays into a single array for a single transactional write
   const legislators = allResults.flat()
-  writeLegislators(db, legislators)
+  upsertLegislators(legislators)
 }
 
 /**
@@ -47,15 +43,13 @@ export async function warmUpLegislatorsCache(
  * On failure: logs with source 'legislature-api'; stale data continues to be served (NFR17).
  * On success: logs with source 'cache'.
  *
- * @param db       - Database instance injected from index.ts
  * @param provider - Data provider
  */
 export function scheduleLegislatorsRefresh(
-  db: Database.Database,
   provider: LegislatureDataProvider,
 ): void {
   schedule('0 6 * * *', () => {
-    warmUpLegislatorsCache(db, provider)
+    warmUpLegislatorsCache(provider)
       .then(() => {
         logger.info({ source: 'cache' }, 'Legislators cache refreshed')
       })

@@ -19,6 +19,9 @@ logger.info({ source: 'cache' }, 'SQLite schema initialized')
 import { UtahLegislatureProvider } from './providers/utah-legislature.js'
 import { warmUpLegislatorsCache, scheduleLegislatorsRefresh } from './cache/refresh.js'
 
+// STEP 2.7: MCP tool registrations (Story 2.4)
+import { registerLookupLegislatorTool } from './tools/legislator-lookup.js'
+
 // STEP 3: Framework imports
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
@@ -102,8 +105,8 @@ app.post('/mcp', async (c) => {
       version: '1.0.0',
     })
 
-    // Tools are registered in Stories 2.4 (lookup_legislator) and 3.5 (search_bills).
-    // This empty McpServer still accepts connections and responds to MCP initialize.
+    registerLookupLegislatorTool(server) // Story 2.4
+    // registerSearchBillsTool(server)    // Story 3.5 (add here when ready)
 
     // @ts-expect-error -- StreamableHTTPServerTransport.onclose is typed as `(() => void) | undefined`
     // which conflicts with McpServer.connect's Transport interface under exactOptionalPropertyTypes; SDK issue
@@ -170,7 +173,7 @@ async function startServer(): Promise<void> {
   // STEP 2.6: Legislators cache warm-up (Story 2.3)
   // Instantiate provider and complete warm-up BEFORE serve() starts.
   const provider = new UtahLegislatureProvider()
-  await warmUpLegislatorsCache(db, provider)
+  await warmUpLegislatorsCache(provider)
   logger.info({ source: 'cache', districtCount: 104 }, 'Legislators cache warm-up complete')
 
   serve(
@@ -180,7 +183,7 @@ async function startServer(): Promise<void> {
     },
     (info) => {
       logger.info({ source: 'app', port: info.port }, 'On Record MCP server started')
-      scheduleLegislatorsRefresh(db, provider)
+      scheduleLegislatorsRefresh(provider)
     }
   )
 }

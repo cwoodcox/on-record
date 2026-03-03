@@ -1,6 +1,6 @@
 # Story 2.4: `lookup_legislator` MCP Tool
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -23,91 +23,91 @@ so that the chatbot can identify my House and Senate legislators and their conta
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create `apps/mcp-server/src/tools/legislator-lookup.ts` (AC: 1, 2, 3, 4, 5, 6, 7, 8, 9)
-  - [ ] Import `z` from `'zod'` for input schema definition
-  - [ ] Import `retryWithDelay` from `'../lib/retry.js'`
-  - [ ] Import `logger` from `'../lib/logger.js'`
-  - [ ] Import `getEnv` from `'../env.js'`
-  - [ ] Import `createAppError`, `isAppError`, `LookupLegislatorResult`, `Legislator` from `'@on-record/types'`
-  - [ ] Import cache read function `getLegislatorsByDistrict` from `'../cache/legislators.js'` (implemented in Task 2)
-  - [ ] Define `lookupLegislatorInputSchema` using zod: `{ address: z.string().min(1) }`
-  - [ ] Implement `parseAddress(address: string): { street: string; zone: string }` — private helper splitting on last comma; fallback to last whitespace token as zone
-  - [ ] Implement `ugrcGeocode(address: string): Promise<{ houseDistrict: number; senateDistrict: number }>` — private async function
-    - [ ] Phase 1: geocode via `GET https://api.mapserv.utah.gov/api/v1/geocode/{street}/{zone}?apiKey={UGRC_API_KEY}&spatialReference=4326`
-    - [ ] Parse `result.location.x` (lng) and `result.location.y` (lat); treat `score < 70` as failure
-    - [ ] Phase 2: SGID district lookups in parallel via `Promise.all`
-      - [ ] `GET .../search/political.state_house_districts/attributes?geometry=point:[x],[y]&spatialReference=4326&apiKey=...`
-      - [ ] `GET .../search/political.state_senate_districts/attributes?geometry=point:[x],[y]&spatialReference=4326&apiKey=...`
-    - [ ] Parse district: `parseInt(result[0].attributes.DIST, 10)`; throw on `isNaN` result
-    - [ ] Throw `createAppError('gis-api', ...)` on any HTTP error, parse failure, or low geocode score
-    - [ ] Log failures as `logger.error({ source: 'gis-api', address: '[REDACTED]', err }, '...')`
-  - [ ] Implement `registerLookupLegislatorTool(server: McpServer): void` — exported named function
-    - [ ] Call `server.tool('lookup_legislator', description, schema, handler)`
-    - [ ] Handler wraps UGRC call with `retryWithDelay(() => ugrcGeocode(address), 2, 1000)`
-    - [ ] On retry success: `logger.debug({ source: 'gis-api', address: '[REDACTED]' }, 'GIS lookup succeeded')`
-    - [ ] On retry exhaustion: `logger.error({ source: 'gis-api', address: '[REDACTED]', err }, 'GIS lookup failed after retries')`, return AppError JSON (preserve upstream AppError via `isAppError` check)
-    - [ ] Call `getLegislatorsByDistrict('house', houseDistrict)` and `getLegislatorsByDistrict('senate', senateDistrict)`
-    - [ ] Merge into `LookupLegislatorResult`: `legislators`, `session` (from first result), `resolvedAddress: address`
-    - [ ] If both arrays empty: return `createAppError('cache', 'No legislators found for resolved districts', 'Verify your address is in Utah and try again')` as JSON
-    - [ ] Success: `logger.info({ source: 'mcp-tool', address: '[REDACTED]', legislatorCount }, 'lookup_legislator succeeded')`
-    - [ ] Return `{ content: [{ type: 'text', text: JSON.stringify(result) }] }` on success
-    - [ ] Return `{ content: [{ type: 'text', text: JSON.stringify(appError) }] }` on any error path
-  - [ ] Named export only — no default export
-  - [ ] No barrel file — caller imports directly from `'./tools/legislator-lookup.js'`
+- [x] Task 1: Create `apps/mcp-server/src/tools/legislator-lookup.ts` (AC: 1, 2, 3, 4, 5, 6, 7, 8, 9)
+  - [x] Import `z` from `'zod'` for input schema definition
+  - [x] Import `retryWithDelay` from `'../lib/retry.js'`
+  - [x] Import `logger` from `'../lib/logger.js'`
+  - [x] Import `getEnv` from `'../env.js'`
+  - [x] Import `createAppError`, `isAppError`, `LookupLegislatorResult`, `Legislator` from `'@on-record/types'`
+  - [x] Import cache read function `getLegislatorsByDistrict` from `'../cache/legislators.js'` (implemented in Task 2)
+  - [x] Define `lookupLegislatorInputSchema` using zod: `{ address: z.string().min(1) }`
+  - [x] Implement `parseAddress(address: string): { street: string; zone: string }` — private helper splitting on last comma; fallback to last whitespace token as zone
+  - [x] Implement `ugrcGeocode(address: string): Promise<{ houseDistrict: number; senateDistrict: number }>` — private async function
+    - [x] Phase 1: geocode via `GET https://api.mapserv.utah.gov/api/v1/geocode/{street}/{zone}?apiKey={UGRC_API_KEY}&spatialReference=4326`
+    - [x] Parse `result.location.x` (lng) and `result.location.y` (lat); treat `score < 70` as failure
+    - [x] Phase 2: SGID district lookups in parallel via `Promise.all`
+      - [x] `GET .../search/political.state_house_districts/attributes?geometry=point:[x],[y]&spatialReference=4326&apiKey=...`
+      - [x] `GET .../search/political.state_senate_districts/attributes?geometry=point:[x],[y]&spatialReference=4326&apiKey=...`
+    - [x] Parse district: `parseInt(result[0].attributes.DIST, 10)`; throw on `isNaN` result
+    - [x] Throw `createAppError('gis-api', ...)` on any HTTP error, parse failure, or low geocode score
+    - [x] Log failures as `logger.error({ source: 'gis-api', address: '[REDACTED]', err }, '...')`
+  - [x] Implement `registerLookupLegislatorTool(server: McpServer): void` — exported named function
+    - [x] Call `server.tool('lookup_legislator', description, schema, handler)`
+    - [x] Handler wraps UGRC call with `retryWithDelay(() => ugrcGeocode(address), 2, 1000)`
+    - [x] On retry success: `logger.debug({ source: 'gis-api', address: '[REDACTED]' }, 'GIS lookup succeeded')`
+    - [x] On retry exhaustion: `logger.error({ source: 'gis-api', address: '[REDACTED]', err }, 'GIS lookup failed after retries')`, return AppError JSON (preserve upstream AppError via `isAppError` check)
+    - [x] Call `getLegislatorsByDistrict('house', houseDistrict)` and `getLegislatorsByDistrict('senate', senateDistrict)`
+    - [x] Merge into `LookupLegislatorResult`: `legislators`, `session` (from first result), `resolvedAddress: address`
+    - [x] If both arrays empty: return `createAppError('cache', 'No legislators found for resolved districts', 'Verify your address is in Utah and try again')` as JSON
+    - [x] Success: `logger.info({ source: 'mcp-tool', address: '[REDACTED]', legislatorCount }, 'lookup_legislator succeeded')`
+    - [x] Return `{ content: [{ type: 'text', text: JSON.stringify(result) }] }` on success
+    - [x] Return `{ content: [{ type: 'text', text: JSON.stringify(appError) }] }` on any error path
+  - [x] Named export only — no default export
+  - [x] No barrel file — caller imports directly from `'./tools/legislator-lookup.js'`
 
-- [ ] Task 2: Create `apps/mcp-server/src/cache/legislators.ts` (AC: 2, 3, 8)
-  - [ ] Import `db` from `'./db.js'` (only `cache/` modules import better-sqlite3 — Boundary 4)
-  - [ ] Import `Legislator` from `'@on-record/types'`
-  - [ ] Define `LegislatorRow` interface with snake_case column names matching the SQLite schema
-  - [ ] Implement `getLegislatorsByDistrict(chamber: 'house' | 'senate', district: number): Legislator[]`
-    - [ ] `SELECT id, chamber, district, name, email, phone, phone_label, session FROM legislators WHERE chamber = ? AND district = ?`
-    - [ ] Map `phone_label` (TEXT, nullable) → `phoneLabel?: string`
-    - [ ] If `phone_label` is null/empty: set `phoneTypeUnknown: true` (FR5); otherwise set `phoneLabel: row.phone_label`
-    - [ ] Return `Legislator[]` — empty array on cache miss
-    - [ ] No `console.log`
-  - [ ] Implement `upsertLegislators(legislators: Legislator[]): void`
-    - [ ] `INSERT OR REPLACE INTO legislators (id, chamber, district, name, email, phone, phone_label, session, cached_at) VALUES (...)`
-    - [ ] Map `phoneLabel` → `phone_label`; `undefined` → `null` for SQLite
-    - [ ] `cached_at` = `new Date().toISOString()`
-    - [ ] Wrap all rows in a single transaction for atomicity
-  - [ ] Both functions are named exports
+- [x] Task 2: Create `apps/mcp-server/src/cache/legislators.ts` (AC: 2, 3, 8)
+  - [x] Import `db` from `'./db.js'` (only `cache/` modules import better-sqlite3 — Boundary 4)
+  - [x] Import `Legislator` from `'@on-record/types'`
+  - [x] Define `LegislatorRow` interface with snake_case column names matching the SQLite schema
+  - [x] Implement `getLegislatorsByDistrict(chamber: 'house' | 'senate', district: number): Legislator[]`
+    - [x] `SELECT id, chamber, district, name, email, phone, phone_label, session FROM legislators WHERE chamber = ? AND district = ?`
+    - [x] Map `phone_label` (TEXT, nullable) → `phoneLabel?: string`
+    - [x] If `phone_label` is null/empty: set `phoneTypeUnknown: true` (FR5); otherwise set `phoneLabel: row.phone_label`
+    - [x] Return `Legislator[]` — empty array on cache miss
+    - [x] No `console.log`
+  - [x] Implement `upsertLegislators(legislators: Legislator[]): void`
+    - [x] `INSERT OR REPLACE INTO legislators (id, chamber, district, name, email, phone, phone_label, session, cached_at) VALUES (...)`
+    - [x] Map `phoneLabel` → `phone_label`; `undefined` → `null` for SQLite
+    - [x] `cached_at` = `new Date().toISOString()`
+    - [x] Wrap all rows in a single transaction for atomicity
+  - [x] Both functions are named exports
 
-- [ ] Task 3: Register the tool in `apps/mcp-server/src/index.ts` (AC: 5)
-  - [ ] Add import: `import { registerLookupLegislatorTool } from './tools/legislator-lookup.js'`
-  - [ ] Call `registerLookupLegislatorTool(server)` between `new McpServer(...)` and `server.connect(transport)` in the `else` branch
-  - [ ] Remove the placeholder comment at lines 100–101: `// Tools are registered in Stories 2.4 (lookup_legislator) and 3.5 (search_bills).`
-  - [ ] Keep a comment noting search_bills will be registered in Story 3.5
+- [x] Task 3: Register the tool in `apps/mcp-server/src/index.ts` (AC: 5)
+  - [x] Add import: `import { registerLookupLegislatorTool } from './tools/legislator-lookup.js'`
+  - [x] Call `registerLookupLegislatorTool(server)` between `new McpServer(...)` and `server.connect(transport)` in the `else` branch
+  - [x] Remove the placeholder comment at lines 100–101: `// Tools are registered in Stories 2.4 (lookup_legislator) and 3.5 (search_bills).`
+  - [x] Keep a comment noting search_bills will be registered in Story 3.5
 
-- [ ] Task 4: Write `apps/mcp-server/src/tools/legislator-lookup.test.ts` (AC: 10)
-  - [ ] `vi.mock('../cache/legislators.js', ...)` — never import better-sqlite3 in tool tests
-  - [ ] `vi.mock('../lib/logger.js', ...)` — mock logger to verify '[REDACTED]' invariant
-  - [ ] `vi.stubGlobal('fetch', mockFetch)` — no real HTTP calls in unit tests
-  - [ ] Test: valid address → UGRC returns districts → cache returns legislators → response JSON matches `LookupLegislatorResult`
-  - [ ] Test: UGRC geocode failure → retry exhausted → response JSON matches `AppError` with `source: 'gis-api'`
-  - [ ] Test: UGRC success but no legislators in cache → response JSON matches `AppError` with `source: 'cache'`
-  - [ ] Test: address redaction — logger mock calls never contain the actual address string; all contain `'[REDACTED]'`
-  - [ ] Test: `phoneTypeUnknown: true` set when `getLegislatorsByDistrict` returns a legislator with no phoneLabel
-  - [ ] Test: retry timing — use `vi.useFakeTimers()` + `vi.runAllTimersAsync()` to avoid real delays
-  - [ ] Co-locate at `apps/mcp-server/src/tools/legislator-lookup.test.ts`
+- [x] Task 4: Write `apps/mcp-server/src/tools/legislator-lookup.test.ts` (AC: 10)
+  - [x] `vi.mock('../cache/legislators.js', ...)` — never import better-sqlite3 in tool tests
+  - [x] `vi.mock('../lib/logger.js', ...)` — mock logger to verify '[REDACTED]' invariant
+  - [x] `vi.stubGlobal('fetch', mockFetch)` — no real HTTP calls in unit tests
+  - [x] Test: valid address → UGRC returns districts → cache returns legislators → response JSON matches `LookupLegislatorResult`
+  - [x] Test: UGRC geocode failure → retry exhausted → response JSON matches `AppError` with `source: 'gis-api'`
+  - [x] Test: UGRC success but no legislators in cache → response JSON matches `AppError` with `source: 'cache'`
+  - [x] Test: address redaction — logger mock calls never contain the actual address string; all contain `'[REDACTED]'`
+  - [x] Test: `phoneTypeUnknown: true` set when `getLegislatorsByDistrict` returns a legislator with no phoneLabel
+  - [x] Test: retry timing — use `vi.useFakeTimers()` + `vi.runAllTimersAsync()` to avoid real delays
+  - [x] Co-locate at `apps/mcp-server/src/tools/legislator-lookup.test.ts`
 
-- [ ] Task 5: Write `apps/mcp-server/src/cache/legislators.test.ts` (AC: 10)
-  - [ ] Create in-memory SQLite DB and call `initializeSchema` before test suite
-  - [ ] `vi.mock('./db.js', () => ({ db: testDb }))` to inject test database
-  - [ ] Import functions under test after mock registration (dynamic import or ensure mock hoisting)
-  - [ ] Test: `upsertLegislators` then `getLegislatorsByDistrict` returns correct data
-  - [ ] Test: camelCase ↔ snake_case field mapping round-trips correctly
-  - [ ] Test: `phone_label = null` in DB → `phoneTypeUnknown: true` in returned `Legislator`
-  - [ ] Test: `phone_label = 'cell'` in DB → `{ phoneLabel: 'cell' }` (no `phoneTypeUnknown` field)
-  - [ ] Test: district with no cached legislators → `getLegislatorsByDistrict` returns `[]`
-  - [ ] Test: `upsertLegislators` with empty array → no rows inserted, no error thrown
+- [x] Task 5: Write `apps/mcp-server/src/cache/legislators.test.ts` (AC: 10)
+  - [x] Create in-memory SQLite DB and call `initializeSchema` before test suite
+  - [x] `vi.mock('./db.js', () => ({ db: testDb }))` to inject test database
+  - [x] Import functions under test after mock registration (dynamic import or ensure mock hoisting)
+  - [x] Test: `upsertLegislators` then `getLegislatorsByDistrict` returns correct data
+  - [x] Test: camelCase ↔ snake_case field mapping round-trips correctly
+  - [x] Test: `phone_label = null` in DB → `phoneTypeUnknown: true` in returned `Legislator`
+  - [x] Test: `phone_label = 'cell'` in DB → `{ phoneLabel: 'cell' }` (no `phoneTypeUnknown` field)
+  - [x] Test: district with no cached legislators → `getLegislatorsByDistrict` returns `[]`
+  - [x] Test: `upsertLegislators` with empty array → no rows inserted, no error thrown
 
-- [ ] Task 6: Final verification (AC: 10)
-  - [ ] `pnpm --filter mcp-server typecheck` — zero errors
-  - [ ] `pnpm --filter mcp-server test` — all tests pass
-  - [ ] `pnpm --filter mcp-server lint` — zero ESLint violations, no `console.log`
-  - [ ] Confirm no `better-sqlite3` import in `tools/legislator-lookup.ts`
-  - [ ] Confirm `resolvedAddress` is in the MCP JSON response and `'[REDACTED]'` is in all log context objects
-  - [ ] Confirm no `tools/index.ts` barrel file created
+- [x] Task 6: Final verification (AC: 10)
+  - [x] `pnpm --filter mcp-server typecheck` — zero errors
+  - [x] `pnpm --filter mcp-server test` — all tests pass
+  - [x] `pnpm --filter mcp-server lint` — zero ESLint violations, no `console.log`
+  - [x] Confirm no `better-sqlite3` import in `tools/legislator-lookup.ts`
+  - [x] Confirm `resolvedAddress` is in the MCP JSON response and `'[REDACTED]'` is in all log context objects
+  - [x] Confirm no `tools/index.ts` barrel file created
 
 ## Dev Notes
 
@@ -629,6 +629,31 @@ claude-sonnet-4-6
 
 ### Debug Log References
 
+None — all tasks completed without debug log entries.
+
 ### Completion Notes List
 
+- Refactored `cache/legislators.ts` from dependency-injection pattern (Story 2.3) to singleton `db` import pattern required by Story 2.4. Added `upsertLegislators()` (singleton-based write) and changed `getLegislatorsByDistrict()` to use the module-level `db` singleton. Updated `refresh.ts` and `index.ts` signatures accordingly.
+- Updated `refresh.ts`: removed `db` parameter from `warmUpLegislatorsCache` and `scheduleLegislatorsRefresh` — both now use `upsertLegislators()` which imports the singleton internally.
+- Updated `index.ts`: removed `db` argument from warm-up and schedule calls; added `registerLookupLegislatorTool(server)` import and call; removed placeholder comment; kept `// registerSearchBillsTool(server)` for Story 3.5.
+- Created `tools/legislator-lookup.ts`: implements `parseAddress()`, `ugrcGeocode()` (two-phase GIS), and `registerLookupLegislatorTool()`. Uses `retryWithDelay(fn, 2, 1000)` for FR36 compliance. All log calls use `address: '[REDACTED]'`. Returns structured JSON on both success and error paths.
+- Created `tools/legislator-lookup.test.ts`: 10 tests covering happy path, phoneTypeUnknown, address redaction, gis-api AppError paths, cache miss AppError, retry timing, and isAppError forwarding. All use fake timers to avoid real delays.
+- Updated `cache/legislators.test.ts`: rewrote to use `vi.mock('./db.js', ...)` injection pattern; now tests `upsertLegislators` and `getLegislatorsByDistrict` without DI params. Used `beforeAll` + dynamic import to avoid TS1309 top-level await error.
+- Updated `cache/refresh.test.ts`: rewrote to use `vi.mock('./db.js', async () => ...)` async factory pattern to avoid TDZ reference error; all tests pass with updated no-param API.
+- Final validation: typecheck zero errors, 96 tests pass (11 test files), lint zero violations.
+
 ### File List
+
+apps/mcp-server/src/tools/legislator-lookup.ts (NEW)
+apps/mcp-server/src/tools/legislator-lookup.test.ts (NEW)
+apps/mcp-server/src/cache/legislators.ts (MODIFIED — singleton db pattern, upsertLegislators added, DI params removed)
+apps/mcp-server/src/cache/legislators.test.ts (MODIFIED — vi.mock('./db.js') injection, upsertLegislators tests, beforeAll dynamic import)
+apps/mcp-server/src/cache/refresh.ts (MODIFIED — removed db param from warmUpLegislatorsCache and scheduleLegislatorsRefresh, uses upsertLegislators)
+apps/mcp-server/src/cache/refresh.test.ts (MODIFIED — async vi.mock factory for db, updated call signatures)
+apps/mcp-server/src/index.ts (MODIFIED — registerLookupLegislatorTool import + call, updated warm-up/schedule signatures, placeholder comment removed)
+
+## Change Log
+
+| Date | Change | Author |
+|------|--------|--------|
+| 2026-03-03 | Implemented Story 2.4 — lookup_legislator MCP tool with UGRC geocoding, SQLite cache read/write (upsertLegislators + getLegislatorsByDistrict singleton pattern), tool registration in index.ts, unit tests (10 tool tests, 16 cache tests, 11 refresh tests) | claude-sonnet-4-6 |

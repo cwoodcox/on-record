@@ -1,12 +1,14 @@
 // apps/mcp-server/src/cache/refresh.test.ts
 // Tests for warmUpLegislatorsCache and scheduleLegislatorsRefresh.
-// Mocks the LegislatureDataProvider and pino logger.
-// Uses in-memory SQLite + initializeSchema to validate writeLegislators integration.
+// Mocks the LegislatureDataProvider, pino logger, and db singleton.
+// Uses vi.mock('./db.js') to inject in-memory SQLite — no disk I/O in tests.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { LegislatureDataProvider } from '../providers/types.js'
 import type { Legislator, Bill, BillDetail } from '@on-record/types'
 
-// vi.mock must be hoisted before imports
+// vi.mock must be hoisted before imports.
+// The factory must not reference top-level variables (TDZ — they are hoisted
+// past initialization). Use an inline Database require-style pattern instead.
 vi.mock('../lib/logger.js', () => ({
   logger: {
     info: vi.fn(),
@@ -16,11 +18,21 @@ vi.mock('../lib/logger.js', () => ({
   },
 }))
 
-import Database from 'better-sqlite3'
-import { initializeSchema } from './schema.js'
+// Mock the db singleton with an in-memory database created inside the factory.
+// The factory runs when the module is first resolved — before any test runs.
+vi.mock('./db.js', async () => {
+  const { default: Database } = await import('better-sqlite3')
+  const { initializeSchema } = await import('./schema.js')
+  const db = new Database(':memory:')
+  initializeSchema(db)
+  return { db }
+})
+
 import { warmUpLegislatorsCache, scheduleLegislatorsRefresh } from './refresh.js'
 import { getLegislatorsByDistrict } from './legislators.js'
 import { logger } from '../lib/logger.js'
+// Import the mocked db for direct table manipulation in tests
+import { db as testDb } from './db.js'
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -51,21 +63,15 @@ function makeProvider(
 // ── warmUpLegislatorsCache ────────────────────────────────────────────────────
 
 describe('warmUpLegislatorsCache', () => {
-  let db: Database.Database
-
   beforeEach(() => {
-    db = new Database(':memory:')
-    initializeSchema(db)
     vi.clearAllMocks()
-  })
-
-  afterEach(() => {
-    db.close()
+    // Clear legislators table between tests
+    testDb.prepare('DELETE FROM legislators').run()
   })
 
   it('calls getLegislatorsByDistrict for all 75 house districts', async () => {
     const provider = makeProvider()
-    await warmUpLegislatorsCache(db, provider)
+    await warmUpLegislatorsCache(provider)
 
     const houseDistricts = (provider.getLegislatorsByDistrict as ReturnType<typeof vi.fn>).mock.calls
       .filter((call) => call[0] === 'house')
@@ -79,7 +85,7 @@ describe('warmUpLegislatorsCache', () => {
 
   it('calls getLegislatorsByDistrict for all 29 senate districts', async () => {
     const provider = makeProvider()
-    await warmUpLegislatorsCache(db, provider)
+    await warmUpLegislatorsCache(provider)
 
     const senateDistricts = (provider.getLegislatorsByDistrict as ReturnType<typeof vi.fn>).mock.calls
       .filter((call) => call[0] === 'senate')
@@ -93,7 +99,7 @@ describe('warmUpLegislatorsCache', () => {
 
   it('makes 104 total calls (75 house + 29 senate)', async () => {
     const provider = makeProvider()
-    await warmUpLegislatorsCache(db, provider)
+    await warmUpLegislatorsCache(provider)
     expect(provider.getLegislatorsByDistrict).toHaveBeenCalledTimes(104)
   })
 
@@ -112,16 +118,16 @@ describe('warmUpLegislatorsCache', () => {
       getBillDetail: vi.fn<() => Promise<BillDetail>>().mockRejectedValue(new Error('not implemented')),
     }
 
-    await warmUpLegislatorsCache(db, provider)
+    await warmUpLegislatorsCache(provider)
 
-    const cached = getLegislatorsByDistrict(db, 'house', 1)
+    const cached = getLegislatorsByDistrict('house', 1)
     expect(cached).toHaveLength(1)
     expect(cached[0]?.id).toBe('house-1')
   })
 
   it('does not throw when all provider calls succeed', async () => {
     const provider = makeProvider()
-    await expect(warmUpLegislatorsCache(db, provider)).resolves.toBeUndefined()
+    await expect(warmUpLegislatorsCache(provider)).resolves.toBeUndefined()
   })
 
   it('throws (propagates) when provider rejects — caller handles gracefully', async () => {
@@ -131,30 +137,26 @@ describe('warmUpLegislatorsCache', () => {
       getBillDetail: vi.fn<() => Promise<BillDetail>>().mockRejectedValue(new Error('not implemented')),
     }
 
-    await expect(warmUpLegislatorsCache(db, provider)).rejects.toThrow('API down')
+    await expect(warmUpLegislatorsCache(provider)).rejects.toThrow('API down')
   })
 })
 
 // ── scheduleLegislatorsRefresh ────────────────────────────────────────────────
 
 describe('scheduleLegislatorsRefresh', () => {
-  let db: Database.Database
-
   beforeEach(() => {
     vi.useFakeTimers()
-    db = new Database(':memory:')
-    initializeSchema(db)
+    testDb.prepare('DELETE FROM legislators').run()
     vi.clearAllMocks()
   })
 
   afterEach(() => {
-    db.close()
     vi.useRealTimers()
   })
 
   it('does not throw when called', () => {
     const provider = makeProvider()
-    expect(() => scheduleLegislatorsRefresh(db, provider)).not.toThrow()
+    expect(() => scheduleLegislatorsRefresh(provider)).not.toThrow()
   })
 
   it('registers a cron job with the 0 6 * * * expression (verified via behavior)', async () => {
@@ -162,7 +164,7 @@ describe('scheduleLegislatorsRefresh', () => {
     // triggers warmUpLegislatorsCache when the cron fires. We verify this by checking that
     // the provider is NOT called immediately (before cron fires), confirming lazy scheduling.
     const provider = makeProvider()
-    scheduleLegislatorsRefresh(db, provider)
+    scheduleLegislatorsRefresh(provider)
 
     // Provider should not be called at registration time (only at cron fire time)
     expect(provider.getLegislatorsByDistrict).not.toHaveBeenCalled()
@@ -177,7 +179,7 @@ describe('scheduleLegislatorsRefresh', () => {
     }
 
     // scheduleLegislatorsRefresh itself must not throw
-    expect(() => scheduleLegislatorsRefresh(db, failingProvider)).not.toThrow()
+    expect(() => scheduleLegislatorsRefresh(failingProvider)).not.toThrow()
   })
 
   it('logs error with source legislature-api when refresh fails', async () => {
@@ -191,7 +193,7 @@ describe('scheduleLegislatorsRefresh', () => {
 
     // Directly test the error logging behavior by calling warmUpLegislatorsCache
     // and simulating what the cron callback does on failure.
-    const warmUpPromise = warmUpLegislatorsCache(db, failingProvider).catch((err: unknown) => {
+    const warmUpPromise = warmUpLegislatorsCache(failingProvider).catch((err: unknown) => {
       logger.error({ source: 'legislature-api', err }, 'Legislator cache refresh failed')
     })
     await vi.runAllTimersAsync()
@@ -208,7 +210,7 @@ describe('scheduleLegislatorsRefresh', () => {
     const provider = makeProvider([])
 
     // Simulate the success path of the cron callback
-    await warmUpLegislatorsCache(db, provider)
+    await warmUpLegislatorsCache(provider)
     logger.info({ source: 'cache' }, 'Legislators cache refreshed')
 
     expect(infoLogger).toHaveBeenCalledWith(
