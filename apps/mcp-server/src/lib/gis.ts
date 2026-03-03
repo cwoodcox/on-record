@@ -116,7 +116,12 @@ export async function resolveAddressToDistricts(
   const houseDistrict = houseData.result?.[0]?.attributes?.dist
   const senateDistrict = senateData.result?.[0]?.attributes?.dist
 
-  if (typeof houseDistrict !== 'number' || typeof senateDistrict !== 'number') {
+  if (
+    typeof houseDistrict !== 'number' ||
+    typeof senateDistrict !== 'number' ||
+    isNaN(houseDistrict) ||
+    isNaN(senateDistrict)
+  ) {
     logger.warn(
       { source: 'gis-api', address: '[REDACTED]', houseDistrict, senateDistrict },
       'District number missing in SGID response',

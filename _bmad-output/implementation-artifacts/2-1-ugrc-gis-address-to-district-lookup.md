@@ -1,6 +1,6 @@
 # Story 2.1: UGRC GIS Address-to-District Lookup
 
-Status: review
+Status: done
 
 ## Story
 
@@ -26,53 +26,53 @@ So that the tool can identify my specific legislators without me knowing my dist
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create `apps/mcp-server/src/lib/gis.ts` (AC: 1, 2, 4, 5, 6, 7, 8, 9)
-  - [ ] Export `GisDistrictResult` interface: `{ houseDistrict: number; senateDistrict: number; resolvedAddress: string }`
-  - [ ] Export `resolveAddressToDistricts(street: string, zone: string): Promise<GisDistrictResult>`
-  - [ ] Import `getEnv` from `'../env.js'`, `logger` from `'./logger.js'`, `retryWithDelay` from `'./retry.js'`, `createAppError` from `'@on-record/types'`
-  - [ ] Step 1 — geocode: `GET https://api.mapserv.utah.gov/api/v1/geocode/{street}/{zone}?spatialReference=4326&apiKey={UGRC_API_KEY}`
-  - [ ] URL-encode both `street` and `zone` path segments with `encodeURIComponent()`
-  - [ ] Wrap geocode fetch call in `retryWithDelay(async () => { ... }, 2, 1000)` — throw on non-ok HTTP status inside the fn
-  - [ ] Validate geocode response: throw `createAppError('gis-api', ...)` if `result` is missing or `result.score < 70`
-  - [ ] Extract `result.location.x` (longitude) and `result.location.y` (latitude); use `result.matchAddress` as `resolvedAddress`
-  - [ ] Step 2 — district queries: run both House and Senate lookups in parallel with `Promise.all`
-  - [ ] House URL: `GET /api/v1/search/political.utah_house_districts/dist?geometry=point:{lng},{lat}&spatialReference=4326&apiKey=...`
-  - [ ] Senate URL: `GET /api/v1/search/political.utah_senate_districts/dist?geometry=point:{lng},{lat}&spatialReference=4326&apiKey=...`
-  - [ ] URL-encode the `geometry=point:{lng},{lat}` parameter value with `encodeURIComponent()`
-  - [ ] Parse district results: extract `result[0].attributes.dist` as integer — throw `createAppError('gis-api', ...)` if empty array or field missing or not a number
-  - [ ] Log success: `logger.info({ source: 'gis-api', address: '[REDACTED]', houseDistrict, senateDistrict }, 'GIS district lookup successful')`
-  - [ ] Log failures: `logger.error({ source: 'gis-api', address: '[REDACTED]', err }, 'message')` — NEVER log raw `street` or `zone`
-  - [ ] No `console.log` anywhere — use `logger` only
+- [x] Task 1: Create `apps/mcp-server/src/lib/gis.ts` (AC: 1, 2, 4, 5, 6, 7, 8, 9)
+  - [x] Export `GisDistrictResult` interface: `{ houseDistrict: number; senateDistrict: number; resolvedAddress: string }`
+  - [x] Export `resolveAddressToDistricts(street: string, zone: string): Promise<GisDistrictResult>`
+  - [x] Import `getEnv` from `'../env.js'`, `logger` from `'./logger.js'`, `retryWithDelay` from `'./retry.js'`, `createAppError` from `'@on-record/types'`
+  - [x] Step 1 — geocode: `GET https://api.mapserv.utah.gov/api/v1/geocode/{street}/{zone}?spatialReference=4326&apiKey={UGRC_API_KEY}`
+  - [x] URL-encode both `street` and `zone` path segments with `encodeURIComponent()`
+  - [x] Wrap geocode fetch call in `retryWithDelay(async () => { ... }, 2, 1000)` — throw on non-ok HTTP status inside the fn
+  - [x] Validate geocode response: throw `createAppError('gis-api', ...)` if `result` is missing or `result.score < 70`
+  - [x] Extract `result.location.x` (longitude) and `result.location.y` (latitude); use `result.matchAddress` as `resolvedAddress`
+  - [x] Step 2 — district queries: run both House and Senate lookups in parallel with `Promise.all`
+  - [x] House URL: `GET /api/v1/search/political.utah_house_districts/dist?geometry=point:{lng},{lat}&spatialReference=4326&apiKey=...`
+  - [x] Senate URL: `GET /api/v1/search/political.utah_senate_districts/dist?geometry=point:{lng},{lat}&spatialReference=4326&apiKey=...`
+  - [x] URL-encode the `geometry=point:{lng},{lat}` parameter value with `encodeURIComponent()`
+  - [x] Parse district results: extract `result[0].attributes.dist` as integer — throw `createAppError('gis-api', ...)` if empty array or field missing or not a number
+  - [x] Log success: `logger.info({ source: 'gis-api', address: '[REDACTED]', houseDistrict, senateDistrict }, 'GIS district lookup successful')`
+  - [x] Log failures: `logger.error({ source: 'gis-api', address: '[REDACTED]', err }, 'message')` — NEVER log raw `street` or `zone`
+  - [x] No `console.log` anywhere — use `logger` only
 
-- [ ] Task 2: Verify `UGRC_API_KEY` env var is already configured — no code changes needed (AC: 1)
-  - [ ] Confirm `UGRC_API_KEY` is in `apps/mcp-server/src/env.ts` (added in Story 1.2 — do not change)
-  - [ ] Confirm `apps/mcp-server/.env.example` documents `UGRC_API_KEY` (added in Story 1.2 — do not change)
-  - [ ] Call `getEnv().UGRC_API_KEY` inside the function body (not at module top level)
+- [x] Task 2: Verify `UGRC_API_KEY` env var is already configured — no code changes needed (AC: 1)
+  - [x] Confirm `UGRC_API_KEY` is in `apps/mcp-server/src/env.ts` (added in Story 1.2 — do not change)
+  - [x] Confirm `apps/mcp-server/.env.example` documents `UGRC_API_KEY` (added in Story 1.2 — do not change)
+  - [x] Call `getEnv().UGRC_API_KEY` inside the function body (not at module top level)
 
-- [ ] Task 3: Create `apps/mcp-server/src/lib/gis.test.ts` (AC: 10, 11, 12)
-  - [ ] `vi.mock('./retry.js', () => ({ retryWithDelay: vi.fn(async (fn) => fn()) }))` — pass-through mock (no real delays)
-  - [ ] `vi.mock('../env.js', () => ({ getEnv: vi.fn(() => ({ UGRC_API_KEY: 'test-key', PORT: 3001, NODE_ENV: 'test', UTAH_LEGISLATURE_API_KEY: 'test-utah-key' })) }))`
-  - [ ] `vi.mock('./logger.js', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } }))`
-  - [ ] All `vi.mock()` declarations before any import of the module under test (Vitest hoists them)
-  - [ ] `const { resolveAddressToDistricts } = await import('./gis.js')` — dynamic import after mock declarations
-  - [ ] `vi.stubGlobal('fetch', vi.fn())` in `beforeEach`; `vi.unstubAllGlobals()` in `afterEach`
-  - [ ] Test: successful lookup — geocode score=85, house=22, senate=10 — asserts `GisDistrictResult` shape
-  - [ ] Test: geocode fetch rejects (network error) — asserts thrown value `isAppError` with `source: 'gis-api'`
-  - [ ] Test: geocode score < 70 — asserts thrown AppError with `source: 'gis-api'`
-  - [ ] Test: geocode result is null/missing — asserts thrown AppError with `source: 'gis-api'`
-  - [ ] Test: district query HTTP error (non-ok status) — asserts thrown AppError with `source: 'gis-api'`
-  - [ ] Test: district result is empty array (point outside Utah) — asserts thrown AppError with `source: 'gis-api'`
-  - [ ] Rejection pattern: `const err = await fn().catch((e: unknown) => e)` then `expect(isAppError(err)).toBe(true)` — do NOT use `.rejects` chains after async timer manipulation (avoids `PromiseRejectionHandledWarning` per MEMORY.md)
-  - [ ] Import `isAppError` from `'@on-record/types'`
+- [x] Task 3: Create `apps/mcp-server/src/lib/gis.test.ts` (AC: 10, 11, 12)
+  - [x] `vi.mock('./retry.js', () => ({ retryWithDelay: vi.fn(async (fn) => fn()) }))` — pass-through mock (no real delays)
+  - [x] `vi.mock('../env.js', () => ({ getEnv: vi.fn(() => ({ UGRC_API_KEY: 'test-key', PORT: 3001, NODE_ENV: 'test', UTAH_LEGISLATURE_API_KEY: 'test-utah-key' })) }))`
+  - [x] `vi.mock('./logger.js', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } }))`
+  - [x] All `vi.mock()` declarations before any import of the module under test (Vitest hoists them)
+  - [x] Dynamic import via `beforeAll` (top-level await not valid without `"type":"module"` in package.json)
+  - [x] `vi.stubGlobal('fetch', vi.fn())` in `beforeEach`; `vi.unstubAllGlobals()` in `afterEach`
+  - [x] Test: successful lookup — geocode score=85, house=22, senate=10 — asserts `GisDistrictResult` shape
+  - [x] Test: geocode fetch rejects (network error) — asserts thrown value `isAppError` with `source: 'gis-api'`
+  - [x] Test: geocode score < 70 — asserts thrown AppError with `source: 'gis-api'`
+  - [x] Test: geocode result is null/missing — asserts thrown AppError with `source: 'gis-api'`
+  - [x] Test: district query HTTP error (non-ok status) — asserts thrown AppError with `source: 'gis-api'`
+  - [x] Test: district result is empty array (point outside Utah) — asserts thrown AppError with `source: 'gis-api'`
+  - [x] Rejection pattern: `const err = await fn().catch((e: unknown) => e)` then `expect(isAppError(err)).toBe(true)` — do NOT use `.rejects` chains after async timer manipulation (avoids `PromiseRejectionHandledWarning` per MEMORY.md)
+  - [x] Import `isAppError` from `'@on-record/types'`
 
-- [ ] Task 4: Final verification (AC: 11, 12, 13)
-  - [ ] `pnpm --filter mcp-server typecheck` — zero TypeScript errors
-  - [ ] `pnpm --filter mcp-server test` — all tests pass (gis.test.ts + all prior tests)
-  - [ ] `pnpm --filter mcp-server lint` — zero violations, especially no `console.log`
-  - [ ] Confirm no `better-sqlite3` imports in `gis.ts` or `gis.test.ts`
-  - [ ] Confirm no `lib/index.ts` barrel file created
-  - [ ] Confirm `GisDistrictResult` is NOT in `packages/types/index.ts`
-  - [ ] Confirm no changes to any `package.json` (no new dependencies needed)
+- [x] Task 4: Final verification (AC: 11, 12, 13)
+  - [x] `pnpm --filter mcp-server typecheck` — zero TypeScript errors
+  - [x] `pnpm --filter mcp-server test` — all tests pass (gis.test.ts + all prior tests)
+  - [x] `pnpm --filter mcp-server lint` — zero violations, especially no `console.log`
+  - [x] Confirm no `better-sqlite3` imports in `gis.ts` or `gis.test.ts`
+  - [x] Confirm no `lib/index.ts` barrel file created
+  - [x] Confirm `GisDistrictResult` is NOT in `packages/types/index.ts`
+  - [x] Confirm no changes to any `package.json` (no new dependencies needed)
 
 ## Dev Notes
 
@@ -646,3 +646,40 @@ claude-sonnet-4-6
 ### Completion Notes List
 
 ### File List
+
+- `apps/mcp-server/src/lib/gis.ts` — created: `resolveAddressToDistricts` function and `GisDistrictResult` interface
+- `apps/mcp-server/src/lib/gis.test.ts` — created: 6 unit tests covering all AC10 scenarios
+- `_bmad-output/implementation-artifacts/2-1-ugrc-gis-address-to-district-lookup.md` — status updated to `review` then `done`
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` — `2-1-ugrc-gis-address-to-district-lookup` set to `done`
+
+## Senior Developer Review (AI)
+
+**Reviewer:** Corey (claude-sonnet-4-6 code-review agent)
+**Date:** 2026-03-03
+**Outcome:** APPROVED — all issues resolved
+
+### Findings and Resolutions
+
+**CRITICAL — Fixed:**
+- C1: Dev Agent Record → File List was empty. Fixed: populated with all 4 files created/modified by the story.
+
+**MEDIUM — Fixed:**
+- M1: All task/subtask checkboxes were `[ ]` despite implementation being complete and committed. Fixed: all tasks marked `[x]`.
+- M2 (clarified, not changed): Test uses `beforeAll` + `let` rather than top-level `await import()`. This is correct because `package.json` has no `"type":"module"` field; with `module: NodeNext` TypeScript treats `.ts` files as CJS where top-level await is forbidden. The dev agent's choice was architecturally sound. The inline comment in `gis.test.ts` was improved to explain the constraint explicitly.
+
+**LOW — Fixed:**
+- L1: `dist` field lacked a `NaN` guard — `typeof NaN === 'number'` is true and would cause silent failures downstream. Fixed: added `isNaN(houseDistrict) || isNaN(senateDistrict)` to the validation condition in `gis.ts`.
+- L3: No assertion verified that `retryWithDelay` was called with `(fn, 2, 1000)` (AC5). Fixed: added `expect(vi.mocked(retryWithDelay)).toHaveBeenCalledWith(expect.any(Function), 2, 1000)` to the success test, and imported `retryWithDelay` from `'./retry.js'` in the test file.
+
+**LOW — Accepted (no change):**
+- L2: Zod validation preferred by architecture.md but not used — TypeScript interface casting accepted as per story guidance ("Either approach passes strict TypeScript"). Low priority for this story; can be addressed in a tech-debt pass.
+
+### AC Verification
+All 13 ACs verified as implemented. `pnpm --filter mcp-server typecheck`, `pnpm --filter mcp-server test` (102 tests, 6 gis-specific), and `pnpm --filter mcp-server lint` all exit 0.
+
+## Change Log
+
+| Date | Version | Description | Author |
+|------|---------|-------------|--------|
+| 2026-03-03 | 1.1 | Code review pass: fix C1 (file list), M1 (task checkboxes), L1 (NaN guard in gis.ts), L3 (retryWithDelay assertion in tests), M2 (clarified beforeAll pattern). Status → done. | claude-sonnet-4-6 (code-review) |
+| 2026-03-03 | 1.0 | Initial implementation: gis.ts + gis.test.ts. Status → review. | claude-sonnet-4-6 |

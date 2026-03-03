@@ -1,6 +1,7 @@
 // apps/mcp-server/src/lib/gis.test.ts
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest'
 import { isAppError } from '@on-record/types'
+import { retryWithDelay } from './retry.js'
 import type { GisDistrictResult } from './gis.js'
 
 // vi.mock declarations are hoisted by Vitest — must be before any import of the module under test
@@ -26,7 +27,8 @@ vi.mock('./logger.js', () => ({
   },
 }))
 
-// Dynamic import inside beforeAll — avoids top-level await (not valid in NodeNext CJS context)
+// Dynamic import inside beforeAll — top-level await not valid in NodeNext without "type":"module"
+// in package.json; beforeAll guarantees mocks are applied before the module under test loads.
 let resolveAddressToDistricts: (street: string, zone: string) => Promise<GisDistrictResult>
 beforeAll(async () => {
   const mod = await import('./gis.js')
@@ -75,6 +77,8 @@ describe('resolveAddressToDistricts', () => {
     expect(result.houseDistrict).toBe(22)
     expect(result.senateDistrict).toBe(10)
     expect(result.resolvedAddress).toBe('123 S Main St, Salt Lake City')
+    // AC5: verify geocode fetch was wrapped in retryWithDelay(fn, 2, 1000)
+    expect(vi.mocked(retryWithDelay)).toHaveBeenCalledWith(expect.any(Function), 2, 1000)
   })
 
   it('throws AppError when geocode fetch rejects (network error)', async () => {
