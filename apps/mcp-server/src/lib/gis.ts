@@ -1,0 +1,137 @@
+// apps/mcp-server/src/lib/gis.ts
+import { getEnv } from '../env.js'
+import { logger } from './logger.js'
+import { retryWithDelay } from './retry.js'
+import { createAppError } from '@on-record/types'
+
+const UGRC_BASE = 'https://api.mapserv.utah.gov/api/v1'
+const GEOCODE_MIN_SCORE = 70
+
+export interface GisDistrictResult {
+  houseDistrict: number
+  senateDistrict: number
+  resolvedAddress: string
+}
+
+// Internal typed interfaces for UGRC API response shapes.
+interface UgrcGeocodeResponse {
+  status: number
+  result?: {
+    location: { x: number; y: number }
+    score: number
+    matchAddress?: string
+  }
+}
+
+interface UgrcSearchResponse {
+  status: number
+  result?: Array<{ attributes: { dist: number } }>
+}
+
+export async function resolveAddressToDistricts(
+  street: string,
+  zone: string,
+): Promise<GisDistrictResult> {
+  const { UGRC_API_KEY } = getEnv()
+
+  // Step 1: Geocode address to lat/long
+  const geocodeUrl =
+    `${UGRC_BASE}/geocode/${encodeURIComponent(street)}/${encodeURIComponent(zone)}` +
+    `?spatialReference=4326&apiKey=${UGRC_API_KEY}`
+
+  let geocodeData: UgrcGeocodeResponse
+  try {
+    geocodeData = await retryWithDelay(
+      async () => {
+        const res = await fetch(geocodeUrl)
+        if (!res.ok) throw new Error(`UGRC geocode HTTP ${res.status}`)
+        return res.json() as Promise<UgrcGeocodeResponse>
+      },
+      2,
+      1000,
+    )
+  } catch (err) {
+    logger.error(
+      { source: 'gis-api', address: '[REDACTED]', err },
+      'UGRC geocode failed after retries',
+    )
+    throw createAppError(
+      'gis-api',
+      'Address lookup failed — the GIS service did not respond',
+      'Try again in a few seconds. If the problem persists, verify your address is a valid Utah street address.',
+    )
+  }
+
+  const geocodeResult = geocodeData.result
+  if (
+    !geocodeResult ||
+    typeof geocodeResult.score !== 'number' ||
+    geocodeResult.score < GEOCODE_MIN_SCORE
+  ) {
+    logger.warn(
+      { source: 'gis-api', address: '[REDACTED]', score: geocodeResult?.score },
+      'UGRC geocode low-confidence or missing result',
+    )
+    throw createAppError(
+      'gis-api',
+      'Your address could not be confidently located in Utah',
+      'Check that the address is a valid Utah street address (not a P.O. Box or out-of-state address) and try again.',
+    )
+  }
+
+  const { x: longitude, y: latitude } = geocodeResult.location
+  const resolvedAddress = geocodeResult.matchAddress ?? `${street}, ${zone}`
+
+  // Step 2: Query House and Senate districts in parallel
+  const geometry = `point:${longitude},${latitude}`
+  const districtParams =
+    `geometry=${encodeURIComponent(geometry)}&spatialReference=4326&apiKey=${UGRC_API_KEY}`
+  const houseUrl = `${UGRC_BASE}/search/political.utah_house_districts/dist?${districtParams}`
+  const senateUrl = `${UGRC_BASE}/search/political.utah_senate_districts/dist?${districtParams}`
+
+  let houseData: UgrcSearchResponse, senateData: UgrcSearchResponse
+  try {
+    ;[houseData, senateData] = await Promise.all([
+      fetch(houseUrl).then(async (r) => {
+        if (!r.ok) throw new Error(`UGRC house district HTTP ${r.status}`)
+        return r.json() as Promise<UgrcSearchResponse>
+      }),
+      fetch(senateUrl).then(async (r) => {
+        if (!r.ok) throw new Error(`UGRC senate district HTTP ${r.status}`)
+        return r.json() as Promise<UgrcSearchResponse>
+      }),
+    ])
+  } catch (err) {
+    logger.error(
+      { source: 'gis-api', address: '[REDACTED]', err },
+      'UGRC district query failed',
+    )
+    throw createAppError(
+      'gis-api',
+      'Legislative district lookup failed after resolving your address',
+      'Try again in a few seconds.',
+    )
+  }
+
+  const houseDistrict = houseData.result?.[0]?.attributes?.dist
+  const senateDistrict = senateData.result?.[0]?.attributes?.dist
+
+  if (typeof houseDistrict !== 'number' || typeof senateDistrict !== 'number') {
+    logger.warn(
+      { source: 'gis-api', address: '[REDACTED]', houseDistrict, senateDistrict },
+      'District number missing in SGID response',
+    )
+    throw createAppError(
+      'gis-api',
+      'Your address could not be matched to a Utah legislative district',
+      'Verify the address is within Utah. P.O. Boxes and rural routes may not resolve correctly — use a physical street address.',
+    )
+  }
+
+  logger.info(
+    { source: 'gis-api', address: '[REDACTED]', houseDistrict, senateDistrict },
+    'GIS district lookup successful',
+  )
+
+  return { houseDistrict, senateDistrict, resolvedAddress }
+}

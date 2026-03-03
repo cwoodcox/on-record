@@ -51,7 +51,7 @@ development_status:
 
   # ─── Epic 2: Constituent Can Identify Their Utah Legislators ────────────────
   epic-2: in-progress
-  2-1-ugrc-gis-address-to-district-lookup: in-progress
+  2-1-ugrc-gis-address-to-district-lookup: review
   2-2-legislaturedataprovider-interface-and-utah-legislature-api-legislators: ready-for-dev
   2-3-legislators-sqlite-cache-with-daily-refresh: ready-for-dev
   2-4-lookup-legislator-mcp-tool: ready-for-dev
