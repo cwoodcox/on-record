@@ -9,8 +9,13 @@ import { retryWithDelay } from '../lib/retry.js'
 import { logger } from '../lib/logger.js'
 import { getEnv } from '../env.js'
 import { createAppError, isAppError } from '@on-record/types'
-import type { LookupLegislatorResult } from '@on-record/types'
+import type { AppError, LookupLegislatorResult } from '@on-record/types'
 import { getLegislatorsByDistrict } from '../cache/legislators.js'
+
+// ── Error classification constants ───────────────────────────────────────────
+
+/** Detects P.O. Box addresses before making the GIS call (saves latency). */
+const PO_BOX_PATTERN = /^p\.?o\.?\s*box\b/i
 
 // ── Address parsing ──────────────────────────────────────────────────────────
 
@@ -45,13 +50,18 @@ type DistrictResponse = { result: Array<{ attributes: { DIST: string } }> }
  * Geocodes a Utah address to House and Senate district numbers via UGRC GIS API.
  * Phase 1: geocode address → lat/lng coordinates.
  * Phase 2: two parallel district point-in-polygon lookups.
- * Throws AppError on any HTTP failure, low geocode score, or NaN district parse.
+ *
+ * Returns:
+ *   - `{ houseDistrict, senateDistrict }` on success
+ *   - `AppError` for semantic failures (unresolvable address, out-of-state) — callers
+ *     must NOT retry these (they are permanent, not transient).
+ *   - Throws an `AppError` for transient/network failures — callers SHOULD retry.
  *
  * @param address - Full Utah street address
  */
 async function ugrcGeocode(
   address: string,
-): Promise<{ houseDistrict: number; senateDistrict: number }> {
+): Promise<{ houseDistrict: number; senateDistrict: number } | AppError> {
   const env = getEnv()
   const { street, zone } = parseAddress(address)
 
@@ -63,6 +73,7 @@ async function ugrcGeocode(
 
   const geocodeRes = await fetch(geocodeUrl)
   if (!geocodeRes.ok) {
+    // Transient HTTP failure — throw so retryWithDelay can retry
     throw createAppError(
       'gis-api',
       `GIS geocoding request failed (HTTP ${geocodeRes.status})`,
@@ -73,10 +84,11 @@ async function ugrcGeocode(
   const geocodeData = (await geocodeRes.json()) as GeocodeResponse
 
   if (!geocodeData.result || geocodeData.result.score < 70) {
-    throw createAppError(
+    // Semantic failure — unresolvable address; return AppError (do not retry)
+    return createAppError(
       'gis-api',
-      'Address could not be precisely geocoded',
-      'Use a complete street address including city or ZIP code',
+      'Could not resolve that address to a legislative district',
+      'Try a nearby street address or check that your ZIP code is correct',
     )
   }
   const { x, y } = geocodeData.result.location
@@ -91,6 +103,7 @@ async function ugrcGeocode(
   ])
 
   if (!houseRes.ok || !senateRes.ok) {
+    // Transient HTTP failure — throw so retryWithDelay can retry
     throw createAppError(
       'gis-api',
       'District lookup request failed',
@@ -107,10 +120,11 @@ async function ugrcGeocode(
   const senateDistrict = parseInt(senateData.result[0]?.attributes.DIST ?? '', 10)
 
   if (isNaN(houseDistrict) || isNaN(senateDistrict)) {
-    throw createAppError(
+    // Semantic failure — out-of-state or no district; return AppError (do not retry)
+    return createAppError(
       'gis-api',
-      'Address is not within a Utah legislative district',
-      'Verify the address is a Utah street address, not a P.O. Box or out-of-state address',
+      'That address appears to be outside Utah',
+      'Enter a Utah street address to find your state legislators',
     )
   }
 
@@ -138,12 +152,36 @@ export function registerLookupLegislatorTool(server: McpServer): void {
         ),
     },
     async ({ address }) => {
+      // 0. P.O. Box pre-check — detect before making the GIS call (saves latency) (FR37)
+      if (PO_BOX_PATTERN.test(address.trim())) {
+        logger.error(
+          { source: 'gis-api', address: '[REDACTED]', errorType: 'po-box' },
+          'P.O. Box address submitted — cannot geocode',
+        )
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                createAppError(
+                  'gis-api',
+                  'P.O. Box addresses cannot be geocoded to a legislative district',
+                  'Use your street address (e.g., 123 Main St) rather than a P.O. Box',
+                ),
+              ),
+            },
+          ],
+        }
+      }
+
       // 1. GIS lookup with retry — retryWithDelay(fn, 2, 1000) = 3 total attempts (FR36)
-      let districts: { houseDistrict: number; senateDistrict: number }
+      //    Only transient failures (network/HTTP errors) are retried.
+      //    Semantic failures (out-of-state, unresolvable) are returned directly (not thrown).
+      let geocodeResult: { houseDistrict: number; senateDistrict: number } | AppError
       try {
-        districts = await retryWithDelay(() => ugrcGeocode(address), 2, 1000)
-        logger.debug({ source: 'gis-api', address: '[REDACTED]' }, 'GIS lookup succeeded')
+        geocodeResult = await retryWithDelay(() => ugrcGeocode(address), 2, 1000)
       } catch (err) {
+        // Transient failure after all retries exhausted
         logger.error(
           { source: 'gis-api', address: '[REDACTED]', err },
           'GIS lookup failed after retries',
@@ -152,11 +190,23 @@ export function registerLookupLegislatorTool(server: McpServer): void {
           ? err
           : createAppError(
               'gis-api',
-              'Address could not be resolved to a Utah legislative district',
-              'Verify the address is a valid Utah street address and try again',
+              'Address lookup service is temporarily unavailable',
+              'Wait a moment and try again',
             )
         return { content: [{ type: 'text', text: JSON.stringify(appError) }] }
       }
+
+      // 1a. Semantic GIS failure — returned (not thrown) to bypass retry
+      if (isAppError(geocodeResult)) {
+        logger.error(
+          { source: 'gis-api', address: '[REDACTED]', nature: geocodeResult.nature },
+          'GIS lookup returned semantic error',
+        )
+        return { content: [{ type: 'text', text: JSON.stringify(geocodeResult) }] }
+      }
+
+      logger.debug({ source: 'gis-api', address: '[REDACTED]' }, 'GIS lookup succeeded')
+      const districts = geocodeResult
 
       // 2. Read from cache — empty array means cache miss
       const houseLegislators = getLegislatorsByDistrict('house', districts.houseDistrict)

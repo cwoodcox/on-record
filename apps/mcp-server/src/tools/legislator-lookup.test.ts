@@ -87,6 +87,14 @@ function makeDistrictResponse(dist: string): Response {
   )
 }
 
+/** Simulates a UGRC district query that returns no results (out-of-state / no district). */
+function makeEmptyDistrictResponse(): Response {
+  return new Response(
+    JSON.stringify({ result: [] }),
+    { status: 200, headers: { 'Content-Type': 'application/json' } },
+  )
+}
+
 // ── Fixture: legislator objects ───────────────────────────────────────────────
 function makeLegislator(overrides: Partial<Legislator> = {}): Legislator {
   return {
@@ -109,7 +117,7 @@ describe('registerLookupLegislatorTool', () => {
 
   beforeEach(() => {
     vi.useFakeTimers()
-    vi.clearAllMocks()
+    vi.resetAllMocks()
     server = createMockServer()
   })
 
@@ -255,11 +263,8 @@ describe('registerLookupLegislatorTool', () => {
   })
 
   it('returns AppError JSON with source "gis-api" when geocode score < 70', async () => {
-    // All 3 attempts return low score (retry exhaustion)
-    mockFetch
-      .mockResolvedValueOnce(makeGeocodeResponse(60))
-      .mockResolvedValueOnce(makeGeocodeResponse(60))
-      .mockResolvedValueOnce(makeGeocodeResponse(60))
+    // Low score is a semantic failure (not retried) — only 1 fetch call
+    mockFetch.mockResolvedValueOnce(makeGeocodeResponse(60))
 
     const promise = server.invokeHandler({ address: '123 S State St, SLC' })
     await vi.runAllTimersAsync()
@@ -267,6 +272,9 @@ describe('registerLookupLegislatorTool', () => {
     const result = JSON.parse(response.content[0]?.text ?? '{}') as AppError
 
     expect(result.source).toBe('gis-api')
+    expect(result.nature).toBe('Could not resolve that address to a legislative district')
+    // Only 1 fetch call — no retries for semantic failures
+    expect(mockFetch).toHaveBeenCalledTimes(1)
   })
 
   // ── AC#8: Cache miss → AppError with source: 'cache' ───────────────────
@@ -337,12 +345,9 @@ describe('registerLookupLegislatorTool', () => {
 
   // ── isAppError forwarding — upstream AppError preserved ─────────────────
 
-  it('forwards the upstream AppError (does not re-wrap) when retry throws an AppError', async () => {
-    // All attempts: geocode returns low confidence (creates AppError)
-    mockFetch
-      .mockResolvedValueOnce(makeGeocodeResponse(50))
-      .mockResolvedValueOnce(makeGeocodeResponse(50))
-      .mockResolvedValueOnce(makeGeocodeResponse(50))
+  it('forwards the upstream AppError (does not re-wrap) when geocode returns semantic error', async () => {
+    // Low confidence is a semantic failure — returned (not thrown), no retries
+    mockFetch.mockResolvedValueOnce(makeGeocodeResponse(50))
 
     const promise = server.invokeHandler({ address: '123 S State St, SLC' })
     await vi.runAllTimersAsync()
@@ -351,6 +356,102 @@ describe('registerLookupLegislatorTool', () => {
     const result = JSON.parse(response.content[0]?.text ?? '{}') as AppError
     // The precise AppError from ugrcGeocode must be forwarded, not wrapped
     expect(result.source).toBe('gis-api')
-    expect(result.nature).toBe('Address could not be precisely geocoded')
+    expect(result.nature).toBe('Could not resolve that address to a legislative district')
+    // Only 1 fetch — semantic errors are not retried
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+  })
+
+  // ── Story 2.5: Error classification ─────────────────────────────────────
+
+  it('returns AppError with P.O. Box guidance before making any GIS request', async () => {
+    const result = await server.invokeHandler({ address: 'PO Box 123, Salt Lake City UT 84101' })
+    const parsed = JSON.parse(result.content[0]?.text ?? '{}') as AppError
+
+    expect(parsed.source).toBe('gis-api')
+    expect(parsed.nature).toBe('P.O. Box addresses cannot be geocoded to a legislative district')
+    expect(parsed.action).toMatch(/street address/i)
+    // No GIS fetch should have been called
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('returns P.O. Box AppError for variant spellings: "p.o. box", "P.O.Box", "po box"', async () => {
+    const variants = ['p.o. box 1', 'P.O.Box 42', 'po box 999 Provo UT']
+    for (const address of variants) {
+      vi.clearAllMocks()
+      server = createMockServer()
+      const result = await server.invokeHandler({ address })
+      const parsed = JSON.parse(result.content[0]?.text ?? '{}') as AppError
+      expect(parsed.source).toBe('gis-api')
+      expect(parsed.nature).toBe('P.O. Box addresses cannot be geocoded to a legislative district')
+      expect(mockFetch).not.toHaveBeenCalled()
+    }
+  })
+
+  it('logs [REDACTED] (not raw address) when P.O. Box is submitted', async () => {
+    const address = 'PO Box 555, Provo UT 84601'
+    await server.invokeHandler({ address })
+
+    const allLogCalls = [
+      ...vi.mocked(logger.info).mock.calls,
+      ...vi.mocked(logger.error).mock.calls,
+      ...vi.mocked(logger.debug).mock.calls,
+    ]
+
+    for (const [context] of allLogCalls) {
+      const serialized = JSON.stringify(context)
+      expect(serialized).not.toContain('PO Box 555')
+      expect(serialized).not.toContain('Provo')
+    }
+  })
+
+  it('returns out-of-state AppError when district lookup returns empty results (NaN districts)', async () => {
+    // Geocode succeeds but district queries return empty results → NaN parse
+    mockFetch
+      .mockResolvedValueOnce(makeGeocodeResponse())         // geocode: ok
+      .mockResolvedValueOnce(makeEmptyDistrictResponse())  // house: empty
+      .mockResolvedValueOnce(makeEmptyDistrictResponse())  // senate: empty
+
+    const promise = server.invokeHandler({ address: '123 Main St, Denver CO 80203' })
+    await vi.runAllTimersAsync()
+    const response = await promise
+    const result = JSON.parse(response.content[0]?.text ?? '{}') as AppError
+
+    expect(result.source).toBe('gis-api')
+    expect(result.nature).toBe('That address appears to be outside Utah')
+    expect(result.action).toMatch(/utah street address/i)
+  })
+
+  it('returns unresolvable AppError when geocode score is below threshold', async () => {
+    // All 3 attempts return low geocode score
+    mockFetch
+      .mockResolvedValueOnce(makeGeocodeResponse(55))
+      .mockResolvedValueOnce(makeGeocodeResponse(55))
+      .mockResolvedValueOnce(makeGeocodeResponse(55))
+
+    const promise = server.invokeHandler({ address: 'Rural Route 4, Wayne County UT' })
+    await vi.runAllTimersAsync()
+    const response = await promise
+    const result = JSON.parse(response.content[0]?.text ?? '{}') as AppError
+
+    expect(result.source).toBe('gis-api')
+    expect(result.nature).toBe('Could not resolve that address to a legislative district')
+    expect(result.action).toMatch(/zip code/i)
+  })
+
+  it('returns GIS API unavailable AppError (network failure) after retries exhausted — non-AppError path', async () => {
+    // Simulate all 3 geocode attempts throwing a non-AppError (network error)
+    mockFetch
+      .mockRejectedValueOnce(new Error('Network error'))
+      .mockRejectedValueOnce(new Error('Network error'))
+      .mockRejectedValueOnce(new Error('Network error'))
+
+    const promise = server.invokeHandler({ address: '123 S State St, SLC UT' })
+    await vi.runAllTimersAsync()
+    const response = await promise
+    const result = JSON.parse(response.content[0]?.text ?? '{}') as AppError
+
+    expect(result.source).toBe('gis-api')
+    expect(result.nature).toBe('Address lookup service is temporarily unavailable')
+    expect(result.action).toBe('Wait a moment and try again')
   })
 })

@@ -1,6 +1,6 @@
 # Story 2.5: Address Error Handling with ErrorBanner Component
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -24,21 +24,21 @@ so that I know exactly what to fix rather than hitting a dead end.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Enhance MCP tool error classification in `lookup_legislator` (AC: 1, 2, 3)
-  - [ ] Inspect UGRC GIS API response for address-type indicators: P.O. Box patterns (regex: `/^p\.?o\.?\s*box/i`), missing geocode result (empty results array), out-of-state result (FIPS state code != Utah `49`)
-  - [ ] Map each failure mode to a specific `AppError` using `createAppError()` from `packages/types/`:
+- [x] Task 1: Enhance MCP tool error classification in `lookup_legislator` (AC: 1, 2, 3)
+  - [x] Inspect UGRC GIS API response for address-type indicators: P.O. Box patterns (regex: `/^p\.?o\.?\s*box/i`), missing geocode result (empty results array), out-of-state result (FIPS state code != Utah `49`)
+  - [x] Map each failure mode to a specific `AppError` using `createAppError()` from `packages/types/`:
     - P.O. Box: `{ source: 'gis-api', nature: 'P.O. Box addresses cannot be geocoded to a legislative district', action: 'Use your street address (e.g., 123 Main St) rather than a P.O. Box' }`
     - Out-of-state: `{ source: 'gis-api', nature: 'That address is outside Utah', action: 'Enter a Utah street address to find your state legislators' }`
     - No district found (rural route / unresolvable): `{ source: 'gis-api', nature: 'Could not resolve that address to a legislative district', action: 'Try a nearby street address or check that your ZIP code is correct' }`
     - GIS API failure (network/timeout): `{ source: 'gis-api', nature: 'Address lookup service is temporarily unavailable', action: 'Wait a moment and try again' }` (surface only after 2 retries exhausted via `retryWithDelay`)
-  - [ ] Ensure all log statements that reference the address use `'[REDACTED]'` (NFR7) — never the raw address string
-  - [ ] Write/extend unit tests in `tools/legislator-lookup.test.ts` for each error variant, mocking UGRC API responses at the HTTP boundary
-  - [ ] Verify error response arrives within 3 seconds under test (NFR15 — ensure `retryWithDelay` timeout window <= 10s is preserved)
+  - [x] Ensure all log statements that reference the address use `'[REDACTED]'` (NFR7) — never the raw address string
+  - [x] Write/extend unit tests in `tools/legislator-lookup.test.ts` for each error variant, mocking UGRC API responses at the HTTP boundary
+  - [x] Verify error response arrives within 3 seconds under test (NFR15 — ensure `retryWithDelay` timeout window <= 10s is preserved)
 
-- [ ] Task 2: Create `ErrorBanner` React component (AC: 4, 5, 6)
-  - [ ] Create `apps/web/src/components/ErrorBanner.tsx` (PascalCase, one component per file — no barrel file)
-  - [ ] Install shadcn/ui `Alert` and `Badge` components if not already present: `pnpm --filter web exec npx shadcn@latest add alert badge`
-  - [ ] Component props interface (all string props — decoupled from AppError type):
+- [x] Task 2: Create `ErrorBanner` React component (AC: 4, 5, 6)
+  - [x] Create `apps/web/src/components/ErrorBanner.tsx` (PascalCase, one component per file — no barrel file)
+  - [x] Install shadcn/ui `Alert` and `Badge` components if not already present: `pnpm --filter web exec npx shadcn@latest add alert badge`
+  - [x] Component props interface (all string props — decoupled from AppError type):
     ```typescript
     interface ErrorBannerProps {
       source: string        // e.g. 'gis-api' -> human-readable badge text
@@ -48,30 +48,30 @@ so that I know exactly what to fix rather than hitting a dead end.
       actionHref?: string   // link href for non-recoverable external fallback
     }
     ```
-  - [ ] Anatomy: source badge (small pill) + error message text + action button (recoverable) or link (non-recoverable)
-  - [ ] Use `role="alert"` on the root element (NFR11 — screen readers announce immediately)
-  - [ ] Amber-tinted styling (not red) using Tailwind tokens from `globals.css` — civic warmth per UX spec
-  - [ ] Both recoverable/non-recoverable variants via props (no separate component files)
-  - [ ] Touch target for action button: min 44x44px height (NFR12)
-  - [ ] Write Vitest + React Testing Library unit tests in `apps/web/src/components/ErrorBanner.test.tsx`
-    - [ ] Test: renders source badge, message, and action correctly
-    - [ ] Test: `role="alert"` is present on root element
-    - [ ] Test: `onAction` callback is invoked when action button is clicked
-    - [ ] Test: renders `<a>` link when `actionHref` provided and `onAction` omitted
+  - [x] Anatomy: source badge (small pill) + error message text + action button (recoverable) or link (non-recoverable)
+  - [x] Use `role="alert"` on the root element (NFR11 — screen readers announce immediately)
+  - [x] Amber-tinted styling (not red) using Tailwind tokens from `globals.css` — civic warmth per UX spec
+  - [x] Both recoverable/non-recoverable variants via props (no separate component files)
+  - [x] Touch target for action button: min 44x44px height (NFR12)
+  - [x] Write Vitest + React Testing Library unit tests in `apps/web/src/components/ErrorBanner.test.tsx`
+    - [x] Test: renders source badge, message, and action correctly
+    - [x] Test: `role="alert"` is present on root element
+    - [x] Test: `onAction` callback is invoked when action button is clicked
+    - [x] Test: renders `<a>` link when `actionHref` provided and `onAction` omitted
 
-- [ ] Task 3: Set up Vitest for `apps/web` (prerequisite for Task 2 tests)
-  - [ ] Add to `apps/web/package.json` devDependencies: `vitest@^4`, `@vitejs/plugin-react@^4`, `@testing-library/react@^16`, `@testing-library/jest-dom@^6`, `@testing-library/user-event@^14`, `jsdom@^26`
-  - [ ] Create `apps/web/vitest.config.ts` with React plugin, jsdom environment, and `@` alias
-  - [ ] Add `"test": "vitest run"` script to `apps/web/package.json`
-  - [ ] Create `apps/web/src/test/setup.ts` with `import '@testing-library/jest-dom'`
-  - [ ] Run `pnpm install` from monorepo root to update `pnpm-lock.yaml` (required — mismatched lockfile causes ERR_PNPM_OUTDATED_LOCKFILE in CI)
-  - [ ] Do NOT modify `ci.yml` — web test CI step is intentionally deferred to a later story
+- [x] Task 3: Set up Vitest for `apps/web` (prerequisite for Task 2 tests)
+  - [x] Add to `apps/web/package.json` devDependencies: `vitest@^4`, `@vitejs/plugin-react@^4`, `@testing-library/react@^16`, `@testing-library/jest-dom@^6`, `@testing-library/user-event@^14`, `jsdom@^26`
+  - [x] Create `apps/web/vitest.config.ts` with React plugin, jsdom environment, and `@` alias
+  - [x] Add `"test": "vitest run"` script to `apps/web/package.json`
+  - [x] Create `apps/web/src/test/setup.ts` with `import '@testing-library/jest-dom'`
+  - [x] Run `pnpm install` from monorepo root to update `pnpm-lock.yaml` (required — mismatched lockfile causes ERR_PNPM_OUTDATED_LOCKFILE in CI)
+  - [x] Do NOT modify `ci.yml` — web test CI step is intentionally deferred to a later story
 
-- [ ] Task 4: Integration verification (AC: 1-6)
-  - [ ] `pnpm --filter mcp-server test` passes (no regressions)
-  - [ ] `pnpm --filter web typecheck` passes (ErrorBanner is fully type-safe)
-  - [ ] `pnpm --filter web lint` passes (no ESLint violations)
-  - [ ] `pnpm --filter web test` passes (all ErrorBanner tests green)
+- [x] Task 4: Integration verification (AC: 1-6)
+  - [x] `pnpm --filter mcp-server test` passes (no regressions)
+  - [x] `pnpm --filter web typecheck` passes (ErrorBanner is fully type-safe)
+  - [x] `pnpm --filter web lint` passes (no ESLint violations)
+  - [x] `pnpm --filter web test` passes (all ErrorBanner tests green)
 
 ## Dev Notes
 
@@ -495,6 +495,36 @@ claude-sonnet-4-6
 
 ### Debug Log References
 
+None — no blocking issues encountered.
+
 ### Completion Notes List
 
+- Task 1: Enhanced `lookup_legislator` MCP tool with four distinct error classification paths:
+  1. P.O. Box pre-check (regex `/^p\.?o\.?\s*box\b/i`) fires BEFORE any GIS call, returning AppError immediately.
+  2. Semantic errors (low geocode score → unresolvable; NaN district parse → out-of-state) are RETURNED from `ugrcGeocode` (not thrown), so `retryWithDelay` does NOT retry them. This is the key architectural decision: transient network failures throw, semantic failures return.
+  3. Transient HTTP failures throw AppError → retried up to 2 times by `retryWithDelay`. Non-AppError network exceptions fall to the catch block and produce the "temporarily unavailable" message.
+  4. All log statements confirmed to use `'[REDACTED]'` for the address field — verified by test.
+- Task 1 also fixed a pre-existing mock state pollution issue in the test file: changed `vi.clearAllMocks()` to `vi.resetAllMocks()` in `beforeEach` to ensure queued `mockResolvedValueOnce` values don't bleed between tests.
+- Task 2: Created `ErrorBanner.tsx` using shadcn/ui `Alert` (which provides `role="alert"` at its root) and `Badge` components. The component handles three variants: recoverable (button with `onAction`), non-recoverable with external fallback (anchor `<a>` with `actionHref`), and informational (plain text). Action button has `min-h-[44px]` to meet NFR12 touch target requirement. Amber-tinted styling (`border-amber-500/50 bg-amber-50/50`) per UX spec.
+- Task 2 also required creating `src/lib/utils.ts` (cn helper used by shadcn/ui components) since it was missing from the project.
+- Task 3: Set up Vitest for `apps/web` with `@vitejs/plugin-react`, jsdom environment, and `@testing-library/jest-dom` setup. Added `paths` override in `apps/web/tsconfig.json` (needed because path aliases in shared `nextjs.json` resolve relative to the shared package, not the consuming app).
+- All 102 mcp-server tests pass (no regressions). All 6 new web tests pass. Both apps pass typecheck and lint.
+
 ### File List
+
+apps/mcp-server/src/tools/legislator-lookup.ts
+apps/mcp-server/src/tools/legislator-lookup.test.ts
+apps/web/src/components/ErrorBanner.tsx
+apps/web/src/components/ErrorBanner.test.tsx
+apps/web/src/components/ui/alert.tsx
+apps/web/src/components/ui/badge.tsx
+apps/web/src/lib/utils.ts
+apps/web/src/test/setup.ts
+apps/web/vitest.config.ts
+apps/web/package.json
+apps/web/tsconfig.json
+pnpm-lock.yaml
+
+## Change Log
+
+- 2026-03-03: Story 2.5 implemented — MCP tool error classification (P.O. Box, out-of-state, unresolvable, API failure), ErrorBanner React component, Vitest setup for apps/web. All ACs satisfied, 102 mcp-server tests + 6 web tests green.

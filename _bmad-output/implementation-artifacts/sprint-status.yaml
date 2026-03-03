@@ -55,7 +55,7 @@ development_status:
   2-2-legislaturedataprovider-interface-and-utah-legislature-api-legislators: review
   2-3-legislators-sqlite-cache-with-daily-refresh: review
   2-4-lookup-legislator-mcp-tool: review
-  2-5-address-error-handling-with-errorbanner-component: ready-for-dev
+  2-5-address-error-handling-with-errorbanner-component: review
   2-6-legislatorcard-ui-component-with-tailwind-design-tokens: ready-for-dev
   epic-2-retrospective: optional
 
