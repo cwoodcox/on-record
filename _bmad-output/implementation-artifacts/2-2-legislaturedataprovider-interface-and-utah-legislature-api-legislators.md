@@ -1,6 +1,6 @@
 # Story 2.2: LegislatureDataProvider Interface and Utah Legislature API — Legislators
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -25,50 +25,50 @@ so that constituent identification works end-to-end and the data layer is swappa
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create `apps/mcp-server/src/providers/` directory and `providers/types.ts` (AC: 2, 4)
-  - [ ] Create `apps/mcp-server/src/providers/` directory
-  - [ ] Define `LegislatureDataProvider` interface in `providers/types.ts`
-  - [ ] Interface methods: `getLegislatorsByDistrict(chamber: 'house' | 'senate', district: number): Promise<Legislator[]>`, `getBillsBySession(session: string): Promise<Bill[]>`, `getBillDetail(billId: string): Promise<BillDetail>`
-  - [ ] Import `Legislator`, `Bill`, `BillDetail` from `@on-record/types` (already exported from `packages/types/index.ts`)
-  - [ ] Export `LegislatureDataProvider` as a named export — no default export
-  - [ ] No barrel file — no `providers/index.ts`
+- [x] Task 1: Create `apps/mcp-server/src/providers/` directory and `providers/types.ts` (AC: 2, 4)
+  - [x] Create `apps/mcp-server/src/providers/` directory
+  - [x] Define `LegislatureDataProvider` interface in `providers/types.ts`
+  - [x] Interface methods: `getLegislatorsByDistrict(chamber: 'house' | 'senate', district: number): Promise<Legislator[]>`, `getBillsBySession(session: string): Promise<Bill[]>`, `getBillDetail(billId: string): Promise<BillDetail>`
+  - [x] Import `Legislator`, `Bill`, `BillDetail` from `@on-record/types` (already exported from `packages/types/index.ts`)
+  - [x] Export `LegislatureDataProvider` as a named export — no default export
+  - [x] No barrel file — no `providers/index.ts`
 
-- [ ] Task 2: Create `apps/mcp-server/src/providers/utah-legislature.ts` (AC: 1, 3, 5, 6, 7, 8, 9)
-  - [ ] Implement `UtahLegislatureProvider` class implementing `LegislatureDataProvider`
-  - [ ] Constructor calls `getEnv()` to access `UTAH_LEGISLATURE_API_KEY` — stored in private field, never logged
-  - [ ] Base URL: `https://glen.le.utah.gov` (HTTPS required)
-  - [ ] All outgoing requests use `Authorization: Bearer <UTAH_LEGISLATURE_API_KEY>` header
-  - [ ] `getLegislatorsByDistrict(chamber, district)`: fetches legislators for the given chamber and district from the Utah Legislature API; maps the API response shape to the `Legislator` type from `@on-record/types`
-  - [ ] `getBillsBySession(session)`: fetches all bills for the given session ID; maps the API response to `Bill[]`
-  - [ ] `getBillDetail(billId)`: fetches a single bill's detail; maps to `BillDetail`
-  - [ ] Wrap every API call with `retryWithDelay(() => fetch(...), 2, 1000)` from `lib/retry.ts`
-  - [ ] Validate API response shape with zod schemas (inline in the file) — catch API shape changes at the boundary
-  - [ ] On fetch failure or zod parse error after retries: throw `createAppError('legislature-api', '<human-readable nature>', '<corrective action>')` from `@on-record/types`
-  - [ ] Log errors: `logger.error({ source: 'legislature-api', err }, 'Legislature API call failed after retries')` before throwing AppError
-  - [ ] Map `phone_label` from API response: if API provides no label, set `phoneTypeUnknown: true` and omit `phoneLabel` from the `Legislator` object (FR5)
-  - [ ] Export `UtahLegislatureProvider` as a named export — no default export
-  - [ ] No `console.log` anywhere — only pino logger (ESLint enforced)
+- [x] Task 2: Create `apps/mcp-server/src/providers/utah-legislature.ts` (AC: 1, 3, 5, 6, 7, 8, 9)
+  - [x] Implement `UtahLegislatureProvider` class implementing `LegislatureDataProvider`
+  - [x] Constructor calls `getEnv()` to access `UTAH_LEGISLATURE_API_KEY` — stored in private field, never logged
+  - [x] Base URL: `https://glen.le.utah.gov` (HTTPS required)
+  - [x] All outgoing requests use `Authorization: Bearer <UTAH_LEGISLATURE_API_KEY>` header
+  - [x] `getLegislatorsByDistrict(chamber, district)`: fetches legislators for the given chamber and district from the Utah Legislature API; maps the API response shape to the `Legislator` type from `@on-record/types`
+  - [x] `getBillsBySession(session)`: fetches all bills for the given session ID; maps the API response to `Bill[]`
+  - [x] `getBillDetail(billId)`: fetches a single bill's detail; maps to `BillDetail`
+  - [x] Wrap every API call with `retryWithDelay(() => fetch(...), 2, 1000)` from `lib/retry.ts`
+  - [x] Validate API response shape with zod schemas (inline in the file) — catch API shape changes at the boundary
+  - [x] On fetch failure or zod parse error after retries: throw `createAppError('legislature-api', '<human-readable nature>', '<corrective action>')` from `@on-record/types`
+  - [x] Log errors: `logger.error({ source: 'legislature-api', err }, 'Legislature API call failed after retries')` before throwing AppError
+  - [x] Map `phone_label` from API response: if API provides no label, set `phoneTypeUnknown: true` and omit `phoneLabel` from the `Legislator` object (FR5)
+  - [x] Export `UtahLegislatureProvider` as a named export — no default export
+  - [x] No `console.log` anywhere — only pino logger (ESLint enforced)
 
-- [ ] Task 3: Write `apps/mcp-server/src/providers/utah-legislature.test.ts` (AC: 10, 11, 12)
-  - [ ] Mock `fetch` via `vi.stubGlobal('fetch', vi.fn())` — never touch SQLite or the real API
-  - [ ] Mock `getEnv()` via `vi.mock('../env.js', ...)` to provide a fake `UTAH_LEGISLATURE_API_KEY`
-  - [ ] Test: `getLegislatorsByDistrict('house', 10)` returns mapped `Legislator[]` on a valid API response
-  - [ ] Test: `getLegislatorsByDistrict` sets `phoneTypeUnknown: true` and omits `phoneLabel` when API returns no label (FR5)
-  - [ ] Test: `getLegislatorsByDistrict` sets `phoneLabel` and does NOT set `phoneTypeUnknown` when API provides a label
-  - [ ] Test: `getLegislatorsByDistrict` throws an `AppError` with `source: 'legislature-api'` after all retries exhausted
-  - [ ] Test: `getBillsBySession('2025GS')` returns mapped `Bill[]` on valid response
-  - [ ] Test: `getBillDetail('HB0234')` returns mapped `BillDetail` on valid response
-  - [ ] Test: Authorization header contains the API key (verify `fetch` was called with correct headers)
-  - [ ] Test: API key value is NOT present in any pino log call arguments on failure
-  - [ ] Use `vi.useFakeTimers()` + `vi.runAllTimersAsync()` for retry delay tests to avoid real 1s/3s waits
-  - [ ] Co-locate test at `apps/mcp-server/src/providers/utah-legislature.test.ts`
+- [x] Task 3: Write `apps/mcp-server/src/providers/utah-legislature.test.ts` (AC: 10, 11, 12)
+  - [x] Mock `fetch` via `vi.stubGlobal('fetch', vi.fn())` — never touch SQLite or the real API
+  - [x] Mock `getEnv()` via `vi.mock('../env.js', ...)` to provide a fake `UTAH_LEGISLATURE_API_KEY`
+  - [x] Test: `getLegislatorsByDistrict('house', 10)` returns mapped `Legislator[]` on a valid API response
+  - [x] Test: `getLegislatorsByDistrict` sets `phoneTypeUnknown: true` and omits `phoneLabel` when API returns no label (FR5)
+  - [x] Test: `getLegislatorsByDistrict` sets `phoneLabel` and does NOT set `phoneTypeUnknown` when API provides a label
+  - [x] Test: `getLegislatorsByDistrict` throws an `AppError` with `source: 'legislature-api'` after all retries exhausted
+  - [x] Test: `getBillsBySession('2025GS')` returns mapped `Bill[]` on valid response
+  - [x] Test: `getBillDetail('HB0234')` returns mapped `BillDetail` on valid response
+  - [x] Test: Authorization header contains the API key (verify `fetch` was called with correct headers)
+  - [x] Test: API key value is NOT present in any pino log call arguments on failure
+  - [x] Use `vi.useFakeTimers()` + `vi.runAllTimersAsync()` for retry delay tests to avoid real 1s/3s waits
+  - [x] Co-locate test at `apps/mcp-server/src/providers/utah-legislature.test.ts`
 
-- [ ] Task 4: Final verification (AC: 11, 12)
-  - [ ] `pnpm --filter mcp-server typecheck` exits 0
-  - [ ] `pnpm --filter mcp-server test` exits 0 (all existing + new tests pass)
-  - [ ] `pnpm --filter mcp-server lint` exits 0 (no `console.log`, no `any`, no `@ts-ignore`)
-  - [ ] Confirm: no `better-sqlite3` imports anywhere in `providers/`
-  - [ ] Confirm: `UTAH_LEGISLATURE_API_KEY` value appears only in the `Authorization` header construction — never in any string that might reach a log call
+- [x] Task 4: Final verification (AC: 11, 12)
+  - [x] `pnpm --filter mcp-server typecheck` exits 0
+  - [x] `pnpm --filter mcp-server test` exits 0 (all existing + new tests pass)
+  - [x] `pnpm --filter mcp-server lint` exits 0 (no `console.log`, no `any`, no `@ts-ignore`)
+  - [x] Confirm: no `better-sqlite3` imports anywhere in `providers/`
+  - [x] Confirm: `UTAH_LEGISLATURE_API_KEY` value appears only in the `Authorization` header construction — never in any string that might reach a log call
 
 ## Dev Notes
 
@@ -778,6 +778,27 @@ claude-sonnet-4-6
 
 ### Debug Log References
 
+- TypeScript error TS2532 (Object is possibly 'undefined') on array index access — caused by `noUncheckedIndexedAccess: true` in base tsconfig. Fixed by assigning `result[0]` to a `const first` variable and using optional chaining `first?.phoneTypeUnknown` in assertions.
+- `vi.spyOn(logger, 'error')` failed with "The property 'error' is not defined on the object" — `logger` is a Proxy with an empty target `{}`, so spying directly is not possible. Fixed by adding `vi.mock('../lib/logger.js', ...)` to provide a plain mock object with vi.fn() methods, then accessing `vi.mocked(logger.error).mock.calls` directly.
+
 ### Completion Notes List
 
+- Implemented `apps/mcp-server/src/providers/types.ts` — `LegislatureDataProvider` interface with three methods: `getLegislatorsByDistrict`, `getBillsBySession`, `getBillDetail`. Named export only, no barrel file.
+- Implemented `apps/mcp-server/src/providers/utah-legislature.ts` — `UtahLegislatureProvider` class with zod validation schemas for all API response shapes, `retryWithDelay` wrapping all `fetch` calls (2 retries, 1000ms base delay), `AppError` thrown on all failure paths with `source: 'legislature-api'`, `UTAH_LEGISLATURE_API_KEY` stored in private field via `getEnv()` — never logged.
+- FR5 phoneLabel/phoneTypeUnknown mapping: mutually exclusive — if API provides non-empty `phoneLabel`, sets `phoneLabel` only; otherwise sets `phoneTypeUnknown: true` only.
+- `getCurrentSession()` stub: January–March → current year GS, April–December → previous year GS. Full inter-session logic deferred to Story 3.4.
+- Zod schemas use illustrative field names based on architecture doc — actual API field names must be verified against the live API using the dev token before deploying. Chamber mapping: internal `'house'`/`'senate'` → API param `'H'`/`'S'` (to be verified).
+- Implemented `apps/mcp-server/src/providers/utah-legislature.test.ts` — 10 unit tests covering all required scenarios. Mocks: `fetch` via `vi.stubGlobal`, `getEnv` via `vi.mock('../env.js')`, logger via `vi.mock('../lib/logger.js')`. Uses `vi.useFakeTimers()` + `vi.runAllTimersAsync()` for retry delay handling.
+- Rejection test pattern: attach `.rejects` assertion BEFORE `vi.runAllTimersAsync()` to avoid `PromiseRejectionHandledWarning` (per project MEMORY.md).
+- All validations: `pnpm --filter mcp-server typecheck` exits 0, `pnpm --filter mcp-server test` exits 0 (59 tests, 8 test files), `pnpm --filter mcp-server lint` exits 0.
+- No new dependencies added — `zod`, `@on-record/types`, and `fetch` (Node 20 global) were all already available.
+
 ### File List
+
+- `apps/mcp-server/src/providers/types.ts` — NEW: LegislatureDataProvider interface
+- `apps/mcp-server/src/providers/utah-legislature.ts` — NEW: Utah Legislature API implementation
+- `apps/mcp-server/src/providers/utah-legislature.test.ts` — NEW: unit tests (10 tests, mocking fetch)
+
+## Change Log
+
+- 2026-03-03: Implemented Story 2.2 — created `providers/types.ts` (LegislatureDataProvider interface), `providers/utah-legislature.ts` (UtahLegislatureProvider class with zod validation, retryWithDelay, AppError, FR5 phoneLabel mapping), and `providers/utah-legislature.test.ts` (10 unit tests). All validations pass.
