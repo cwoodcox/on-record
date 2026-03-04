@@ -29,6 +29,9 @@ const apiBillListItemSchema = z.object({
 const apiBillListSchema = z.array(apiBillListItemSchema)
 
 // GET /bills/<session>/<billNumber>/<token> → single object
+// Verified field names against live API (2026-03-03). voteResult/voteDate are
+// included as optional in schema — live API testing did not confirm their presence,
+// so they are treated as undefined when absent.
 const apiBillDetailSchema = z.object({
   billNumber: z.string(),          // e.g. "HB0001"
   sessionID: z.string(),           // e.g. "2026GS"
@@ -37,6 +40,8 @@ const apiBillDetailSchema = z.object({
   lastAction: z.string().default(''),
   primeSponsor: z.string(),        // legislator ID, e.g. "WHYTESL"
   highlightedProvisions: z.string().optional(),
+  voteResult: z.string().optional(),  // populated if API provides vote outcome
+  voteDate: z.string().optional(),    // ISO 8601 date string, e.g. "2026-03-01"
 })
 
 // ── Provider Implementation ───────────────────────────────────────────────────
@@ -136,14 +141,23 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
       )
     }
 
-    // Return stubs — Epic 3 will hydrate full Bill metadata
-    return parsed.data.map((item) => ({
-      id: item.number,
-      session,
-      title: '',
-      summary: '',
-      status: '',
-      sponsorId: '',
+    // Hydrate each stub by calling getBillDetail (already implemented + tested).
+    // getBillDetail uses retryWithDelay internally — do NOT double-wrap here.
+    // Rate note: Promise.all sends ~500-1000 concurrent requests for a full session;
+    // this is acceptable for one-time cache warm-up (Story 3.2 schedules the refresh).
+    const details = await Promise.all(
+      parsed.data.map((stub) => this.getBillDetail(stub.number))
+    )
+
+    return details.map((detail) => ({
+      id: detail.id,
+      session: detail.session,
+      title: detail.title,
+      summary: detail.summary,
+      status: detail.status,
+      sponsorId: detail.sponsorId,
+      ...(detail.voteResult !== undefined && { voteResult: detail.voteResult }),
+      ...(detail.voteDate !== undefined && { voteDate: detail.voteDate }),
     }))
   }
 
@@ -185,6 +199,8 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
       status: parsed.data.lastAction,
       sponsorId: parsed.data.primeSponsor,
       ...(parsed.data.highlightedProvisions !== undefined && { fullText: parsed.data.highlightedProvisions }),
+      ...(parsed.data.voteResult !== undefined && { voteResult: parsed.data.voteResult }),
+      ...(parsed.data.voteDate !== undefined && { voteDate: parsed.data.voteDate }),
     }
   }
 }

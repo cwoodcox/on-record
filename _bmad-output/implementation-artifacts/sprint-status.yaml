@@ -67,7 +67,7 @@ development_status:
 
   # ─── Epic 3: Constituent Can Explore Their Legislator's Legislative Record ──
   epic-3: in-progress
-  3-1-utah-legislature-api-integration-bills-by-session: ready-for-dev
+  3-1-utah-legislature-api-integration-bills-by-session: review
   3-2-bills-sqlite-cache-with-hourly-refresh-and-per-legislator-sponsor-index: backlog
   3-3-fts5-bill-theme-search: backlog
   3-4-inter-session-bill-handling: backlog

@@ -58,6 +58,27 @@ const mockBillDetailResponse = {
   highlightedProvisions: 'This bill amends weighted pupil unit provisions...',
 }
 
+const mockBillDetail2Response = {
+  billNumber: 'HB0002',
+  sessionID: '2026GS',
+  shortTitle: 'Transportation Infrastructure Amendments',
+  generalProvisions: 'This bill modifies transportation funding provisions...',
+  lastAction: 'Enrolled',
+  primeSponsor: 'ANDERSJ',
+  // no highlightedProvisions — optional field absent
+}
+
+const mockBillDetailWithVoteResponse = {
+  billNumber: 'HB0001',
+  sessionID: '2026GS',
+  shortTitle: 'Public Education Base Budget Amendments',
+  generalProvisions: 'This bill supplements or reduces appropriations...',
+  lastAction: 'Governor Signed',
+  primeSponsor: 'WHYTESL',
+  voteResult: 'passed',
+  voteDate: '2026-03-01',
+}
+
 describe('UtahLegislatureProvider', () => {
   let provider: UtahLegislatureProvider
   let fetchMock: ReturnType<typeof vi.fn>
@@ -189,24 +210,87 @@ describe('UtahLegislatureProvider', () => {
   })
 
   describe('getBillsBySession', () => {
-    it('returns Bill[] stubs from billlist response', async () => {
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        json: async () => mockBillListResponse,
-      })
+    it('returns fully-hydrated Bill[] with all required fields populated', async () => {
+      // list call + two detail calls (one per bill)
+      fetchMock
+        .mockResolvedValueOnce({ ok: true, json: async () => mockBillListResponse })
+        .mockResolvedValueOnce({ ok: true, json: async () => mockBillDetailResponse })
+        .mockResolvedValueOnce({ ok: true, json: async () => mockBillDetail2Response })
 
       const promise = provider.getBillsBySession('2026GS')
       await vi.runAllTimersAsync()
       const result = await promise
 
       expect(result).toHaveLength(2)
+
       const first = result[0]
       expect(first?.id).toBe('HB0001')
       expect(first?.session).toBe('2026GS')
+      expect(first?.title).toBe('Public Education Base Budget Amendments')
+      expect(first?.summary).toBe('This bill supplements or reduces appropriations...')
+      expect(first?.status).toBe('Governor Signed')
+      expect(first?.sponsorId).toBe('WHYTESL')
+
+      const second = result[1]
+      expect(second?.id).toBe('HB0002')
+      expect(second?.title).toBe('Transportation Infrastructure Amendments')
+      expect(second?.sponsorId).toBe('ANDERSJ')
     })
 
-    it('uses correct URL with token in path', async () => {
-      fetchMock.mockResolvedValueOnce({ ok: true, json: async () => mockBillListResponse })
+    it('returns Bill[] with no empty-string fields — all required fields populated', async () => {
+      fetchMock
+        .mockResolvedValueOnce({ ok: true, json: async () => mockBillListResponse })
+        .mockResolvedValueOnce({ ok: true, json: async () => mockBillDetailResponse })
+        .mockResolvedValueOnce({ ok: true, json: async () => mockBillDetail2Response })
+
+      const promise = provider.getBillsBySession('2026GS')
+      await vi.runAllTimersAsync()
+      const result = await promise
+
+      for (const bill of result) {
+        expect(bill.id).not.toBe('')
+        expect(bill.session).not.toBe('')
+        expect(bill.title).not.toBe('')
+        expect(bill.status).not.toBe('')
+        expect(bill.sponsorId).not.toBe('')
+      }
+    })
+
+    it('populates voteResult and voteDate when detail response includes them', async () => {
+      fetchMock
+        .mockResolvedValueOnce({ ok: true, json: async () => [{ number: 'HB0001', trackingID: 'TUBFCRPIYI' }] })
+        .mockResolvedValueOnce({ ok: true, json: async () => mockBillDetailWithVoteResponse })
+
+      const promise = provider.getBillsBySession('2026GS')
+      await vi.runAllTimersAsync()
+      const result = await promise
+
+      expect(result).toHaveLength(1)
+      const bill = result[0]
+      expect(bill?.voteResult).toBe('passed')
+      expect(bill?.voteDate).toBe('2026-03-01')
+    })
+
+    it('omits voteResult and voteDate (undefined, not empty string) when detail response lacks them', async () => {
+      fetchMock
+        .mockResolvedValueOnce({ ok: true, json: async () => [{ number: 'HB0002', trackingID: 'BKSTYLLAEC' }] })
+        .mockResolvedValueOnce({ ok: true, json: async () => mockBillDetail2Response })
+
+      const promise = provider.getBillsBySession('2026GS')
+      await vi.runAllTimersAsync()
+      const result = await promise
+
+      expect(result).toHaveLength(1)
+      const bill = result[0]
+      // exactOptionalPropertyTypes: true — property must not be present at all (not undefined assignment)
+      expect('voteResult' in (bill ?? {})).toBe(false)
+      expect('voteDate' in (bill ?? {})).toBe(false)
+    })
+
+    it('uses correct URL with token in path for bill list fetch', async () => {
+      fetchMock
+        .mockResolvedValueOnce({ ok: true, json: async () => [{ number: 'HB0001', trackingID: 'TUBFCRPIYI' }] })
+        .mockResolvedValueOnce({ ok: true, json: async () => mockBillDetailResponse })
 
       const promise = provider.getBillsBySession('2026GS')
       await vi.runAllTimersAsync()
@@ -217,15 +301,33 @@ describe('UtahLegislatureProvider', () => {
       expect(url).toContain('testapikey123')
     })
 
-    it('throws AppError on API failure', async () => {
+    it('throws AppError with specific nature and action strings when bill list fetch fails after retries', async () => {
       fetchMock.mockRejectedValue(new Error('API down'))
 
-      const rejectionPromise = expect(provider.getBillsBySession('2026GS')).rejects.toMatchObject({ source: 'legislature-api' })
+      const rejectionPromise = expect(provider.getBillsBySession('2026GS')).rejects.toMatchObject({
+        source: 'legislature-api',
+        nature: 'Failed to fetch bills from Utah Legislature API',
+        action: 'Try again in a few seconds — the API may be temporarily unavailable',
+      })
       await vi.runAllTimersAsync()
       await rejectionPromise
     })
 
-    it('throws AppError when API returns unexpected response shape (zod parse failure)', async () => {
+    it('throws AppError with specific nature and action strings when bill detail fetch fails after retries', async () => {
+      fetchMock
+        .mockResolvedValueOnce({ ok: true, json: async () => [{ number: 'HB0001', trackingID: 'TUBFCRPIYI' }] })
+        .mockRejectedValue(new Error('Network error on detail'))
+
+      const rejectionPromise = expect(provider.getBillsBySession('2026GS')).rejects.toMatchObject({
+        source: 'legislature-api',
+        nature: expect.stringContaining('Failed to fetch bill detail for HB0001'),
+        action: 'Try again in a few seconds — the API may be temporarily unavailable',
+      })
+      await vi.runAllTimersAsync()
+      await rejectionPromise
+    })
+
+    it('throws AppError when bill list API returns unexpected response shape (zod parse failure)', async () => {
       fetchMock.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ unexpected: 'shape' }), // object instead of array
@@ -236,6 +338,20 @@ describe('UtahLegislatureProvider', () => {
       })
       await vi.runAllTimersAsync()
       await rejectionPromise
+    })
+
+    it('does not include API key value in logger.error call args on bill list failure', async () => {
+      const errorMock = vi.mocked(logger.error)
+      fetchMock.mockRejectedValue(new Error('Network failure'))
+
+      const rejectionPromise = expect(provider.getBillsBySession('2026GS')).rejects.toMatchObject({ source: 'legislature-api' })
+      await vi.runAllTimersAsync()
+      await rejectionPromise
+
+      for (const call of errorMock.mock.calls) {
+        const serialized = JSON.stringify(call)
+        expect(serialized).not.toContain('testapikey123')
+      }
     })
   })
 
