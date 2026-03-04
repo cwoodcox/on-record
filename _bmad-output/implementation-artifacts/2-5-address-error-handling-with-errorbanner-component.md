@@ -1,6 +1,6 @@
 # Story 2.5: Address Error Handling with ErrorBanner Component
 
-Status: review
+Status: done
 
 ## Story
 
@@ -525,6 +525,34 @@ apps/web/package.json
 apps/web/tsconfig.json
 pnpm-lock.yaml
 
+## Senior Developer Review (AI)
+
+Reviewer: Corey on 2026-03-03
+
+**Outcome: Changes Required (auto-fixed)**
+
+### HIGH Issues Fixed
+
+1. **Bug: HTTP error path returned internal technical AppError message to users** (`apps/mcp-server/src/tools/legislator-lookup.ts`, catch block after `retryWithDelay`). When GIS geocode returned a non-200 HTTP status, `ugrcGeocode` threw an AppError with `nature: 'GIS geocoding request failed (HTTP 500)'`. After retries were exhausted, the catch block did `isAppError(err) ? err : createAppError(...)`, forwarding the internal message to the user instead of the story-specified `'Address lookup service is temporarily unavailable'`. Fixed to always construct the user-friendly AppError in the catch block regardless of what was thrown.
+
+### MEDIUM Issues Fixed
+
+2. **Weak test: HTTP error path didn't assert specific nature/action values** (`apps/mcp-server/src/tools/legislator-lookup.test.ts`, line 261-262). The test for GIS HTTP failure only checked `typeof result.nature === 'string'` — this masked the HIGH bug above, because the wrong message still has type `string`. Fixed to assert exact `nature` and `action` values.
+
+3. **P.O. Box REDACTED test missing positive assertion** (`apps/mcp-server/src/tools/legislator-lookup.test.ts`, "logs [REDACTED] when P.O. Box submitted"). Test only verified that raw address was absent but did not confirm `'[REDACTED]'` was present. Fixed to add both `expect(allLogCalls.length).toBeGreaterThan(0)` and `expect(serialized).toContain('[REDACTED]')` positive assertions.
+
+4. **Inconsistent mock reset in variant spellings loop** (`apps/mcp-server/src/tools/legislator-lookup.test.ts`, line 380). Used `vi.clearAllMocks()` inside loop while `beforeEach` uses `vi.resetAllMocks()`. `clearAllMocks()` only clears call history — it does not reset queued implementations set via `mockResolvedValueOnce`. Fixed to `vi.resetAllMocks()` for consistency and correctness.
+
+### All Checks Passing
+
+- `pnpm --filter mcp-server typecheck`: pass
+- `pnpm --filter mcp-server test`: 105 tests pass (11 test files)
+- `pnpm --filter mcp-server lint`: pass
+- `pnpm --filter web typecheck`: pass
+- `pnpm --filter web test`: 22 tests pass (2 test files)
+- `pnpm --filter web lint`: pass
+
 ## Change Log
 
 - 2026-03-03: Story 2.5 implemented — MCP tool error classification (P.O. Box, out-of-state, unresolvable, API failure), ErrorBanner React component, Vitest setup for apps/web. All ACs satisfied, 102 mcp-server tests + 6 web tests green.
+- 2026-03-03: Code review — 1 HIGH bug fixed (HTTP error path returned internal AppError to users), 3 MEDIUM issues fixed (weak test assertions, missing positive REDACTED check, inconsistent vi.clearAllMocks). 105 mcp-server + 22 web tests passing.

@@ -246,7 +246,9 @@ describe('registerLookupLegislatorTool', () => {
   // ── AC#7: GIS API failure → AppError with source: 'gis-api' ────────────
 
   it('returns AppError JSON with source "gis-api" when UGRC geocode fails (HTTP error)', async () => {
-    // All 3 attempts (1 + 2 retries) fail
+    // All 3 attempts (1 + 2 retries) fail with HTTP 500.
+    // The user-facing message must be the friendly copy, NOT the internal
+    // "GIS geocoding request failed (HTTP 500)" thrown by ugrcGeocode.
     mockFetch
       .mockResolvedValueOnce(new Response('', { status: 500 }))
       .mockResolvedValueOnce(new Response('', { status: 500 }))
@@ -258,8 +260,8 @@ describe('registerLookupLegislatorTool', () => {
     const result = JSON.parse(response.content[0]?.text ?? '{}') as AppError
 
     expect(result.source).toBe('gis-api')
-    expect(typeof result.nature).toBe('string')
-    expect(typeof result.action).toBe('string')
+    expect(result.nature).toBe('Address lookup service is temporarily unavailable')
+    expect(result.action).toBe('Wait a moment and try again')
   })
 
   it('returns AppError JSON with source "gis-api" when geocode score < 70', async () => {
@@ -377,7 +379,7 @@ describe('registerLookupLegislatorTool', () => {
   it('returns P.O. Box AppError for variant spellings: "p.o. box", "P.O.Box", "po box"', async () => {
     const variants = ['p.o. box 1', 'P.O.Box 42', 'po box 999 Provo UT']
     for (const address of variants) {
-      vi.clearAllMocks()
+      vi.resetAllMocks()
       server = createMockServer()
       const result = await server.invokeHandler({ address })
       const parsed = JSON.parse(result.content[0]?.text ?? '{}') as AppError
@@ -397,10 +399,16 @@ describe('registerLookupLegislatorTool', () => {
       ...vi.mocked(logger.debug).mock.calls,
     ]
 
+    // At least one log call must have occurred (logger.error for P.O. Box)
+    expect(allLogCalls.length).toBeGreaterThan(0)
+
     for (const [context] of allLogCalls) {
       const serialized = JSON.stringify(context)
+      // Negative: raw address components must never appear in logs
       expect(serialized).not.toContain('PO Box 555')
       expect(serialized).not.toContain('Provo')
+      // Positive: redaction marker must be present in every log context
+      expect(serialized).toContain('[REDACTED]')
     }
   })
 

@@ -181,19 +181,28 @@ export function registerLookupLegislatorTool(server: McpServer): void {
       try {
         geocodeResult = await retryWithDelay(() => ugrcGeocode(address), 2, 1000)
       } catch (err) {
-        // Transient failure after all retries exhausted
+        // Transient failure after all retries exhausted.
+        // Always return the user-friendly message — internal AppErrors thrown from
+        // ugrcGeocode are retry-signaling artifacts and must NOT be forwarded to
+        // the user (they contain technical HTTP status codes, not UX copy).
         logger.error(
           { source: 'gis-api', address: '[REDACTED]', err },
           'GIS lookup failed after retries',
         )
-        const appError = isAppError(err)
-          ? err
-          : createAppError(
-              'gis-api',
-              'Address lookup service is temporarily unavailable',
-              'Wait a moment and try again',
-            )
-        return { content: [{ type: 'text', text: JSON.stringify(appError) }] }
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                createAppError(
+                  'gis-api',
+                  'Address lookup service is temporarily unavailable',
+                  'Wait a moment and try again',
+                ),
+              ),
+            },
+          ],
+        }
       }
 
       // 1a. Semantic GIS failure — returned (not thrown) to bypass retry
