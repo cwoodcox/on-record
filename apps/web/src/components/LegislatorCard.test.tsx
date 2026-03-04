@@ -40,9 +40,20 @@ describe('LegislatorCard', () => {
     expect(link).toHaveAttribute('href', 'mailto:jane.smith@le.utah.gov')
   })
 
+  it('has accessible aria-label with name, chamber, and district', () => {
+    render(<LegislatorCard legislator={baseLegislator} />)
+    expect(screen.getByRole('article', { name: 'Jane Smith, Senate District 4' })).toBeInTheDocument()
+  })
+
   it('renders phone label when phoneLabel is provided', () => {
     render(<LegislatorCard legislator={{ ...baseLegislator, phoneLabel: 'cell' }} />)
     expect(screen.getByText('(cell)')).toBeInTheDocument()
+  })
+
+  it('does not render phone label when phoneTypeUnknown is true (suppressed by unknown flag)', () => {
+    render(<LegislatorCard legislator={{ ...baseLegislator, phoneLabel: 'cell', phoneTypeUnknown: true }} />)
+    expect(screen.queryByText('(cell)')).not.toBeInTheDocument()
+    expect(screen.getByText('number type unknown')).toBeInTheDocument()
   })
 
   it('renders "number type unknown" flag when phoneTypeUnknown is true', () => {
