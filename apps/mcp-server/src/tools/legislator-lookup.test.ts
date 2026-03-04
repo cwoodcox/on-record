@@ -37,12 +37,12 @@ import { logger } from '../lib/logger.js'
 import { registerLookupLegislatorTool } from './legislator-lookup.js'
 
 // ── Type for captured tool handler ───────────────────────────────────────────
-type ToolHandler = (args: { address: string }) => Promise<{
+type ToolHandler = (args: { street: string; zone: string }) => Promise<{
   content: Array<{ type: string; text: string }>
 }>
 
 // ── Helper: create mock McpServer and capture handler ────────────────────────
-function createMockServer(): { invokeHandler: (args: { address: string }) => Promise<{ content: Array<{ type: string; text: string }> }> } {
+function createMockServer(): { invokeHandler: (args: { street: string; zone: string }) => Promise<{ content: Array<{ type: string; text: string }> }> } {
   let capturedHandler: ToolHandler | undefined
 
   const mockServer = {
@@ -80,9 +80,9 @@ function makeGeocodeResponse(score = 90.5, x = -111.891, y = 40.76): Response {
   )
 }
 
-function makeDistrictResponse(dist: string): Response {
+function makeDistrictResponse(dist: number): Response {
   return new Response(
-    JSON.stringify({ result: [{ attributes: { DIST: dist } }] }),
+    JSON.stringify({ result: [{ attributes: { dist } }] }),
     { status: 200, headers: { 'Content-Type': 'application/json' } },
   )
 }
@@ -132,15 +132,15 @@ describe('registerLookupLegislatorTool', () => {
     const senateLeg = makeLegislator({ id: 'senate-1', chamber: 'senate', district: 10 })
 
     mockFetch
-      .mockResolvedValueOnce(makeGeocodeResponse())     // Phase 1: geocode
-      .mockResolvedValueOnce(makeDistrictResponse('29')) // Phase 2: house
-      .mockResolvedValueOnce(makeDistrictResponse('10')) // Phase 2: senate
+      .mockResolvedValueOnce(makeGeocodeResponse())    // Phase 1: geocode
+      .mockResolvedValueOnce(makeDistrictResponse(29)) // Phase 2: house
+      .mockResolvedValueOnce(makeDistrictResponse(10)) // Phase 2: senate
 
     vi.mocked(getLegislatorsByDistrict)
       .mockReturnValueOnce([houseLeg])   // house district 29
       .mockReturnValueOnce([senateLeg])  // senate district 10
 
-    const promise = server.invokeHandler({ address: '123 S State St, Salt Lake City, UT 84111' })
+    const promise = server.invokeHandler({ street: '123 S State St', zone: '84111' })
     await vi.runAllTimersAsync()
     const response = await promise
 
@@ -150,7 +150,7 @@ describe('registerLookupLegislatorTool', () => {
     const result = JSON.parse(response.content[0]?.text ?? '{}') as LookupLegislatorResult
     expect(result.legislators).toHaveLength(2)
     expect(result.session).toBe('2025GS')
-    expect(result.resolvedAddress).toBe('123 S State St, Salt Lake City, UT 84111')
+    expect(result.resolvedAddress).toBe('123 S State St, 84111')
   })
 
   // ── AC#3: phoneTypeUnknown when no phoneLabel ───────────────────────────
@@ -170,14 +170,14 @@ describe('registerLookupLegislatorTool', () => {
 
     mockFetch
       .mockResolvedValueOnce(makeGeocodeResponse())
-      .mockResolvedValueOnce(makeDistrictResponse('29'))
-      .mockResolvedValueOnce(makeDistrictResponse('10'))
+      .mockResolvedValueOnce(makeDistrictResponse(29))
+      .mockResolvedValueOnce(makeDistrictResponse(10))
 
     vi.mocked(getLegislatorsByDistrict)
       .mockReturnValueOnce([leg])
       .mockReturnValueOnce([])
 
-    const promise = server.invokeHandler({ address: '123 S State St, SLC, UT' })
+    const promise = server.invokeHandler({ street: '123 S State St', zone: 'SLC' })
     await vi.runAllTimersAsync()
     const response = await promise
     const result = JSON.parse(response.content[0]?.text ?? '{}') as LookupLegislatorResult
@@ -193,14 +193,14 @@ describe('registerLookupLegislatorTool', () => {
 
     mockFetch
       .mockResolvedValueOnce(makeGeocodeResponse())
-      .mockResolvedValueOnce(makeDistrictResponse('29'))
-      .mockResolvedValueOnce(makeDistrictResponse('10'))
+      .mockResolvedValueOnce(makeDistrictResponse(29))
+      .mockResolvedValueOnce(makeDistrictResponse(10))
 
     vi.mocked(getLegislatorsByDistrict)
       .mockReturnValueOnce([leg])
       .mockReturnValueOnce([])
 
-    const promise = server.invokeHandler({ address: '123 S State St, SLC' })
+    const promise = server.invokeHandler({ street: '123 S State St', zone: 'SLC' })
     await vi.runAllTimersAsync()
     const response = await promise
 
@@ -216,14 +216,14 @@ describe('registerLookupLegislatorTool', () => {
 
     mockFetch
       .mockResolvedValueOnce(makeGeocodeResponse())
-      .mockResolvedValueOnce(makeDistrictResponse('29'))
-      .mockResolvedValueOnce(makeDistrictResponse('10'))
+      .mockResolvedValueOnce(makeDistrictResponse(29))
+      .mockResolvedValueOnce(makeDistrictResponse(10))
 
     vi.mocked(getLegislatorsByDistrict)
       .mockReturnValueOnce([leg])
       .mockReturnValueOnce([])
 
-    const promise = server.invokeHandler({ address: '123 S State St, Salt Lake City' })
+    const promise = server.invokeHandler({ street: '123 S State St', zone: 'Salt Lake City' })
     await vi.runAllTimersAsync()
     await promise
 
@@ -254,7 +254,7 @@ describe('registerLookupLegislatorTool', () => {
       .mockResolvedValueOnce(new Response('', { status: 500 }))
       .mockResolvedValueOnce(new Response('', { status: 500 }))
 
-    const promise = server.invokeHandler({ address: '123 S State St, SLC' })
+    const promise = server.invokeHandler({ street: '123 S State St', zone: 'SLC' })
     await vi.runAllTimersAsync()
     const response = await promise
     const result = JSON.parse(response.content[0]?.text ?? '{}') as AppError
@@ -268,7 +268,7 @@ describe('registerLookupLegislatorTool', () => {
     // Low score is a semantic failure (not retried) — only 1 fetch call
     mockFetch.mockResolvedValueOnce(makeGeocodeResponse(60))
 
-    const promise = server.invokeHandler({ address: '123 S State St, SLC' })
+    const promise = server.invokeHandler({ street: '123 S State St', zone: 'SLC' })
     await vi.runAllTimersAsync()
     const response = await promise
     const result = JSON.parse(response.content[0]?.text ?? '{}') as AppError
@@ -284,14 +284,14 @@ describe('registerLookupLegislatorTool', () => {
   it('returns AppError JSON with source "cache" when no legislators found in cache', async () => {
     mockFetch
       .mockResolvedValueOnce(makeGeocodeResponse())
-      .mockResolvedValueOnce(makeDistrictResponse('29'))
-      .mockResolvedValueOnce(makeDistrictResponse('10'))
+      .mockResolvedValueOnce(makeDistrictResponse(29))
+      .mockResolvedValueOnce(makeDistrictResponse(10))
 
     vi.mocked(getLegislatorsByDistrict)
       .mockReturnValueOnce([])  // house: empty
       .mockReturnValueOnce([])  // senate: empty
 
-    const promise = server.invokeHandler({ address: '123 S State St, SLC' })
+    const promise = server.invokeHandler({ street: '123 S State St', zone: 'SLC' })
     await vi.runAllTimersAsync()
     const response = await promise
     const result = JSON.parse(response.content[0]?.text ?? '{}') as AppError
@@ -318,7 +318,7 @@ describe('registerLookupLegislatorTool', () => {
       .mockReturnValueOnce([])
 
     // Attach promise BEFORE advancing timers to avoid PromiseRejectionHandledWarning
-    const promise = server.invokeHandler({ address: '123 S State St, SLC' })
+    const promise = server.invokeHandler({ street: '123 S State St', zone: 'SLC' })
     await vi.runAllTimersAsync()
     const response = await promise
 
@@ -335,7 +335,7 @@ describe('registerLookupLegislatorTool', () => {
       .mockResolvedValueOnce(new Response('', { status: 503 }))
       .mockResolvedValueOnce(new Response('', { status: 503 }))
 
-    const promise = server.invokeHandler({ address: '123 S State St, SLC' })
+    const promise = server.invokeHandler({ street: '123 S State St', zone: 'SLC' })
     await vi.runAllTimersAsync()
     const response = await promise
 
@@ -351,7 +351,7 @@ describe('registerLookupLegislatorTool', () => {
     // Low confidence is a semantic failure — returned (not thrown), no retries
     mockFetch.mockResolvedValueOnce(makeGeocodeResponse(50))
 
-    const promise = server.invokeHandler({ address: '123 S State St, SLC' })
+    const promise = server.invokeHandler({ street: '123 S State St', zone: 'SLC' })
     await vi.runAllTimersAsync()
     const response = await promise
 
@@ -366,7 +366,7 @@ describe('registerLookupLegislatorTool', () => {
   // ── Story 2.5: Error classification ─────────────────────────────────────
 
   it('returns AppError with P.O. Box guidance before making any GIS request', async () => {
-    const result = await server.invokeHandler({ address: 'PO Box 123, Salt Lake City UT 84101' })
+    const result = await server.invokeHandler({ street: 'PO Box 123', zone: '84101' })
     const parsed = JSON.parse(result.content[0]?.text ?? '{}') as AppError
 
     expect(parsed.source).toBe('gis-api')
@@ -377,11 +377,15 @@ describe('registerLookupLegislatorTool', () => {
   })
 
   it('returns P.O. Box AppError for variant spellings: "p.o. box", "P.O.Box", "po box"', async () => {
-    const variants = ['p.o. box 1', 'P.O.Box 42', 'po box 999 Provo UT']
-    for (const address of variants) {
+    const variants = [
+      { street: 'p.o. box 1', zone: 'Provo' },
+      { street: 'P.O.Box 42', zone: 'Provo' },
+      { street: 'po box 999', zone: 'Provo' },
+    ]
+    for (const args of variants) {
       vi.resetAllMocks()
       server = createMockServer()
-      const result = await server.invokeHandler({ address })
+      const result = await server.invokeHandler(args)
       const parsed = JSON.parse(result.content[0]?.text ?? '{}') as AppError
       expect(parsed.source).toBe('gis-api')
       expect(parsed.nature).toBe('P.O. Box addresses cannot be geocoded to a legislative district')
@@ -390,8 +394,7 @@ describe('registerLookupLegislatorTool', () => {
   })
 
   it('logs [REDACTED] (not raw address) when P.O. Box is submitted', async () => {
-    const address = 'PO Box 555, Provo UT 84601'
-    await server.invokeHandler({ address })
+    await server.invokeHandler({ street: 'PO Box 555', zone: 'Provo' })
 
     const allLogCalls = [
       ...vi.mocked(logger.info).mock.calls,
@@ -419,7 +422,7 @@ describe('registerLookupLegislatorTool', () => {
       .mockResolvedValueOnce(makeEmptyDistrictResponse())  // house: empty
       .mockResolvedValueOnce(makeEmptyDistrictResponse())  // senate: empty
 
-    const promise = server.invokeHandler({ address: '123 Main St, Denver CO 80203' })
+    const promise = server.invokeHandler({ street: '123 Main St', zone: '80203' })
     await vi.runAllTimersAsync()
     const response = await promise
     const result = JSON.parse(response.content[0]?.text ?? '{}') as AppError
@@ -435,7 +438,7 @@ describe('registerLookupLegislatorTool', () => {
     // Therefore only 1 fetch call occurs, regardless of retry count.
     mockFetch.mockResolvedValueOnce(makeGeocodeResponse(55))
 
-    const promise = server.invokeHandler({ address: 'Rural Route 4, Wayne County UT' })
+    const promise = server.invokeHandler({ street: 'Rural Route 4', zone: 'Wayne County' })
     await vi.runAllTimersAsync()
     const response = await promise
     const result = JSON.parse(response.content[0]?.text ?? '{}') as AppError
@@ -454,7 +457,7 @@ describe('registerLookupLegislatorTool', () => {
       .mockRejectedValueOnce(new Error('Network error'))
       .mockRejectedValueOnce(new Error('Network error'))
 
-    const promise = server.invokeHandler({ address: '123 S State St, SLC UT' })
+    const promise = server.invokeHandler({ street: '123 S State St', zone: 'SLC' })
     await vi.runAllTimersAsync()
     const response = await promise
     const result = JSON.parse(response.content[0]?.text ?? '{}') as AppError

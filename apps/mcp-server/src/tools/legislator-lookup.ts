@@ -17,26 +17,6 @@ import { getLegislatorsByDistrict } from '../cache/legislators.js'
 /** Detects P.O. Box addresses before making the GIS call (saves latency). */
 const PO_BOX_PATTERN = /^p\.?o\.?\s*box\b/i
 
-// ── Address parsing ──────────────────────────────────────────────────────────
-
-/**
- * Splits a full address into street and zone.
- * Splits on the last comma; falls back to last whitespace-delimited token as zone.
- */
-function parseAddress(address: string): { street: string; zone: string } {
-  const lastComma = address.lastIndexOf(',')
-  if (lastComma !== -1) {
-    return {
-      street: address.slice(0, lastComma).trim(),
-      zone: address.slice(lastComma + 1).trim(),
-    }
-  }
-  // Fallback: last whitespace-delimited token is zone
-  const parts = address.trim().split(/\s+/)
-  const zone = parts.pop() ?? ''
-  return { street: parts.join(' '), zone }
-}
-
 // ── UGRC GIS geocoding ───────────────────────────────────────────────────────
 
 type GeocodeResponse = {
@@ -44,7 +24,7 @@ type GeocodeResponse = {
   result?: { location: { x: number; y: number }; score: number }
 }
 
-type DistrictResponse = { result: Array<{ attributes: { DIST: string } }> }
+type DistrictResponse = { result: Array<{ attributes: { dist: number } }> }
 
 /**
  * Geocodes a Utah address to House and Senate district numbers via UGRC GIS API.
@@ -60,10 +40,10 @@ type DistrictResponse = { result: Array<{ attributes: { DIST: string } }> }
  * @param address - Full Utah street address
  */
 async function ugrcGeocode(
-  address: string,
+  street: string,
+  zone: string,
 ): Promise<{ houseDistrict: number; senateDistrict: number } | AppError> {
   const env = getEnv()
-  const { street, zone } = parseAddress(address)
 
   // Phase 1: Geocode address → coordinates
   const geocodeUrl =
@@ -94,12 +74,14 @@ async function ugrcGeocode(
   const { x, y } = geocodeData.result.location
 
   // Phase 2: District lookups (parallel)
+  // geometry must be ArcGIS JSON format: point:{"x":lon,"y":lat}
   const base = 'https://api.mapserv.utah.gov/api/v1/search'
-  const params = `geometry=point:${x},${y}&spatialReference=4326&apiKey=${env.UGRC_API_KEY}`
+  const geometry = encodeURIComponent(`point:{"x":${x},"y":${y}}`)
+  const params = `geometry=${geometry}&spatialReference=4326&apiKey=${env.UGRC_API_KEY}`
 
   const [houseRes, senateRes] = await Promise.all([
-    fetch(`${base}/political.state_house_districts/attributes?${params}`),
-    fetch(`${base}/political.state_senate_districts/attributes?${params}`),
+    fetch(`${base}/political.house_districts_2022_to_2032/dist?${params}`),
+    fetch(`${base}/political.senate_districts_2022_to_2032/dist?${params}`),
   ])
 
   if (!houseRes.ok || !senateRes.ok) {
@@ -116,8 +98,8 @@ async function ugrcGeocode(
     senateRes.json(),
   ])) as [DistrictResponse, DistrictResponse]
 
-  const houseDistrict = parseInt(houseData.result[0]?.attributes.DIST ?? '', 10)
-  const senateDistrict = parseInt(senateData.result[0]?.attributes.DIST ?? '', 10)
+  const houseDistrict = houseData.result[0]?.attributes.dist
+  const senateDistrict = senateData.result[0]?.attributes.dist
 
   if (isNaN(houseDistrict) || isNaN(senateDistrict)) {
     // Semantic failure — out-of-state or no district; return AppError (do not retry)
@@ -144,16 +126,18 @@ export function registerLookupLegislatorTool(server: McpServer): void {
     'lookup_legislator',
     "Identifies a constituent's Utah House and Senate legislators from their home address via GIS lookup. Returns structured JSON with legislator name, chamber, district, email, and phone contact information.",
     {
-      address: z
+      street: z
         .string()
         .min(1)
-        .describe(
-          'Full Utah street address including street number, street name, and city or ZIP code. Example: "123 S State St, Salt Lake City, UT 84111"',
-        ),
+        .describe('Street portion only: number and street name. Example: "123 S State St"'),
+      zone: z
+        .string()
+        .min(1)
+        .describe('City name or 5-digit ZIP code. Example: "Salt Lake City" or "84111"'),
     },
-    async ({ address }) => {
+    async ({ street, zone }) => {
       // 0. P.O. Box pre-check — detect before making the GIS call (saves latency) (FR37)
-      if (PO_BOX_PATTERN.test(address.trim())) {
+      if (PO_BOX_PATTERN.test(street.trim())) {
         logger.error(
           { source: 'gis-api', address: '[REDACTED]', errorType: 'po-box' },
           'P.O. Box address submitted — cannot geocode',
@@ -179,7 +163,7 @@ export function registerLookupLegislatorTool(server: McpServer): void {
       //    Semantic failures (out-of-state, unresolvable) are returned directly (not thrown).
       let geocodeResult: { houseDistrict: number; senateDistrict: number } | AppError
       try {
-        geocodeResult = await retryWithDelay(() => ugrcGeocode(address), 2, 1000)
+        geocodeResult = await retryWithDelay(() => ugrcGeocode(street, zone), 2, 1000)
       } catch (err) {
         // Transient failure after all retries exhausted.
         // Always return the user-friendly message — internal AppErrors thrown from
@@ -253,7 +237,7 @@ export function registerLookupLegislatorTool(server: McpServer): void {
       const result: LookupLegislatorResult = {
         legislators,
         session: legislators[0]!.session,
-        resolvedAddress: address,
+        resolvedAddress: `${street}, ${zone}`,
       }
 
       logger.info(
