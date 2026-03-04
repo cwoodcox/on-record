@@ -43,7 +43,7 @@ export async function resolveAddressToDistricts(
   try {
     geocodeData = await retryWithDelay(
       async () => {
-        const res = await fetch(geocodeUrl)
+        const res = await fetch(geocodeUrl, )
         if (!res.ok) throw new Error(`UGRC geocode HTTP ${res.status}`)
         return res.json() as Promise<UgrcGeocodeResponse>
       },
@@ -83,20 +83,21 @@ export async function resolveAddressToDistricts(
   const resolvedAddress = geocodeResult.matchAddress ?? `${street}, ${zone}`
 
   // Step 2: Query House and Senate districts in parallel
-  const geometry = `point:${longitude},${latitude}`
+  // UGRC search endpoint requires ArcGIS JSON geometry format: point:{"x":lon,"y":lat}
+  const geometry = `point:{"x":${longitude},"y":${latitude}}`
   const districtParams =
     `geometry=${encodeURIComponent(geometry)}&spatialReference=4326&apiKey=${UGRC_API_KEY}`
-  const houseUrl = `${UGRC_BASE}/search/political.utah_house_districts/dist?${districtParams}`
-  const senateUrl = `${UGRC_BASE}/search/political.utah_senate_districts/dist?${districtParams}`
+  const houseUrl = `${UGRC_BASE}/search/political.house_districts_2022_to_2032/dist?${districtParams}`
+  const senateUrl = `${UGRC_BASE}/search/political.senate_districts_2022_to_2032/dist?${districtParams}`
 
   let houseData: UgrcSearchResponse, senateData: UgrcSearchResponse
   try {
     ;[houseData, senateData] = await Promise.all([
-      fetch(houseUrl).then(async (r) => {
+      fetch(houseUrl, ).then(async (r) => {
         if (!r.ok) throw new Error(`UGRC house district HTTP ${r.status}`)
         return r.json() as Promise<UgrcSearchResponse>
       }),
-      fetch(senateUrl).then(async (r) => {
+      fetch(senateUrl, ).then(async (r) => {
         if (!r.ok) throw new Error(`UGRC senate district HTTP ${r.status}`)
         return r.json() as Promise<UgrcSearchResponse>
       }),
