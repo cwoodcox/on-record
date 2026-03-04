@@ -69,6 +69,9 @@ describe('UtahLegislatureProvider', () => {
         phoneLabel: 'cell',
       })
       expect(first?.phoneTypeUnknown).toBeUndefined()
+      // session field must be present and non-empty (getCurrentSession() stub)
+      expect(typeof first?.session).toBe('string')
+      expect(first?.session.length).toBeGreaterThan(0)
     })
 
     it('sets phoneTypeUnknown: true and omits phoneLabel when API returns no label (FR5)', async () => {
@@ -124,7 +127,23 @@ describe('UtahLegislatureProvider', () => {
       await rejectionPromise
     })
 
-    it('sends Authorization header with API key', async () => {
+    it('throws AppError when API returns unexpected response shape (zod parse failure)', async () => {
+      // API returns an object instead of an array — zod safeParse will fail
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ unexpected: 'shape' }),
+      })
+
+      const rejectionPromise = expect(provider.getLegislatorsByDistrict('house', 10)).rejects.toMatchObject({
+        source: 'legislature-api',
+        nature: expect.any(String),
+        action: expect.any(String),
+      })
+      await vi.runAllTimersAsync()
+      await rejectionPromise
+    })
+
+    it('sends Authorization header with API key and uses correct URL structure', async () => {
       fetchMock.mockResolvedValueOnce({ ok: true, json: async () => [] })
 
       const promise = provider.getLegislatorsByDistrict('house', 10)
@@ -132,8 +151,12 @@ describe('UtahLegislatureProvider', () => {
       await promise
 
       const callArgs = fetchMock.mock.calls[0] as [string, RequestInit]
+      const url = callArgs[0]
       const headers = callArgs[1]?.headers as Record<string, string>
       expect(headers['Authorization']).toBe('Bearer test-api-key-not-real')
+      expect(url).toContain('chamber=H')
+      expect(url).toContain('district=10')
+      expect(url).toContain('glen.le.utah.gov')
     })
 
     it('does not include API key value in logger.error call args on failure', async () => {
@@ -170,7 +193,8 @@ describe('UtahLegislatureProvider', () => {
       const result = await promise
 
       expect(result).toHaveLength(1)
-      expect(result[0]).toMatchObject({
+      const first = result[0]
+      expect(first).toMatchObject({
         id: 'HB0001',
         session: '2025GS',
         title: 'Education Bill',
@@ -182,6 +206,22 @@ describe('UtahLegislatureProvider', () => {
       fetchMock.mockRejectedValue(new Error('API down'))
 
       const rejectionPromise = expect(provider.getBillsBySession('2025GS')).rejects.toMatchObject({ source: 'legislature-api' })
+      await vi.runAllTimersAsync()
+      await rejectionPromise
+    })
+
+    it('throws AppError when API returns unexpected response shape (zod parse failure)', async () => {
+      // API returns an object instead of an array — zod safeParse will fail
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ unexpected: 'shape' }),
+      })
+
+      const rejectionPromise = expect(provider.getBillsBySession('2025GS')).rejects.toMatchObject({
+        source: 'legislature-api',
+        nature: expect.any(String),
+        action: expect.any(String),
+      })
       await vi.runAllTimersAsync()
       await rejectionPromise
     })
@@ -213,6 +253,22 @@ describe('UtahLegislatureProvider', () => {
       fetchMock.mockRejectedValue(new Error('Bill not found'))
 
       const rejectionPromise = expect(provider.getBillDetail('HB0234')).rejects.toMatchObject({ source: 'legislature-api' })
+      await vi.runAllTimersAsync()
+      await rejectionPromise
+    })
+
+    it('throws AppError when API returns unexpected response shape (zod parse failure)', async () => {
+      // API returns an array instead of an object — zod safeParse will fail
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ unexpected: 'shape' }],
+      })
+
+      const rejectionPromise = expect(provider.getBillDetail('HB0234')).rejects.toMatchObject({
+        source: 'legislature-api',
+        nature: expect.any(String),
+        action: expect.any(String),
+      })
       await vi.runAllTimersAsync()
       await rejectionPromise
     })

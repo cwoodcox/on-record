@@ -1,6 +1,6 @@
 # Story 2.2: LegislatureDataProvider Interface and Utah Legislature API — Legislators
 
-Status: review
+Status: done
 
 ## Story
 
@@ -799,6 +799,42 @@ claude-sonnet-4-6
 - `apps/mcp-server/src/providers/utah-legislature.ts` — NEW: Utah Legislature API implementation
 - `apps/mcp-server/src/providers/utah-legislature.test.ts` — NEW: unit tests (10 tests, mocking fetch)
 
+## Senior Developer Review (AI)
+
+**Reviewer:** Corey (AI) on 2026-03-03
+**Outcome:** Approved with fixes applied
+
+### Findings Fixed (4 issues)
+
+**[HIGH] Missing zod parse-failure test coverage for `getBillsBySession` and `getBillDetail`**
+- Both methods have `safeParse` failure paths that throw `AppError`, but only `getLegislatorsByDistrict` had a "zod parse failure" test in the committed code.
+- Fixed: Added `throws AppError when API returns unexpected response shape` tests to both `getBillsBySession` and `getBillDetail` describe blocks.
+- Test count: 103 → 105 tests.
+
+**[MEDIUM] `session` field not asserted in legislator success test**
+- `getLegislatorsByDistrict` maps `getCurrentSession()` to `Legislator.session`, but the success test's `toMatchObject` did not verify the `session` field was present and non-empty.
+- Fixed: Added `expect(typeof first?.session).toBe('string')` and `expect(first?.session.length).toBeGreaterThan(0)` assertions.
+
+**[MEDIUM] URL structure not verified in auth header test**
+- The "sends Authorization header" test verified the header value but not the URL shape (chamber/district parameters).
+- Fixed: Renamed test to "sends Authorization header with API key and uses correct URL structure"; added assertions that URL contains `chamber=H`, `district=10`, and `glen.le.utah.gov`.
+
+**[MEDIUM] Git discrepancy — uncommitted test changes**
+- Working copy had 2 uncommitted changes: (1) zod parse failure test for `getLegislatorsByDistrict` and (2) `result[0]` → `const first = result[0]` fix for `noUncheckedIndexedAccess`. These were present but not committed.
+- All changes now consolidated into the story's commit.
+
+### No-change findings
+
+**[LOW] `billId` in AppError `nature` field** — `getBillDetail` includes billId in the error nature string ("Failed to fetch bill detail for ${billId}..."). This is not a security concern (bill IDs are non-sensitive public identifiers) and billId does not appear in any log output. Acceptable as-is.
+
+**[LOW] `district` not URL-encoded** — `district` is TypeScript-typed as `number`, preventing injection. Inconsistency with `encodeURIComponent` used for string params is noted but not a functional issue. Covered by the new URL structure assertion test.
+
+### All validations confirmed clean
+- `pnpm --filter mcp-server typecheck` → exits 0
+- `pnpm --filter mcp-server test` → 105 tests, 11 files, all pass
+- `pnpm --filter mcp-server lint` → exits 0
+
 ## Change Log
 
 - 2026-03-03: Implemented Story 2.2 — created `providers/types.ts` (LegislatureDataProvider interface), `providers/utah-legislature.ts` (UtahLegislatureProvider class with zod validation, retryWithDelay, AppError, FR5 phoneLabel mapping), and `providers/utah-legislature.test.ts` (10 unit tests). All validations pass.
+- 2026-03-03: Code review pass — added zod parse-failure tests for `getBillsBySession` and `getBillDetail`, added `session` field assertion to legislator success test, extended auth header test to also verify URL structure (chamber/district params). Test count: 103 → 105. Status set to done.
