@@ -260,8 +260,10 @@ describe('registerLookupLegislatorTool', () => {
     const result = JSON.parse(response.content[0]?.text ?? '{}') as AppError
 
     expect(result.source).toBe('gis-api')
-    expect(result.nature).toBe('Address lookup failed — the GIS service did not respond')
-    expect(result.action).toBe('Try again in a few seconds. If the problem persists, verify your address is a valid Utah street address.')
+    expect(result.nature).toBe('Address lookup failed — the GIS service is unavailable')
+    expect(result.action).toBe(
+      'Try again in a few seconds. If the problem persists, the service may be temporarily down.',
+    )
   })
 
   it('returns AppError JSON with source "gis-api" when geocode score < 70', async () => {
@@ -463,7 +465,9 @@ describe('registerLookupLegislatorTool', () => {
     const result = JSON.parse(response.content[0]?.text ?? '{}') as AppError
 
     expect(result.source).toBe('gis-api')
-    expect(result.nature).toBe('Address lookup failed — the GIS service did not respond')
-    expect(result.action).toBe('Try again in a few seconds. If the problem persists, verify your address is a valid Utah street address.')
+    expect(result.nature).toBe('Address lookup failed — the GIS service is unavailable')
+    expect(result.action).toBe(
+      'Try again in a few seconds. If the problem persists, the service may be temporarily down.',
+    )
   })
 })

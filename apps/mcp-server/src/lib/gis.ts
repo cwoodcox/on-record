@@ -7,6 +7,14 @@ import { createAppError } from '@on-record/types'
 const UGRC_BASE = 'https://api.mapserv.utah.gov/api/v1'
 const GEOCODE_MIN_SCORE = 70
 
+// Thrown inside retryWithDelay to signal a non-retryable HTTP status from UGRC.
+// shouldRetry checks for this class to skip delays on 4xx responses.
+class UgrcHttpError extends Error {
+  constructor(public readonly status: number) {
+    super(`UGRC HTTP ${status}`)
+  }
+}
+
 export interface GisDistrictResult {
   houseDistrict: number
   senateDistrict: number
@@ -43,22 +51,47 @@ export async function resolveAddressToDistricts(
   try {
     geocodeData = await retryWithDelay(
       async () => {
-        const res = await fetch(geocodeUrl, )
+        const res = await fetch(geocodeUrl)
+        if (res.status === 404) throw new UgrcHttpError(404)
+        if (res.status === 400) throw new UgrcHttpError(400)
         if (!res.ok) throw new Error(`UGRC geocode HTTP ${res.status}`)
         return res.json() as Promise<UgrcGeocodeResponse>
       },
       2,
       1000,
+      (err) => !(err instanceof UgrcHttpError),
     )
   } catch (err) {
+    if (err instanceof UgrcHttpError && err.status === 404) {
+      logger.warn(
+        { source: 'gis-api', address: '[REDACTED]' },
+        'UGRC geocode: address not found',
+      )
+      throw createAppError(
+        'gis-api',
+        'Address not found',
+        'Check that the address is a valid Utah street address and try again.',
+      )
+    }
+    if (err instanceof UgrcHttpError && err.status === 400) {
+      logger.error(
+        { source: 'gis-api', address: '[REDACTED]' },
+        'UGRC geocode: bad request — malformed input',
+      )
+      throw createAppError(
+        'gis-api',
+        'Address lookup failed — request was malformed',
+        'This is an internal error. Please try again or contact support if the problem persists.',
+      )
+    }
     logger.error(
       { source: 'gis-api', address: '[REDACTED]', err },
       'UGRC geocode failed after retries',
     )
     throw createAppError(
       'gis-api',
-      'Address lookup failed — the GIS service did not respond',
-      'Try again in a few seconds. If the problem persists, verify your address is a valid Utah street address.',
+      'Address lookup failed — the GIS service is unavailable',
+      'Try again in a few seconds. If the problem persists, the service may be temporarily down.',
     )
   }
 

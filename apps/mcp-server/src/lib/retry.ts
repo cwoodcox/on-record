@@ -11,12 +11,16 @@
  * This matches FR36: "retrying at least 2 times with increasing delay between retries"
  * and the total window ≤10 seconds requirement (1s + 3s + fn execution time).
  *
+ * Pass `shouldRetry` to bail immediately on non-retryable errors (e.g. 400/404).
+ * Defaults to retrying all errors.
+ *
  * The caller is responsible for logging — this utility does not log anything.
  */
 export async function retryWithDelay<T>(
   fn: () => Promise<T>,
   attempts: number,
   delayMs: number,
+  shouldRetry: (err: unknown) => boolean = () => true,
 ): Promise<T> {
   let lastError: unknown
 
@@ -25,6 +29,7 @@ export async function retryWithDelay<T>(
       return await fn()
     } catch (err) {
       lastError = err
+      if (!shouldRetry(err)) throw err
       if (attempt < attempts) {
         // Delay multipliers: 1st retry = 1×, all subsequent retries = 3×
         const multiplier = attempt === 0 ? 1 : 3

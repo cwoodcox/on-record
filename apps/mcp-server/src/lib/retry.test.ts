@@ -81,6 +81,33 @@ describe('retryWithDelay', () => {
     expect(fn).toHaveBeenCalledTimes(2)
   })
 
+  it('bails immediately without retry when shouldRetry returns false', async () => {
+    const nonRetryable = new Error('non-retryable')
+    const fn = vi.fn().mockRejectedValue(nonRetryable)
+
+    const promise = retryWithDelay(fn, 2, 1000, () => false)
+    const assertion = expect(promise).rejects.toThrow('non-retryable')
+    await vi.runAllTimersAsync()
+    await assertion
+    expect(fn).toHaveBeenCalledTimes(1) // no retries
+  })
+
+  it('retries when shouldRetry returns true and bails on errors it returns false for', async () => {
+    class RetryableError extends Error {}
+    class NonRetryableError extends Error {}
+
+    const fn = vi
+      .fn()
+      .mockRejectedValueOnce(new RetryableError('retry me'))
+      .mockRejectedValueOnce(new NonRetryableError('stop here'))
+
+    const promise = retryWithDelay(fn, 2, 1000, (err) => !(err instanceof NonRetryableError))
+    const assertion = expect(promise).rejects.toThrow('stop here')
+    await vi.runAllTimersAsync()
+    await assertion
+    expect(fn).toHaveBeenCalledTimes(2) // 1 initial + 1 retry (then bail)
+  })
+
   it('uses 1× delay on first retry and 3× delay on second retry', async () => {
     const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout')
     const fn = vi.fn().mockRejectedValue(new Error('fail'))
