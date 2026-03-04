@@ -1,7 +1,11 @@
 // apps/mcp-server/src/cache/legislators.test.ts
-// Tests for getLegislatorsByDistrict and upsertLegislators using in-memory SQLite.
-// Uses vi.mock('./db.js') to inject test database — does NOT import the disk singleton.
-import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
+// Tests for getLegislatorsByDistrict and writeLegislators using in-memory SQLite.
+//
+// Architecture:
+//   - writeLegislators: receives db as a parameter — use in-memory db directly.
+//   - getLegislatorsByDistrict: uses the db singleton from ./db.js — inject via vi.mock.
+//
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest'
 import Database from 'better-sqlite3'
 import { initializeSchema } from './schema.js'
 import type { Legislator } from '@on-record/types'
@@ -10,26 +14,32 @@ import type { Legislator } from '@on-record/types'
 const testDb = new Database(':memory:')
 initializeSchema(testDb)
 
-// Inject testDb as the `db` singleton before module under test is evaluated
+// Inject testDb as the `db` singleton before module under test is evaluated.
+// Vitest hoists vi.mock() calls so the mock is in place when the module evaluates.
 vi.mock('./db.js', () => ({ db: testDb }))
 
 // Import after mock is registered — use dynamic import inside beforeAll to avoid
 // TS1309 (top-level await not allowed in CommonJS modules).
-// Vitest hoists vi.mock() calls so the mock is in place when the module evaluates.
-import type { getLegislatorsByDistrict as GetFn, upsertLegislators as UpsertFn } from './legislators.js'
+import type { getLegislatorsByDistrict as GetFn, writeLegislators as WriteFn } from './legislators.js'
 let getLegislatorsByDistrict: typeof GetFn
-let upsertLegislators: typeof UpsertFn
+let writeLegislators: typeof WriteFn
 
 beforeAll(async () => {
   const mod = await import('./legislators.js')
   getLegislatorsByDistrict = mod.getLegislatorsByDistrict
-  upsertLegislators = mod.upsertLegislators
+  writeLegislators = mod.writeLegislators
 })
 
 describe('legislators cache', () => {
   beforeEach(() => {
     // Clear table between tests for isolation
     testDb.prepare('DELETE FROM legislators').run()
+  })
+
+  afterEach(() => {
+    // Note: testDb is shared across all tests in this module; close is deferred until
+    // the module is torn down. Individual tests clear the table in beforeEach instead.
+    // (Closing a module-level in-memory db in afterEach would break subsequent tests.)
   })
 
   // ── Fixture helpers ──────────────────────────────────────────────────────
@@ -48,12 +58,12 @@ describe('legislators cache', () => {
     }
   }
 
-  // ── upsertLegislators ────────────────────────────────────────────────────
+  // ── writeLegislators ────────────────────────────────────────────────────
 
-  describe('upsertLegislators', () => {
+  describe('writeLegislators', () => {
     it('inserts legislators into the table', () => {
       const leg = makeLegislator()
-      upsertLegislators([leg])
+      writeLegislators(testDb, [leg])
 
       const rows = testDb.prepare('SELECT * FROM legislators').all()
       expect(rows).toHaveLength(1)
@@ -61,23 +71,23 @@ describe('legislators cache', () => {
 
     it('upserts by primary key — does not create duplicates on second write', () => {
       const leg = makeLegislator()
-      upsertLegislators([leg])
-      upsertLegislators([leg])
+      writeLegislators(testDb, [leg])
+      writeLegislators(testDb, [leg])
 
       const rows = testDb.prepare('SELECT * FROM legislators').all()
       expect(rows).toHaveLength(1)
     })
 
     it('replaces existing row on upsert — updates name', () => {
-      upsertLegislators([makeLegislator({ name: 'Original Name' })])
-      upsertLegislators([makeLegislator({ name: 'Updated Name' })])
+      writeLegislators(testDb, [makeLegislator({ name: 'Original Name' })])
+      writeLegislators(testDb, [makeLegislator({ name: 'Updated Name' })])
 
       const row = testDb.prepare('SELECT name FROM legislators WHERE id = ?').get('leg-001') as { name: string } | undefined
       expect(row?.name).toBe('Updated Name')
     })
 
     it('sets cached_at to a non-empty ISO 8601 string', () => {
-      upsertLegislators([makeLegislator()])
+      writeLegislators(testDb, [makeLegislator()])
 
       const row = testDb.prepare('SELECT cached_at FROM legislators WHERE id = ?').get('leg-001') as { cached_at: string } | undefined
       expect(row?.cached_at).toBeTruthy()
@@ -95,14 +105,14 @@ describe('legislators cache', () => {
         phoneTypeUnknown: true,
         session: '2025GS',
       }
-      upsertLegislators([leg])
+      writeLegislators(testDb, [leg])
 
       const row = testDb.prepare('SELECT phone_label FROM legislators WHERE id = ?').get('leg-002') as { phone_label: string | null } | undefined
       expect(row?.phone_label).toBeNull()
     })
 
     it('stores phone_label when phoneLabel is set', () => {
-      upsertLegislators([makeLegislator({ phoneLabel: 'district office' })])
+      writeLegislators(testDb, [makeLegislator({ phoneLabel: 'district office' })])
 
       const row = testDb.prepare('SELECT phone_label FROM legislators WHERE id = ?').get('leg-001') as { phone_label: string | null } | undefined
       expect(row?.phone_label).toBe('district office')
@@ -114,14 +124,14 @@ describe('legislators cache', () => {
         makeLegislator({ id: 'leg-002', district: 11 }),
         makeLegislator({ id: 'leg-003', district: 12 }),
       ]
-      upsertLegislators(legs)
+      writeLegislators(testDb, legs)
 
       const rows = testDb.prepare('SELECT * FROM legislators').all()
       expect(rows).toHaveLength(3)
     })
 
     it('is a no-op when passed an empty array', () => {
-      expect(() => upsertLegislators([])).not.toThrow()
+      expect(() => writeLegislators(testDb, [])).not.toThrow()
       const rows = testDb.prepare('SELECT * FROM legislators').all()
       expect(rows).toHaveLength(0)
     })
@@ -130,13 +140,13 @@ describe('legislators cache', () => {
   // ── getLegislatorsByDistrict ─────────────────────────────────────────────
 
   describe('getLegislatorsByDistrict', () => {
-    it('returns empty array when no legislators are cached (AC#8 — cache miss)', () => {
+    it('returns empty array when no legislators are cached (AC#2 — cache miss)', () => {
       const result = getLegislatorsByDistrict('house', 10)
       expect(result).toEqual([])
     })
 
     it('returns legislators matching chamber and district', () => {
-      upsertLegislators([makeLegislator({ id: 'leg-001', chamber: 'house', district: 10 })])
+      writeLegislators(testDb, [makeLegislator({ id: 'leg-001', chamber: 'house', district: 10 })])
 
       const result = getLegislatorsByDistrict('house', 10)
       expect(result).toHaveLength(1)
@@ -144,7 +154,7 @@ describe('legislators cache', () => {
     })
 
     it('filters by chamber — does not return senate results for house query', () => {
-      upsertLegislators([
+      writeLegislators(testDb, [
         makeLegislator({ id: 'leg-001', chamber: 'house', district: 10 }),
         makeLegislator({ id: 'leg-002', chamber: 'senate', district: 10 }),
       ])
@@ -155,7 +165,7 @@ describe('legislators cache', () => {
     })
 
     it('filters by district — does not return a different district', () => {
-      upsertLegislators([
+      writeLegislators(testDb, [
         makeLegislator({ id: 'leg-001', chamber: 'house', district: 10 }),
         makeLegislator({ id: 'leg-002', chamber: 'house', district: 11 }),
       ])
@@ -166,7 +176,7 @@ describe('legislators cache', () => {
     })
 
     it('maps snake_case DB columns to camelCase Legislator fields (camelCase ↔ snake_case round-trip)', () => {
-      upsertLegislators([makeLegislator({
+      writeLegislators(testDb, [makeLegislator({
         id: 'leg-001',
         chamber: 'house',
         district: 10,
@@ -192,7 +202,7 @@ describe('legislators cache', () => {
       })
     })
 
-    it('phone_label = null in DB → phoneTypeUnknown: true (AC#2, AC#3)', () => {
+    it('phone_label = null in DB → phoneTypeUnknown: true (AC#1, AC#6)', () => {
       const leg: Legislator = {
         id: 'leg-003',
         chamber: 'senate',
@@ -203,7 +213,7 @@ describe('legislators cache', () => {
         phoneTypeUnknown: true,
         session: '2025GS',
       }
-      upsertLegislators([leg])
+      writeLegislators(testDb, [leg])
 
       const result = getLegislatorsByDistrict('senate', 5)
       expect(result[0]?.phoneTypeUnknown).toBe(true)
@@ -211,7 +221,7 @@ describe('legislators cache', () => {
     })
 
     it('phone_label = "cell" in DB → { phoneLabel: "cell" } (no phoneTypeUnknown field)', () => {
-      upsertLegislators([makeLegislator({ phoneLabel: 'cell', id: 'leg-004', district: 20 })])
+      writeLegislators(testDb, [makeLegislator({ phoneLabel: 'cell', id: 'leg-004', district: 20 })])
 
       const result = getLegislatorsByDistrict('house', 20)
       expect(result[0]?.phoneLabel).toBe('cell')
@@ -229,7 +239,7 @@ describe('legislators cache', () => {
         phoneLabel: 'cell',
         session: '2026GS',
       })
-      upsertLegislators([original])
+      writeLegislators(testDb, [original])
 
       const result = getLegislatorsByDistrict('senate', 15)
       const leg = result[0]

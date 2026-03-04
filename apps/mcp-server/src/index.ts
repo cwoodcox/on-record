@@ -173,7 +173,7 @@ async function startServer(): Promise<void> {
   // STEP 2.6: Legislators cache warm-up (Story 2.3)
   // Instantiate provider and complete warm-up BEFORE serve() starts.
   const provider = new UtahLegislatureProvider()
-  await warmUpLegislatorsCache(provider)
+  await warmUpLegislatorsCache(db, provider)
   logger.info({ source: 'cache', districtCount: 104 }, 'Legislators cache warm-up complete')
 
   serve(
@@ -183,7 +183,7 @@ async function startServer(): Promise<void> {
     },
     (info) => {
       logger.info({ source: 'app', port: info.port }, 'On Record MCP server started')
-      scheduleLegislatorsRefresh(provider)
+      scheduleLegislatorsRefresh(db, provider)
     }
   )
 }

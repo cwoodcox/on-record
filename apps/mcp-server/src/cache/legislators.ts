@@ -1,8 +1,15 @@
 // apps/mcp-server/src/cache/legislators.ts
 // Cache read/write module for legislators.
-// Boundary 4: only cache/ modules import better-sqlite3 — this file imports db singleton from ./db.js.
+// Boundary 4: only cache/ modules import better-sqlite3.
 // Column-to-type mapping (snake_case DB → camelCase Legislator) is confined here only.
+//
+// Architecture note on db access:
+//   - getLegislatorsByDistrict: called from tools/ (outside cache/) which cannot import
+//     the db singleton — this function uses the db singleton directly.
+//   - writeLegislators: called exclusively from cache/refresh.ts (inside cache/); receives
+//     db as a parameter for dependency injection and testability.
 import { db } from './db.js'
+import type Database from 'better-sqlite3'
 import type { Legislator } from '@on-record/types'
 
 // ── Row shape returned from SQLite ──────────────────────────────────────────
@@ -20,6 +27,8 @@ interface LegislatorRow {
 /**
  * Reads legislators from the SQLite cache for a specific chamber and district.
  * Returns an empty array on cache miss — the tool handler treats this as an error.
+ * Uses the db singleton directly since this function is called from tools/ which
+ * cannot import cache/db per the ESLint boundary rules.
  *
  * @param chamber  - 'house' | 'senate'
  * @param district - district number
@@ -62,9 +71,14 @@ export function getLegislatorsByDistrict(
  * Sets `cached_at` to the current ISO 8601 datetime.
  * Called by cache warm-up on server startup and daily cron refresh (Story 2.3).
  *
+ * Receives db as a parameter (dependency injection — Boundary 4):
+ * cache/refresh.ts receives db from index.ts and passes it here.
+ * This keeps writeLegislators testable with an in-memory db without mocking the singleton.
+ *
+ * @param db          - Injected SQLite database instance
  * @param legislators - Array of Legislator objects to persist
  */
-export function upsertLegislators(legislators: Legislator[]): void {
+export function writeLegislators(db: Database.Database, legislators: Legislator[]): void {
   if (legislators.length === 0) return
 
   const stmt = db.prepare<[string, string, number, string, string, string, string | null, string, string]>(`

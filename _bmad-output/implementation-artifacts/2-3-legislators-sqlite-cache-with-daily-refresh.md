@@ -1,6 +1,6 @@
 # Story 2.3: Legislators SQLite Cache with Daily Refresh
 
-Status: review
+Status: done
 
 ## Story
 
@@ -307,6 +307,39 @@ claude-sonnet-4-6
 - `apps/mcp-server/src/providers/utah-legislature.ts`
 - `apps/mcp-server/src/providers/utah-legislature.test.ts`
 
+## Senior Developer Review (AI)
+
+**Reviewer:** Corey (AI) on 2026-03-03
+**Outcome:** Changes Requested → Fixed → Approved
+
+### Findings and Fixes Applied
+
+**CRITICAL — Function name mismatch + missing `db` parameter on write path (Task 1.1, 1.4)**
+- `legislators.ts` exported `upsertLegislators(legislators)` instead of the story-specified `writeLegislators(db, legislators)`. The function name deviated from the story spec (Task 1.1) and did not accept `db` as a dependency-injected parameter (Task 1.4).
+- `refresh.ts` declared `warmUpLegislatorsCache(provider)` and `scheduleLegislatorsRefresh(provider)` without the `db` parameter — also deviating from Tasks 4.2 and 4.3.
+- **Fix:** Renamed `upsertLegislators` → `writeLegislators`; added `db: Database.Database` as the first parameter to `writeLegislators`, `warmUpLegislatorsCache`, and `scheduleLegislatorsRefresh`. The `db` singleton is no longer used in `writeLegislators` — it receives `db` from `refresh.ts`, which receives it from `index.ts`. `getLegislatorsByDistrict` retains singleton access (required for callers in `tools/` which are blocked from importing `cache/db` by ESLint).
+
+**HIGH — `index.ts` not passing `db` to warm-up and scheduler (Task 5.2, 5.3)**
+- As a consequence of the signature change, `index.ts` called `warmUpLegislatorsCache(provider)` and `scheduleLegislatorsRefresh(provider)` without `db`.
+- **Fix:** Updated both call sites to `warmUpLegislatorsCache(db, provider)` and `scheduleLegislatorsRefresh(db, provider)`.
+
+**MEDIUM — `legislators.test.ts` tested `upsertLegislators` with old signature**
+- Tests called `upsertLegislators([leg])` without passing `db`; test comment referenced non-existent "AC#8".
+- **Fix:** Updated all test calls to `writeLegislators(testDb, [...])` and corrected AC reference from `AC#8` to `AC#2`.
+
+**MEDIUM — `refresh.test.ts` Vitest mock TDZ issue when referencing top-level `testDb` in `vi.mock` factory**
+- The test imported the mocked `db` singleton and used `vi.mock('./db.js', () => ({ db: testDb }))` — when `refresh.ts` triggers `legislators.ts`'s static import of `./db.js`, the factory fires before `testDb` is initialized.
+- **Fix:** Removed the `vi.mock('./db.js', ...)` dependency entirely. `refresh.test.ts` now creates a fresh `Database(':memory:')` per test suite (in `beforeEach`), passes it explicitly to `warmUpLegislatorsCache(testDb, provider)` and `scheduleLegislatorsRefresh(testDb, provider)`, and verifies cache persistence by querying `testDb.prepare(...)` directly — no singleton mock needed.
+
+**LOW — `refresh.test.ts` missing `db.close()` in `afterEach`**
+- **Fix:** Added `testDb.close()` in both suite `afterEach` hooks.
+
+### Verification
+- `pnpm --filter mcp-server typecheck` — PASS (clean)
+- `pnpm --filter mcp-server test` — PASS (105 tests, 11 suites)
+- `pnpm --filter mcp-server lint` — PASS (clean)
+
 ## Change Log
 
 - 2026-03-03: Story 2.3 implemented — legislators SQLite cache with daily cron refresh. Added `cache/legislators.ts`, `cache/refresh.ts`, and co-located tests. Wired up warm-up and cron scheduler in `index.ts`. Added `node-cron@4.2.1` dependency.
+- 2026-03-03: Code review pass — renamed `upsertLegislators` → `writeLegislators`; added `db` parameter to write functions and refresh functions; fixed `index.ts` call sites; fixed test mocking patterns; added `db.close()` in afterEach. All 105 tests pass, typecheck clean, ESLint clean.

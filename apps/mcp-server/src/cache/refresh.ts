@@ -1,10 +1,11 @@
 // apps/mcp-server/src/cache/refresh.ts
 // Legislators cache warm-up and daily refresh scheduler.
 // Cron callback must NOT be async or throw — async work is wrapped with .catch().
+import type Database from 'better-sqlite3'
 import { schedule } from 'node-cron'
 import { logger } from '../lib/logger.js'
 import type { LegislatureDataProvider } from '../providers/types.js'
-import { upsertLegislators } from './legislators.js'
+import { writeLegislators } from './legislators.js'
 
 // Utah legislative districts:
 //   House:  1–75  (75 districts)
@@ -17,9 +18,11 @@ const SENATE_DISTRICTS = Array.from({ length: 29 }, (_, i) => i + 1)
  * 104 total calls (75 house + 29 senate) using Promise.all — acceptable burst on startup
  * since legislators refresh at most once per day.
  *
+ * @param db       - Injected SQLite database instance (dependency injection — Boundary 4)
  * @param provider - Data provider (UtahLegislatureProvider or test mock)
  */
 export async function warmUpLegislatorsCache(
+  db: Database.Database,
   provider: LegislatureDataProvider,
 ): Promise<void> {
   const houseCalls = HOUSE_DISTRICTS.map((district) =>
@@ -33,7 +36,7 @@ export async function warmUpLegislatorsCache(
 
   // Flatten all Legislator[] arrays into a single array for a single transactional write
   const legislators = allResults.flat()
-  upsertLegislators(legislators)
+  writeLegislators(db, legislators)
 }
 
 /**
@@ -43,13 +46,15 @@ export async function warmUpLegislatorsCache(
  * On failure: logs with source 'legislature-api'; stale data continues to be served (NFR17).
  * On success: logs with source 'cache'.
  *
+ * @param db       - Injected SQLite database instance (dependency injection — Boundary 4)
  * @param provider - Data provider
  */
 export function scheduleLegislatorsRefresh(
+  db: Database.Database,
   provider: LegislatureDataProvider,
 ): void {
   schedule('0 6 * * *', () => {
-    warmUpLegislatorsCache(provider)
+    warmUpLegislatorsCache(db, provider)
       .then(() => {
         logger.info({ source: 'cache' }, 'Legislators cache refreshed')
       })
