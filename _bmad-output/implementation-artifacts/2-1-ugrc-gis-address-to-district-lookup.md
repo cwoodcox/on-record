@@ -681,5 +681,6 @@ All 13 ACs verified as implemented. `pnpm --filter mcp-server typecheck`, `pnpm 
 
 | Date | Version | Description | Author |
 |------|---------|-------------|--------|
+| 2026-03-04 | 1.2 | Retrospective: Dev notes in this story file reference stale table names (`political.utah_house_districts`, `political.utah_senate_districts`) and geometry format (`point:{lng},{lat}`). The `gis.ts` implementation was corrected during live testing (commit `3219e72`). Authoritative values: tables `political.house_districts_2022_to_2032` / `political.senate_districts_2022_to_2032`, geometry `point:{"x":lng,"y":lat}` (ArcGIS JSON). Dev notes not updated — historical record preserved. | Corey |
 | 2026-03-03 | 1.1 | Code review pass: fix C1 (file list), M1 (task checkboxes), L1 (NaN guard in gis.ts), L3 (retryWithDelay assertion in tests), M2 (clarified beforeAll pattern). Status → done. | claude-sonnet-4-6 (code-review) |
 | 2026-03-03 | 1.0 | Initial implementation: gis.ts + gis.test.ts. Status → review. | claude-sonnet-4-6 |
