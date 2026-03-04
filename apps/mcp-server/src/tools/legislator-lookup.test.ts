@@ -422,11 +422,10 @@ describe('registerLookupLegislatorTool', () => {
   })
 
   it('returns unresolvable AppError when geocode score is below threshold', async () => {
-    // All 3 attempts return low geocode score
-    mockFetch
-      .mockResolvedValueOnce(makeGeocodeResponse(55))
-      .mockResolvedValueOnce(makeGeocodeResponse(55))
-      .mockResolvedValueOnce(makeGeocodeResponse(55))
+    // Low score is a SEMANTIC failure — ugrcGeocode returns (not throws) an AppError.
+    // retryWithDelay does not retry returned values, only thrown exceptions.
+    // Therefore only 1 fetch call occurs, regardless of retry count.
+    mockFetch.mockResolvedValueOnce(makeGeocodeResponse(55))
 
     const promise = server.invokeHandler({ address: 'Rural Route 4, Wayne County UT' })
     await vi.runAllTimersAsync()
@@ -436,6 +435,8 @@ describe('registerLookupLegislatorTool', () => {
     expect(result.source).toBe('gis-api')
     expect(result.nature).toBe('Could not resolve that address to a legislative district')
     expect(result.action).toMatch(/zip code/i)
+    // Only 1 fetch — semantic failures are returned (not thrown) so retryWithDelay does not retry
+    expect(mockFetch).toHaveBeenCalledTimes(1)
   })
 
   it('returns GIS API unavailable AppError (network failure) after retries exhausted — non-AppError path', async () => {
