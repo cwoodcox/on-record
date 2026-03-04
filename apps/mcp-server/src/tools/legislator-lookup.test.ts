@@ -247,8 +247,7 @@ describe('registerLookupLegislatorTool', () => {
 
   it('returns AppError JSON with source "gis-api" when UGRC geocode fails (HTTP error)', async () => {
     // All 3 attempts (1 + 2 retries) fail with HTTP 500.
-    // The user-facing message must be the friendly copy, NOT the internal
-    // "GIS geocoding request failed (HTTP 500)" thrown by ugrcGeocode.
+    // The user-facing message must be the friendly copy from gis.ts, not an internal error.
     mockFetch
       .mockResolvedValueOnce(new Response('', { status: 500 }))
       .mockResolvedValueOnce(new Response('', { status: 500 }))
@@ -260,8 +259,8 @@ describe('registerLookupLegislatorTool', () => {
     const result = JSON.parse(response.content[0]?.text ?? '{}') as AppError
 
     expect(result.source).toBe('gis-api')
-    expect(result.nature).toBe('Address lookup service is temporarily unavailable')
-    expect(result.action).toBe('Wait a moment and try again')
+    expect(result.nature).toBe('Address lookup failed — the GIS service did not respond')
+    expect(result.action).toBe('Try again in a few seconds. If the problem persists, verify your address is a valid Utah street address.')
   })
 
   it('returns AppError JSON with source "gis-api" when geocode score < 70', async () => {
@@ -274,7 +273,7 @@ describe('registerLookupLegislatorTool', () => {
     const result = JSON.parse(response.content[0]?.text ?? '{}') as AppError
 
     expect(result.source).toBe('gis-api')
-    expect(result.nature).toBe('Could not resolve that address to a legislative district')
+    expect(result.nature).toBe('Your address could not be confidently located in Utah')
     // Only 1 fetch call — no retries for semantic failures
     expect(mockFetch).toHaveBeenCalledTimes(1)
   })
@@ -310,8 +309,8 @@ describe('registerLookupLegislatorTool', () => {
       .mockResolvedValueOnce(new Response('', { status: 503 }))
       // Second attempt (after 1s delay): geocode succeeds
       .mockResolvedValueOnce(makeGeocodeResponse())
-      .mockResolvedValueOnce(makeDistrictResponse('29'))
-      .mockResolvedValueOnce(makeDistrictResponse('10'))
+      .mockResolvedValueOnce(makeDistrictResponse(29))
+      .mockResolvedValueOnce(makeDistrictResponse(10))
 
     vi.mocked(getLegislatorsByDistrict)
       .mockReturnValueOnce([leg])
@@ -347,8 +346,8 @@ describe('registerLookupLegislatorTool', () => {
 
   // ── isAppError forwarding — upstream AppError preserved ─────────────────
 
-  it('forwards the upstream AppError (does not re-wrap) when geocode returns semantic error', async () => {
-    // Low confidence is a semantic failure — returned (not thrown), no retries
+  it('forwards the AppError thrown by resolveAddressToDistricts for semantic failures', async () => {
+    // Low confidence is a semantic failure — thrown (not returned), no retries
     mockFetch.mockResolvedValueOnce(makeGeocodeResponse(50))
 
     const promise = server.invokeHandler({ street: '123 S State St', zone: 'SLC' })
@@ -356,9 +355,8 @@ describe('registerLookupLegislatorTool', () => {
     const response = await promise
 
     const result = JSON.parse(response.content[0]?.text ?? '{}') as AppError
-    // The precise AppError from ugrcGeocode must be forwarded, not wrapped
     expect(result.source).toBe('gis-api')
-    expect(result.nature).toBe('Could not resolve that address to a legislative district')
+    expect(result.nature).toBe('Your address could not be confidently located in Utah')
     // Only 1 fetch — semantic errors are not retried
     expect(mockFetch).toHaveBeenCalledTimes(1)
   })
@@ -428,13 +426,13 @@ describe('registerLookupLegislatorTool', () => {
     const result = JSON.parse(response.content[0]?.text ?? '{}') as AppError
 
     expect(result.source).toBe('gis-api')
-    expect(result.nature).toBe('That address appears to be outside Utah')
-    expect(result.action).toMatch(/utah street address/i)
+    expect(result.nature).toBe('Your address could not be matched to a Utah legislative district')
+    expect(result.action).toMatch(/physical street address/i)
   })
 
   it('returns unresolvable AppError when geocode score is below threshold', async () => {
-    // Low score is a SEMANTIC failure — ugrcGeocode returns (not throws) an AppError.
-    // retryWithDelay does not retry returned values, only thrown exceptions.
+    // Low score is a SEMANTIC failure — resolveAddressToDistricts throws an AppError immediately.
+    // retryWithDelay only retries on HTTP errors, not score failures.
     // Therefore only 1 fetch call occurs, regardless of retry count.
     mockFetch.mockResolvedValueOnce(makeGeocodeResponse(55))
 
@@ -444,9 +442,9 @@ describe('registerLookupLegislatorTool', () => {
     const result = JSON.parse(response.content[0]?.text ?? '{}') as AppError
 
     expect(result.source).toBe('gis-api')
-    expect(result.nature).toBe('Could not resolve that address to a legislative district')
-    expect(result.action).toMatch(/zip code/i)
-    // Only 1 fetch — semantic failures are returned (not thrown) so retryWithDelay does not retry
+    expect(result.nature).toBe('Your address could not be confidently located in Utah')
+    expect(result.action).toMatch(/valid utah street address/i)
+    // Only 1 fetch — semantic failures are thrown immediately (not retried)
     expect(mockFetch).toHaveBeenCalledTimes(1)
   })
 
@@ -463,7 +461,7 @@ describe('registerLookupLegislatorTool', () => {
     const result = JSON.parse(response.content[0]?.text ?? '{}') as AppError
 
     expect(result.source).toBe('gis-api')
-    expect(result.nature).toBe('Address lookup service is temporarily unavailable')
-    expect(result.action).toBe('Wait a moment and try again')
+    expect(result.nature).toBe('Address lookup failed — the GIS service did not respond')
+    expect(result.action).toBe('Try again in a few seconds. If the problem persists, verify your address is a valid Utah street address.')
   })
 })

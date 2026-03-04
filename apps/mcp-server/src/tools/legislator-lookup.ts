@@ -1,117 +1,19 @@
 // apps/mcp-server/src/tools/legislator-lookup.ts
 // MCP tool: lookup_legislator — geocodes a Utah address to legislative districts,
 // then reads legislator data from the SQLite cache.
-// Boundary 3: UGRC GIS direct HTTP, no abstraction layer.
 // Boundary 4: only cache/ imports better-sqlite3 — this file must not import it.
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
-import { retryWithDelay } from '../lib/retry.js'
 import { logger } from '../lib/logger.js'
-import { getEnv } from '../env.js'
 import { createAppError, isAppError } from '@on-record/types'
-import type { AppError, LookupLegislatorResult } from '@on-record/types'
+import type { LookupLegislatorResult } from '@on-record/types'
 import { getLegislatorsByDistrict } from '../cache/legislators.js'
+import { resolveAddressToDistricts } from '../lib/gis.js'
 
 // ── Error classification constants ───────────────────────────────────────────
 
 /** Detects P.O. Box addresses before making the GIS call (saves latency). */
 const PO_BOX_PATTERN = /^p\.?o\.?\s*box\b/i
-
-// ── UGRC GIS geocoding ───────────────────────────────────────────────────────
-
-type GeocodeResponse = {
-  status: number
-  result?: { location: { x: number; y: number }; score: number }
-}
-
-type DistrictResponse = { result: Array<{ attributes: { dist: number } }> }
-
-/**
- * Geocodes a Utah address to House and Senate district numbers via UGRC GIS API.
- * Phase 1: geocode address → lat/lng coordinates.
- * Phase 2: two parallel district point-in-polygon lookups.
- *
- * Returns:
- *   - `{ houseDistrict, senateDistrict }` on success
- *   - `AppError` for semantic failures (unresolvable address, out-of-state) — callers
- *     must NOT retry these (they are permanent, not transient).
- *   - Throws an `AppError` for transient/network failures — callers SHOULD retry.
- *
- * @param address - Full Utah street address
- */
-async function ugrcGeocode(
-  street: string,
-  zone: string,
-): Promise<{ houseDistrict: number; senateDistrict: number } | AppError> {
-  const env = getEnv()
-
-  // Phase 1: Geocode address → coordinates
-  const geocodeUrl =
-    `https://api.mapserv.utah.gov/api/v1/geocode/` +
-    `${encodeURIComponent(street)}/${encodeURIComponent(zone)}` +
-    `?apiKey=${env.UGRC_API_KEY}&spatialReference=4326`
-
-  const geocodeRes = await fetch(geocodeUrl)
-  if (!geocodeRes.ok) {
-    // Transient HTTP failure — throw so retryWithDelay can retry
-    throw createAppError(
-      'gis-api',
-      `GIS geocoding request failed (HTTP ${geocodeRes.status})`,
-      'Try again in a moment',
-    )
-  }
-
-  const geocodeData = (await geocodeRes.json()) as GeocodeResponse
-
-  if (!geocodeData.result || geocodeData.result.score < 70) {
-    // Semantic failure — unresolvable address; return AppError (do not retry)
-    return createAppError(
-      'gis-api',
-      'Could not resolve that address to a legislative district',
-      'Try a nearby street address or check that your ZIP code is correct',
-    )
-  }
-  const { x, y } = geocodeData.result.location
-
-  // Phase 2: District lookups (parallel)
-  // geometry must be ArcGIS JSON format: point:{"x":lon,"y":lat}
-  const base = 'https://api.mapserv.utah.gov/api/v1/search'
-  const geometry = encodeURIComponent(`point:{"x":${x},"y":${y}}`)
-  const params = `geometry=${geometry}&spatialReference=4326&apiKey=${env.UGRC_API_KEY}`
-
-  const [houseRes, senateRes] = await Promise.all([
-    fetch(`${base}/political.house_districts_2022_to_2032/dist?${params}`),
-    fetch(`${base}/political.senate_districts_2022_to_2032/dist?${params}`),
-  ])
-
-  if (!houseRes.ok || !senateRes.ok) {
-    // Transient HTTP failure — throw so retryWithDelay can retry
-    throw createAppError(
-      'gis-api',
-      'District lookup request failed',
-      'Try again in a moment',
-    )
-  }
-
-  const [houseData, senateData] = (await Promise.all([
-    houseRes.json(),
-    senateRes.json(),
-  ])) as [DistrictResponse, DistrictResponse]
-
-  const houseDistrict = houseData.result[0]?.attributes.dist
-  const senateDistrict = senateData.result[0]?.attributes.dist
-
-  if (isNaN(houseDistrict) || isNaN(senateDistrict)) {
-    // Semantic failure — out-of-state or no district; return AppError (do not retry)
-    return createAppError(
-      'gis-api',
-      'That address appears to be outside Utah',
-      'Enter a Utah street address to find your state legislators',
-    )
-  }
-
-  return { houseDistrict, senateDistrict }
-}
 
 // ── Tool registration ────────────────────────────────────────────────────────
 
@@ -158,20 +60,24 @@ export function registerLookupLegislatorTool(server: McpServer): void {
         }
       }
 
-      // 1. GIS lookup with retry — retryWithDelay(fn, 2, 1000) = 3 total attempts (FR36)
-      //    Only transient failures (network/HTTP errors) are retried.
-      //    Semantic failures (out-of-state, unresolvable) are returned directly (not thrown).
-      let geocodeResult: { houseDistrict: number; senateDistrict: number } | AppError
+      // 1. GIS lookup — resolveAddressToDistricts handles retries internally (FR36)
+      //    Throws AppError for all failures (semantic and transient).
+      let geocodeResult: Awaited<ReturnType<typeof resolveAddressToDistricts>>
       try {
-        geocodeResult = await retryWithDelay(() => ugrcGeocode(street, zone), 2, 1000)
+        geocodeResult = await resolveAddressToDistricts(street, zone)
       } catch (err) {
-        // Transient failure after all retries exhausted.
-        // Always return the user-friendly message — internal AppErrors thrown from
-        // ugrcGeocode are retry-signaling artifacts and must NOT be forwarded to
-        // the user (they contain technical HTTP status codes, not UX copy).
+        if (isAppError(err)) {
+          logger.error(
+            { source: 'gis-api', address: '[REDACTED]', nature: err.nature },
+            'GIS lookup failed',
+          )
+          return { content: [{ type: 'text', text: JSON.stringify(err) }] }
+        }
+        // Defensive fallback — resolveAddressToDistricts always wraps failures as AppErrors,
+        // so this branch is unreachable in practice. Kept as a safety net.
         logger.error(
           { source: 'gis-api', address: '[REDACTED]', err },
-          'GIS lookup failed after retries',
+          'Unexpected GIS error',
         )
         return {
           content: [
@@ -189,16 +95,6 @@ export function registerLookupLegislatorTool(server: McpServer): void {
         }
       }
 
-      // 1a. Semantic GIS failure — returned (not thrown) to bypass retry
-      if (isAppError(geocodeResult)) {
-        logger.error(
-          { source: 'gis-api', address: '[REDACTED]', nature: geocodeResult.nature },
-          'GIS lookup returned semantic error',
-        )
-        return { content: [{ type: 'text', text: JSON.stringify(geocodeResult) }] }
-      }
-
-      logger.debug({ source: 'gis-api', address: '[REDACTED]' }, 'GIS lookup succeeded')
       const districts = geocodeResult
 
       // 2. Read from cache — empty array means cache miss
@@ -237,7 +133,7 @@ export function registerLookupLegislatorTool(server: McpServer): void {
       const result: LookupLegislatorResult = {
         legislators,
         session: legislators[0]!.session,
-        resolvedAddress: `${street}, ${zone}`,
+        resolvedAddress: geocodeResult.resolvedAddress,
       }
 
       logger.info(
