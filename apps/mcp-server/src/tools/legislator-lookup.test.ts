@@ -17,7 +17,7 @@ vi.mock('../lib/logger.js', () => ({
 }))
 
 // ── Mock: env.js ─────────────────────────────────────────────────────────────
-// Prevent validateEnv() requirement; provide a stable UGRC_API_KEY.
+// Required transitively — resolveAddressToDistricts calls getEnv() internally.
 vi.mock('../env.js', () => ({
   getEnv: () => ({
     UGRC_API_KEY: 'test-ugrc-key',
@@ -231,6 +231,7 @@ describe('registerLookupLegislatorTool', () => {
       ...vi.mocked(logger.info).mock.calls,
       ...vi.mocked(logger.error).mock.calls,
       ...vi.mocked(logger.debug).mock.calls,
+      ...vi.mocked(logger.warn).mock.calls,
     ]
 
     // At least one log call should have occurred
@@ -398,6 +399,7 @@ describe('registerLookupLegislatorTool', () => {
       ...vi.mocked(logger.info).mock.calls,
       ...vi.mocked(logger.error).mock.calls,
       ...vi.mocked(logger.debug).mock.calls,
+      ...vi.mocked(logger.warn).mock.calls,
     ]
 
     // At least one log call must have occurred (logger.error for P.O. Box)
@@ -413,8 +415,8 @@ describe('registerLookupLegislatorTool', () => {
     }
   })
 
-  it('returns out-of-state AppError when district lookup returns empty results (NaN districts)', async () => {
-    // Geocode succeeds but district queries return empty results → NaN parse
+  it('returns out-of-state AppError when district lookup returns empty results (undefined districts)', async () => {
+    // Geocode succeeds but district queries return empty results → undefined dist
     mockFetch
       .mockResolvedValueOnce(makeGeocodeResponse())         // geocode: ok
       .mockResolvedValueOnce(makeEmptyDistrictResponse())  // house: empty
@@ -448,8 +450,8 @@ describe('registerLookupLegislatorTool', () => {
     expect(mockFetch).toHaveBeenCalledTimes(1)
   })
 
-  it('returns GIS API unavailable AppError (network failure) after retries exhausted — non-AppError path', async () => {
-    // Simulate all 3 geocode attempts throwing a non-AppError (network error)
+  it('returns GIS API unavailable AppError when network errors exhaust all retries', async () => {
+    // Simulate all 3 geocode attempts throwing a network error — gis.ts wraps and rethrows as AppError
     mockFetch
       .mockRejectedValueOnce(new Error('Network error'))
       .mockRejectedValueOnce(new Error('Network error'))

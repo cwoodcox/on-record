@@ -67,32 +67,9 @@ export function registerLookupLegislatorTool(server: McpServer): void {
         geocodeResult = await resolveAddressToDistricts(street, zone)
       } catch (err) {
         if (isAppError(err)) {
-          logger.error(
-            { source: 'gis-api', address: '[REDACTED]', nature: err.nature },
-            'GIS lookup failed',
-          )
           return { content: [{ type: 'text', text: JSON.stringify(err) }] }
         }
-        // Defensive fallback — resolveAddressToDistricts always wraps failures as AppErrors,
-        // so this branch is unreachable in practice. Kept as a safety net.
-        logger.error(
-          { source: 'gis-api', address: '[REDACTED]', err },
-          'Unexpected GIS error',
-        )
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(
-                createAppError(
-                  'gis-api',
-                  'Address lookup service is temporarily unavailable',
-                  'Wait a moment and try again',
-                ),
-              ),
-            },
-          ],
-        }
+        throw err
       }
 
       const districts = geocodeResult
