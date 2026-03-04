@@ -58,6 +58,12 @@ development_status:
   2-5-address-error-handling-with-errorbanner-component: done
   2-6-legislatorcard-ui-component-with-tailwind-design-tokens: done
   epic-2-retrospective: optional
+  # Retrospective notes (2026-03-03):
+  #   - Bug fixes required on 2.1 (UGRC district table names, geometry format) and 2.2 (Legislature API)
+  #     because third-party API docs were not reviewed before dev began. For future epics with API
+  #     integrations, obtain docs during create-story, not during dev.
+  #   - Future optimization: switch UGRC district lookup from 2 parallel queries to 1 using
+  #     political.district_combination_areas_2026 (combines house, senate, school board, congressional)
 
   # ─── Epic 3: Constituent Can Explore Their Legislator's Legislative Record ──
   epic-3: backlog
