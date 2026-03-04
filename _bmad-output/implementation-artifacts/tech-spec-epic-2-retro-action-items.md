@@ -2,7 +2,7 @@
 title: 'Epic 2 Retro Action Items'
 slug: 'epic-2-retro-action-items'
 created: '2026-03-04'
-status: 'ready-for-dev'
+status: 'Completed'
 stepsCompleted: [1, 2, 3, 4]
 tech_stack:
   - TypeScript (NodeNext, strict)
@@ -209,6 +209,11 @@ With:
 Add to the "Code Review Findings Patterns" section (two new bullets):
 > - For any new file: check it doesn't duplicate logic already present elsewhere in the codebase — cross-layer duplication (tools/ reimplementing lib/) is as likely as same-layer
 > - Error-path tests must assert specific `nature` and `action` string values — type-only checks (`typeof result.nature === 'string'`) are insufficient
+
+## Review Notes
+- Adversarial review completed
+- Findings: 12 total, 6 fixed (F1/F3/F4/F5/F6/F8), 4 skipped (F2/F7/F10/F11 — noise/pre-existing/out-of-scope), 2 acknowledged (F9/F12)
+- Resolution approach: walk-through (selected subset)
 
 ### Acceptance Criteria
 

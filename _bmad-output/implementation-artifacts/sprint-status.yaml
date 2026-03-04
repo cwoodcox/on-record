@@ -57,7 +57,7 @@ development_status:
   2-4-lookup-legislator-mcp-tool: done
   2-5-address-error-handling-with-errorbanner-component: done
   2-6-legislatorcard-ui-component-with-tailwind-design-tokens: done
-  epic-2-retrospective: optional
+  epic-2-retrospective: done
   # Retrospective notes (2026-03-03):
   #   - Bug fixes required on 2.1 (UGRC district table names, geometry format) and 2.2 (Legislature API)
   #     because third-party API docs were not reviewed before dev began. For future epics with API
