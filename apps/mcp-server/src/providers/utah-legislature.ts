@@ -8,40 +8,35 @@ import { logger } from '../lib/logger.js'
 import type { LegislatureDataProvider } from './types.js'
 
 // ── Zod schemas for API response validation ───────────────────────────────────
-// These catch API shape changes at the boundary.
-// NOTE: The field names below are illustrative based on the architecture doc.
-// The actual API field names (id, chamber, phoneLabel, sponsorId, etc.) must be
-// verified against the live API. Adjust schemas accordingly and document verified
-// field names in the Dev Agent Record.
+// Verified against live API at https://glen.le.utah.gov on 2026-03-03.
+// Token goes in URL path — no auth headers used.
 
+// GET /legislator/<H|S>/<district>/<token> → single object
 const apiLegislatorSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  chamber: z.string(), // 'H' | 'S' or 'house' | 'senate' — verify against API
-  district: z.number(),
+  id: z.string(),               // e.g. "DAILEJ"
+  formatName: z.string(),       // e.g. "Jennifer Dailey-Provost"
+  house: z.string(),            // "H" | "S"
+  district: z.string(),         // district number as string, e.g. "22"
   email: z.string(),
-  phone: z.string(),
-  phoneLabel: z.string().optional(), // API-provided label; absent when type unknown (FR5)
+  cell: z.string().optional(),  // phone number; field named "cell" is the label
 })
 
-const apiLegislatorsResponseSchema = z.array(apiLegislatorSchema)
-
-const apiBillSchema = z.object({
-  id: z.string(),
-  session: z.string(),
-  title: z.string(),
-  summary: z.string().default(''),
-  status: z.string(),
-  sponsorId: z.string(), // verify actual field name in API response
-  voteResult: z.string().optional(),
-  voteDate: z.string().optional(), // ISO 8601 date
+// GET /bills/<session>/billlist/<token> → array of minimal stubs
+const apiBillListItemSchema = z.object({
+  number: z.string(),      // e.g. "HB0001"
+  trackingID: z.string(),
 })
+const apiBillListSchema = z.array(apiBillListItemSchema)
 
-const apiBillsResponseSchema = z.array(apiBillSchema)
-
-const apiBillDetailSchema = apiBillSchema.extend({
-  fullText: z.string().optional(),
-  subjects: z.array(z.string()).optional(),
+// GET /bills/<session>/<billNumber>/<token> → single object
+const apiBillDetailSchema = z.object({
+  billNumber: z.string(),          // e.g. "HB0001"
+  sessionID: z.string(),           // e.g. "2026GS"
+  shortTitle: z.string(),
+  generalProvisions: z.string().default(''),
+  lastAction: z.string().default(''),
+  primeSponsor: z.string(),        // legislator ID, e.g. "WHYTESL"
+  highlightedProvisions: z.string().optional(),
 })
 
 // ── Provider Implementation ───────────────────────────────────────────────────
@@ -55,25 +50,20 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
     this.apiKey = getEnv().UTAH_LEGISLATURE_API_KEY
   }
 
-  private get authHeaders(): Record<string, string> {
-    return {
-      Authorization: `Bearer ${this.apiKey}`,
-      'Content-Type': 'application/json',
-    }
+  // Token goes in URL path — API does not use auth headers
+  private url(...segments: string[]): string {
+    return [this.baseUrl, ...segments, this.apiKey].join('/')
   }
 
   async getLegislatorsByDistrict(chamber: 'house' | 'senate', district: number): Promise<Legislator[]> {
-    // Map our internal chamber value to whatever the API expects — verify this
     const chamberParam = chamber === 'house' ? 'H' : 'S'
-    const url = `${this.baseUrl}/api/v1/legislators?chamber=${chamberParam}&district=${district}`
+    const url = this.url('legislator', chamberParam, String(district))
 
     let rawData: unknown
     try {
       rawData = await retryWithDelay(async () => {
-        const res = await fetch(url, { headers: this.authHeaders })
-        if (!res.ok) {
-          throw new Error(`Legislature API responded with HTTP ${res.status}`)
-        }
+        const res = await fetch(url)
+        if (!res.ok) throw new Error(`Legislature API responded with HTTP ${res.status}`)
         return res.json() as Promise<unknown>
       }, 2, 1000)
     } catch (err) {
@@ -85,7 +75,7 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
       )
     }
 
-    const parsed = apiLegislatorsResponseSchema.safeParse(rawData)
+    const parsed = apiLegislatorSchema.safeParse(rawData)
     if (!parsed.success) {
       logger.error({ source: 'legislature-api', err: parsed.error }, 'Legislature API response shape changed')
       throw createAppError(
@@ -95,35 +85,36 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
       )
     }
 
+    const leg = parsed.data
     const session = getCurrentSession()
-    return parsed.data.map((leg) => {
-      const base = {
-        id: leg.id,
-        chamber,
-        district: leg.district,
-        name: leg.name,
-        email: leg.email,
-        phone: leg.phone,
-        session,
-      }
-      // FR5: phoneLabel present → set it; absent → set phoneTypeUnknown: true
-      if (leg.phoneLabel) {
-        return { ...base, phoneLabel: leg.phoneLabel }
-      }
-      return { ...base, phoneTypeUnknown: true as const }
-    })
+    const base = {
+      id: leg.id,
+      chamber,
+      district: parseInt(leg.district, 10),
+      name: leg.formatName,
+      email: leg.email,
+      session,
+    }
+
+    // FR5: API phone field is named "cell" — use as both phone value and label.
+    // If absent, set phoneTypeUnknown: true.
+    if (leg.cell) {
+      return [{ ...base, phone: leg.cell, phoneLabel: 'cell' }]
+    }
+    return [{ ...base, phone: '', phoneTypeUnknown: true as const }]
   }
 
   async getBillsBySession(session: string): Promise<Bill[]> {
-    const url = `${this.baseUrl}/api/v1/bills?session=${encodeURIComponent(session)}`
+    // Bill list endpoint returns minimal stubs (number + trackingID only).
+    // Full bill metadata is fetched via getBillDetail(). Epic 3 will implement
+    // the caching layer that hydrates the full Bill shape.
+    const url = this.url('bills', session, 'billlist')
 
     let rawData: unknown
     try {
       rawData = await retryWithDelay(async () => {
-        const res = await fetch(url, { headers: this.authHeaders })
-        if (!res.ok) {
-          throw new Error(`Legislature API responded with HTTP ${res.status}`)
-        }
+        const res = await fetch(url)
+        if (!res.ok) throw new Error(`Legislature API responded with HTTP ${res.status}`)
         return res.json() as Promise<unknown>
       }, 2, 1000)
     } catch (err) {
@@ -135,7 +126,7 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
       )
     }
 
-    const parsed = apiBillsResponseSchema.safeParse(rawData)
+    const parsed = apiBillListSchema.safeParse(rawData)
     if (!parsed.success) {
       logger.error({ source: 'legislature-api', err: parsed.error }, 'Legislature API bills response shape changed')
       throw createAppError(
@@ -145,28 +136,26 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
       )
     }
 
-    return parsed.data.map((bill) => ({
-      id: bill.id,
-      session: bill.session,
-      title: bill.title,
-      summary: bill.summary,
-      status: bill.status,
-      sponsorId: bill.sponsorId,
-      ...(bill.voteResult !== undefined && { voteResult: bill.voteResult }),
-      ...(bill.voteDate !== undefined && { voteDate: bill.voteDate }),
+    // Return stubs — Epic 3 will hydrate full Bill metadata
+    return parsed.data.map((item) => ({
+      id: item.number,
+      session,
+      title: '',
+      summary: '',
+      status: '',
+      sponsorId: '',
     }))
   }
 
   async getBillDetail(billId: string): Promise<BillDetail> {
-    const url = `${this.baseUrl}/api/v1/bills/${encodeURIComponent(billId)}`
+    const session = getCurrentSession()
+    const url = this.url('bills', session, billId)
 
     let rawData: unknown
     try {
       rawData = await retryWithDelay(async () => {
-        const res = await fetch(url, { headers: this.authHeaders })
-        if (!res.ok) {
-          throw new Error(`Legislature API responded with HTTP ${res.status}`)
-        }
+        const res = await fetch(url)
+        if (!res.ok) throw new Error(`Legislature API responded with HTTP ${res.status}`)
         return res.json() as Promise<unknown>
       }, 2, 1000)
     } catch (err) {
@@ -189,16 +178,13 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
     }
 
     return {
-      id: parsed.data.id,
-      session: parsed.data.session,
-      title: parsed.data.title,
-      summary: parsed.data.summary,
-      status: parsed.data.status,
-      sponsorId: parsed.data.sponsorId,
-      ...(parsed.data.voteResult !== undefined && { voteResult: parsed.data.voteResult }),
-      ...(parsed.data.voteDate !== undefined && { voteDate: parsed.data.voteDate }),
-      ...(parsed.data.fullText !== undefined && { fullText: parsed.data.fullText }),
-      ...(parsed.data.subjects !== undefined && { subjects: parsed.data.subjects }),
+      id: parsed.data.billNumber,
+      session: parsed.data.sessionID,
+      title: parsed.data.shortTitle,
+      summary: parsed.data.generalProvisions,
+      status: parsed.data.lastAction,
+      sponsorId: parsed.data.primeSponsor,
+      ...(parsed.data.highlightedProvisions !== undefined && { fullText: parsed.data.highlightedProvisions }),
     }
   }
 }

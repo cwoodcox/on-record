@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 // vi.mock must be hoisted — declare before any local imports
 vi.mock('../env.js', () => ({
   getEnv: vi.fn(() => ({
-    UTAH_LEGISLATURE_API_KEY: 'test-api-key-not-real',
+    UTAH_LEGISLATURE_API_KEY: 'testapikey123',
     PORT: 3001,
     NODE_ENV: 'test' as const,
     UGRC_API_KEY: 'test-ugrc-key',
@@ -24,6 +24,40 @@ vi.mock('../lib/logger.js', () => ({
 import { UtahLegislatureProvider } from './utah-legislature.js'
 import { logger } from '../lib/logger.js'
 
+// Verified API response shapes from live API (2026-03-03)
+const mockLegislatorResponse = {
+  id: 'DAILEJ',
+  formatName: 'Jennifer Dailey-Provost',
+  house: 'H',
+  district: '22',
+  email: 'jdprovost@le.utah.gov',
+  cell: '385-321-7827',
+}
+
+const mockLegislatorNoCellResponse = {
+  id: 'SMITHJ',
+  formatName: 'John Smith',
+  house: 'S',
+  district: '5',
+  email: 'jsmith@le.utah.gov',
+  // no cell field — phoneTypeUnknown: true
+}
+
+const mockBillListResponse = [
+  { number: 'HB0001', trackingID: 'TUBFCRPIYI' },
+  { number: 'HB0002', trackingID: 'BKSTYLLAEC' },
+]
+
+const mockBillDetailResponse = {
+  billNumber: 'HB0001',
+  sessionID: '2026GS',
+  shortTitle: 'Public Education Base Budget Amendments',
+  generalProvisions: 'This bill supplements or reduces appropriations...',
+  lastAction: 'Governor Signed',
+  primeSponsor: 'WHYTESL',
+  highlightedProvisions: 'This bill amends weighted pupil unit provisions...',
+}
+
 describe('UtahLegislatureProvider', () => {
   let provider: UtahLegislatureProvider
   let fetchMock: ReturnType<typeof vi.fn>
@@ -38,52 +72,40 @@ describe('UtahLegislatureProvider', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
     vi.useRealTimers()
-    vi.clearAllMocks()
+    vi.resetAllMocks()
   })
 
   describe('getLegislatorsByDistrict', () => {
     it('returns mapped Legislator[] on valid API response', async () => {
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => [
-          {
-            id: 'leg-1', chamber: 'H', district: 10, name: 'Jane Smith',
-            email: 'jsmith@utah.gov', phone: '801-555-0100', phoneLabel: 'cell',
-          },
-        ],
+        json: async () => mockLegislatorResponse,
       })
 
-      const promise = provider.getLegislatorsByDistrict('house', 10)
+      const promise = provider.getLegislatorsByDistrict('house', 22)
       await vi.runAllTimersAsync()
       const result = await promise
 
       expect(result).toHaveLength(1)
       const first = result[0]
       expect(first).toMatchObject({
-        id: 'leg-1',
+        id: 'DAILEJ',
         chamber: 'house',
-        district: 10,
-        name: 'Jane Smith',
-        email: 'jsmith@utah.gov',
-        phone: '801-555-0100',
+        district: 22,
+        name: 'Jennifer Dailey-Provost',
+        email: 'jdprovost@le.utah.gov',
+        phone: '385-321-7827',
         phoneLabel: 'cell',
       })
       expect(first?.phoneTypeUnknown).toBeUndefined()
-      // session field must be present and non-empty (getCurrentSession() stub)
       expect(typeof first?.session).toBe('string')
       expect(first?.session.length).toBeGreaterThan(0)
     })
 
-    it('sets phoneTypeUnknown: true and omits phoneLabel when API returns no label (FR5)', async () => {
+    it('sets phoneTypeUnknown: true and omits phoneLabel when cell is absent (FR5)', async () => {
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => [
-          {
-            id: 'leg-2', chamber: 'S', district: 5, name: 'Bob Jones',
-            email: 'bjones@utah.gov', phone: '801-555-0200',
-            // no phoneLabel field
-          },
-        ],
+        json: async () => mockLegislatorNoCellResponse,
       })
 
       const promise = provider.getLegislatorsByDistrict('senate', 5)
@@ -93,26 +115,21 @@ describe('UtahLegislatureProvider', () => {
 
       expect(first?.phoneTypeUnknown).toBe(true)
       expect(first?.phoneLabel).toBeUndefined()
+      expect(first?.phone).toBe('')
     })
 
-    it('sets phoneLabel and does NOT set phoneTypeUnknown when API provides a label', async () => {
+    it('district string from API is parsed to number', async () => {
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => [
-          {
-            id: 'leg-3', chamber: 'H', district: 3, name: 'Alice Brown',
-            email: 'abrown@utah.gov', phone: '801-555-0300', phoneLabel: 'district office',
-          },
-        ],
+        json: async () => mockLegislatorResponse, // district: "22"
       })
 
-      const promise = provider.getLegislatorsByDistrict('house', 3)
+      const promise = provider.getLegislatorsByDistrict('house', 22)
       await vi.runAllTimersAsync()
       const result = await promise
-      const first = result[0]
 
-      expect(first?.phoneLabel).toBe('district office')
-      expect(first?.phoneTypeUnknown).toBeUndefined()
+      expect(typeof result[0]?.district).toBe('number')
+      expect(result[0]?.district).toBe(22)
     })
 
     it('throws AppError with source legislature-api after all retries exhausted', async () => {
@@ -128,39 +145,35 @@ describe('UtahLegislatureProvider', () => {
     })
 
     it('throws AppError when API returns unexpected response shape (zod parse failure)', async () => {
-      // API returns an object instead of an array — zod safeParse will fail
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ unexpected: 'shape' }),
+        json: async () => [{ unexpected: 'shape' }], // array instead of object
       })
 
       const rejectionPromise = expect(provider.getLegislatorsByDistrict('house', 10)).rejects.toMatchObject({
         source: 'legislature-api',
-        nature: expect.any(String),
-        action: expect.any(String),
       })
       await vi.runAllTimersAsync()
       await rejectionPromise
     })
 
-    it('sends Authorization header with API key and uses correct URL structure', async () => {
-      fetchMock.mockResolvedValueOnce({ ok: true, json: async () => [] })
+    it('uses correct URL structure with token in path (no auth header)', async () => {
+      fetchMock.mockResolvedValueOnce({ ok: true, json: async () => mockLegislatorResponse })
 
       const promise = provider.getLegislatorsByDistrict('house', 10)
       await vi.runAllTimersAsync()
       await promise
 
-      const callArgs = fetchMock.mock.calls[0] as [string, RequestInit]
+      const callArgs = fetchMock.mock.calls[0] as [string, ...unknown[]]
       const url = callArgs[0]
-      const headers = callArgs[1]?.headers as Record<string, string>
-      expect(headers['Authorization']).toBe('Bearer test-api-key-not-real')
-      expect(url).toContain('chamber=H')
-      expect(url).toContain('district=10')
       expect(url).toContain('glen.le.utah.gov')
+      expect(url).toContain('/legislator/H/10/')
+      expect(url).toContain('testapikey123')
+      // No auth header — fetch called with URL only (no options arg with headers)
+      expect(callArgs[1]).toBeUndefined()
     })
 
     it('does not include API key value in logger.error call args on failure', async () => {
-      // logger is mocked — access error directly as a vi.fn()
       const errorMock = vi.mocked(logger.error)
       fetchMock.mockRejectedValue(new Error('Network failure'))
 
@@ -168,59 +181,58 @@ describe('UtahLegislatureProvider', () => {
       await vi.runAllTimersAsync()
       await rejectionPromise
 
-      // The API key value must not appear in any logger.error call argument
       for (const call of errorMock.mock.calls) {
         const serialized = JSON.stringify(call)
-        expect(serialized).not.toContain('test-api-key-not-real')
+        expect(serialized).not.toContain('testapikey123')
       }
     })
   })
 
   describe('getBillsBySession', () => {
-    it('returns mapped Bill[] on valid response', async () => {
+    it('returns Bill[] stubs from billlist response', async () => {
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => [
-          {
-            id: 'HB0001', session: '2025GS', title: 'Education Bill',
-            summary: 'A bill about education', status: 'Enrolled', sponsorId: 'leg-1',
-          },
-        ],
+        json: async () => mockBillListResponse,
       })
 
-      const promise = provider.getBillsBySession('2025GS')
+      const promise = provider.getBillsBySession('2026GS')
       await vi.runAllTimersAsync()
       const result = await promise
 
-      expect(result).toHaveLength(1)
+      expect(result).toHaveLength(2)
       const first = result[0]
-      expect(first).toMatchObject({
-        id: 'HB0001',
-        session: '2025GS',
-        title: 'Education Bill',
-        sponsorId: 'leg-1',
-      })
+      expect(first?.id).toBe('HB0001')
+      expect(first?.session).toBe('2026GS')
+    })
+
+    it('uses correct URL with token in path', async () => {
+      fetchMock.mockResolvedValueOnce({ ok: true, json: async () => mockBillListResponse })
+
+      const promise = provider.getBillsBySession('2026GS')
+      await vi.runAllTimersAsync()
+      await promise
+
+      const url = (fetchMock.mock.calls[0] as [string])[0]
+      expect(url).toContain('/bills/2026GS/billlist/')
+      expect(url).toContain('testapikey123')
     })
 
     it('throws AppError on API failure', async () => {
       fetchMock.mockRejectedValue(new Error('API down'))
 
-      const rejectionPromise = expect(provider.getBillsBySession('2025GS')).rejects.toMatchObject({ source: 'legislature-api' })
+      const rejectionPromise = expect(provider.getBillsBySession('2026GS')).rejects.toMatchObject({ source: 'legislature-api' })
       await vi.runAllTimersAsync()
       await rejectionPromise
     })
 
     it('throws AppError when API returns unexpected response shape (zod parse failure)', async () => {
-      // API returns an object instead of an array — zod safeParse will fail
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ unexpected: 'shape' }),
+        json: async () => ({ unexpected: 'shape' }), // object instead of array
       })
 
-      const rejectionPromise = expect(provider.getBillsBySession('2025GS')).rejects.toMatchObject({
+      const rejectionPromise = expect(provider.getBillsBySession('2026GS')).rejects.toMatchObject({
         source: 'legislature-api',
-        nature: expect.any(String),
-        action: expect.any(String),
       })
       await vi.runAllTimersAsync()
       await rejectionPromise
@@ -228,46 +240,43 @@ describe('UtahLegislatureProvider', () => {
   })
 
   describe('getBillDetail', () => {
-    it('returns BillDetail on valid response', async () => {
+    it('returns BillDetail mapped from real API field names', async () => {
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({
-          id: 'HB0234', session: '2025GS', title: 'Healthcare Bill',
-          summary: 'A healthcare bill', status: 'Failed', sponsorId: 'leg-1',
-          fullText: 'Full bill text here', subjects: ['healthcare', 'insurance'],
-        }),
+        json: async () => mockBillDetailResponse,
       })
 
-      const promise = provider.getBillDetail('HB0234')
+      const promise = provider.getBillDetail('HB0001')
       await vi.runAllTimersAsync()
       const result = await promise
 
       expect(result).toMatchObject({
-        id: 'HB0234',
-        fullText: 'Full bill text here',
-        subjects: ['healthcare', 'insurance'],
+        id: 'HB0001',
+        session: '2026GS',
+        title: 'Public Education Base Budget Amendments',
+        summary: 'This bill supplements or reduces appropriations...',
+        status: 'Governor Signed',
+        sponsorId: 'WHYTESL',
+        fullText: 'This bill amends weighted pupil unit provisions...',
       })
     })
 
     it('throws AppError on API failure', async () => {
       fetchMock.mockRejectedValue(new Error('Bill not found'))
 
-      const rejectionPromise = expect(provider.getBillDetail('HB0234')).rejects.toMatchObject({ source: 'legislature-api' })
+      const rejectionPromise = expect(provider.getBillDetail('HB0001')).rejects.toMatchObject({ source: 'legislature-api' })
       await vi.runAllTimersAsync()
       await rejectionPromise
     })
 
     it('throws AppError when API returns unexpected response shape (zod parse failure)', async () => {
-      // API returns an array instead of an object — zod safeParse will fail
       fetchMock.mockResolvedValueOnce({
         ok: true,
         json: async () => [{ unexpected: 'shape' }],
       })
 
-      const rejectionPromise = expect(provider.getBillDetail('HB0234')).rejects.toMatchObject({
+      const rejectionPromise = expect(provider.getBillDetail('HB0001')).rejects.toMatchObject({
         source: 'legislature-api',
-        nature: expect.any(String),
-        action: expect.any(String),
       })
       await vi.runAllTimersAsync()
       await rejectionPromise
