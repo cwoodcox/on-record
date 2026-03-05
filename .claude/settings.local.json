@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:ui.shadcn.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:turborepo.dev)",
+      "Bash(ls -la /Users/coreywoodcox/Developer/cwoodcox/on-record/_bmad-output/planning-artifacts/*.md /Users/coreywoodcox/Developer/cwoodcox/on-record/_bmad-output/planning-artifacts/*.html)",
+      "Bash(git push:*)",
+      "Bash(git add:*)",
+      "Bash(git:*)",
+      "Bash(pnpm:*)",
+      "WebFetch(domain:le.utah.gov)",
+      "WebFetch(domain:api.mapserv.utah.gov)"
+    ]
+  }
+}
