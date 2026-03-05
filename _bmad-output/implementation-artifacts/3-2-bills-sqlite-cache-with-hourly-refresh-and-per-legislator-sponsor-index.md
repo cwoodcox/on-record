@@ -127,6 +127,12 @@ so that bill searches return in under 1 second and upstream API calls don't scal
 - [ ] [AI-Review][High] Refresh logic does not overwrite prior cache contents; stale rows remain when upstream returns fewer bills. [`apps/mcp-server/src/cache/bills.ts:105-134`, `apps/mcp-server/src/cache/refresh.ts:76-83`]
 - [ ] [AI-Review][High] Startup exits if bills warm-up fails, preventing stale-cache serving during outage. [`apps/mcp-server/src/index.ts:180`, `apps/mcp-server/src/index.ts:196-199`]
 - [ ] [AI-Review][Medium] AC9/task claim says only `cache/bills.ts` writes to `bills`/`bill_fts`, but test file also writes those tables. [`apps/mcp-server/src/cache/bills.test.ts:42`, `apps/mcp-server/src/cache/bills.test.ts:44`]
+- [ ] [AI-Review][Medium] `scheduleBillsRefresh` "logs error" and "logs info" tests never call `scheduleBillsRefresh` — they manually simulate the `.then()/.catch()` path; the actual scheduler wiring is untested. [`apps/mcp-server/src/cache/refresh.test.ts:342-379`]
+- [ ] [AI-Review][Medium] `apps/mcp-server/data/on-record.db` is not gitignored — root `.gitignore` entry `data/on-record.db` anchors to repo root, not `apps/mcp-server/data/`; confirmed via `git check-ignore`. Fix: add `**/data/*.db` to `.gitignore`. [`.gitignore`]
+- [ ] [AI-Review][Low] `getActiveSession()` has zero direct unit tests; the `month >= 3` branch is never exercised. [`apps/mcp-server/src/cache/bills.ts:55-59`]
+- [ ] [AI-Review][Low] Empty `afterEach` in `bills.test.ts` is dead code — remove it. [`apps/mcp-server/src/cache/bills.test.ts:47-51`]
+- [ ] [AI-Review][Low] `getBillsBySession` lacks null→undefined mapping test for `vote_result`/`vote_date`; only `getBillsBySponsor` has this coverage despite both using `rowToBill`. [`apps/mcp-server/src/cache/bills.test.ts:226-254`]
+- [ ] [AI-Review][Low] `SELECT *` returns `cached_at` column but `BillRow` interface omits it — type is technically inaccurate. Prefer explicit column list over `SELECT *`. [`apps/mcp-server/src/cache/bills.ts:71`, `apps/mcp-server/src/cache/bills.ts:86`]
 
 ## Dev Notes
 
