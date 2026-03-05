@@ -177,8 +177,15 @@ async function startServer(): Promise<void> {
   logger.info({ source: 'cache', districtCount: 104 }, 'Legislators cache warm-up complete')
 
   // STEP 2.8: Bills cache warm-up (Story 3.2)
-  await warmUpBillsCache(db, provider)
-  logger.info({ source: 'cache' }, 'Bills cache warm-up complete')
+  // NFR17: bills warm-up failure must NOT prevent the server from starting — stale data
+  // (empty cache) is acceptable during an upstream outage. Errors are logged so the
+  // operator can investigate without impacting availability.
+  try {
+    await warmUpBillsCache(db, provider)
+    logger.info({ source: 'cache' }, 'Bills cache warm-up complete')
+  } catch (err: unknown) {
+    logger.error({ source: 'legislature-api', err }, 'Bills cache warm-up failed — serving stale data')
+  }
 
   serve(
     {

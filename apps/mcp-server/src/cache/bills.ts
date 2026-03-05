@@ -68,7 +68,9 @@ export function getActiveSession(): string {
  */
 export function getBillsBySponsor(sponsorId: string): Bill[] {
   const rows = db
-    .prepare<[string], BillRow>('SELECT * FROM bills WHERE sponsor_id = ?')
+    .prepare<[string], BillRow>(
+      'SELECT id, session, title, summary, status, sponsor_id, vote_result, vote_date FROM bills WHERE sponsor_id = ?',
+    )
     .all(sponsorId)
   return rows.map(rowToBill)
 }
@@ -83,7 +85,9 @@ export function getBillsBySponsor(sponsorId: string): Bill[] {
  */
 export function getBillsBySession(session: string): Bill[] {
   const rows = db
-    .prepare<[string], BillRow>('SELECT * FROM bills WHERE session = ?')
+    .prepare<[string], BillRow>(
+      'SELECT id, session, title, summary, status, sponsor_id, vote_result, vote_date FROM bills WHERE session = ?',
+    )
     .all(session)
   return rows.map(rowToBill)
 }
@@ -105,6 +109,10 @@ export function getBillsBySession(session: string): Bill[] {
 export function writeBills(db: Database.Database, bills: Bill[]): void {
   if (bills.length === 0) return
 
+  // Infer session from the batch — all bills in a single refresh call share one session.
+  const session = bills[0]!.session
+
+  const deleteStmt = db.prepare<[string]>('DELETE FROM bills WHERE session = ?')
   const stmt = db.prepare<
     [string, string, string, string, string, string, string | null, string | null, string]
   >(`
@@ -117,6 +125,9 @@ export function writeBills(db: Database.Database, bills: Bill[]): void {
   const cachedAt = new Date().toISOString()
 
   db.transaction(() => {
+    // Delete all prior bills for this session so stale rows are removed when
+    // upstream returns fewer bills than the previous refresh (AC3 overwrite semantics).
+    deleteStmt.run(session)
     for (const bill of bills) {
       stmt.run(
         bill.id,

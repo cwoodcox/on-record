@@ -1,11 +1,12 @@
 // apps/mcp-server/src/cache/bills.test.ts
-// Tests for writeBills, getBillsBySponsor, getBillsBySession using in-memory SQLite.
+// Tests for writeBills, getBillsBySponsor, getBillsBySession, getActiveSession using in-memory SQLite.
 //
 // Architecture:
 //   - writeBills: receives db as a parameter — use in-memory db directly.
 //   - getBillsBySponsor, getBillsBySession: use the db singleton from ./db.js — inject via vi.mock.
+//   - getActiveSession: pure function (no db) — test with vi.setSystemTime to control date.
 //
-import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
 import Database from 'better-sqlite3'
 import { initializeSchema } from './schema.js'
 import type { Bill } from '@on-record/types'
@@ -24,16 +25,19 @@ import type {
   getBillsBySponsor as GetBySponsorFn,
   getBillsBySession as GetBySessionFn,
   writeBills as WriteFn,
+  getActiveSession as GetActiveSessionFn,
 } from './bills.js'
 let getBillsBySponsor: typeof GetBySponsorFn
 let getBillsBySession: typeof GetBySessionFn
 let writeBills: typeof WriteFn
+let getActiveSession: typeof GetActiveSessionFn
 
 beforeAll(async () => {
   const mod = await import('./bills.js')
   getBillsBySponsor = mod.getBillsBySponsor
   getBillsBySession = mod.getBillsBySession
   writeBills = mod.writeBills
+  getActiveSession = mod.getActiveSession
 })
 
 describe('bills cache', () => {
@@ -42,12 +46,6 @@ describe('bills cache', () => {
     testDb.prepare('DELETE FROM bills').run()
     // Reset FTS5 after clearing bills table
     testDb.prepare("INSERT INTO bill_fts(bill_fts) VALUES('delete-all')").run()
-  })
-
-  afterEach(() => {
-    // Note: testDb is shared across all tests in this module; close is deferred until
-    // the module is torn down. Individual tests clear the table in beforeEach instead.
-    // (Closing a module-level in-memory db in afterEach would break subsequent tests.)
   })
 
   // ── Fixture helpers ──────────────────────────────────────────────────────
@@ -140,6 +138,21 @@ describe('bills cache', () => {
       expect(() => writeBills(testDb, [])).not.toThrow()
       const rows = testDb.prepare('SELECT * FROM bills').all()
       expect(rows).toHaveLength(0)
+    })
+
+    it('clears prior bills for session before refresh — stale rows removed when upstream returns fewer bills', () => {
+      // Simulate first refresh: 3 bills
+      writeBills(testDb, [
+        makeBill({ id: 'HB0001', session: '2026GS' }),
+        makeBill({ id: 'HB0002', session: '2026GS' }),
+        makeBill({ id: 'HB0003', session: '2026GS' }),
+      ])
+      // Simulate second refresh: upstream returns only 1 bill (HB0001 and HB0003 dropped)
+      writeBills(testDb, [makeBill({ id: 'HB0002', session: '2026GS' })])
+
+      const rows = testDb.prepare("SELECT id FROM bills WHERE session = '2026GS'").all()
+      expect(rows).toHaveLength(1)
+      expect((rows[0] as { id: string }).id).toBe('HB0002')
     })
 
     it('rebuilds FTS5 — after writeBills, FTS5 match query returns consistent results', () => {
@@ -250,6 +263,39 @@ describe('bills cache', () => {
       const result = getBillsBySession('2026GS')
       expect(result).toHaveLength(1)
       expect(result[0]?.session).toBe('2026GS')
+    })
+
+    it('vote_result = NULL in DB → voteResult is undefined (not null) in returned Bill', () => {
+      // makeBill() leaves voteResult/voteDate absent (undefined) → stored as NULL
+      writeBills(testDb, [makeBill({ id: 'HB0001', session: '2026GS' })])
+
+      const result = getBillsBySession('2026GS')
+      expect(result[0]?.voteResult).toBeUndefined()
+      expect(result[0]?.voteDate).toBeUndefined()
+    })
+  })
+
+  // ── getActiveSession ─────────────────────────────────────────────────────
+
+  describe('getActiveSession', () => {
+    it('returns current year GS when month is January–March (month index < 3)', () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date(2026, 1, 15)) // February 2026: month index 1 < 3
+      try {
+        expect(getActiveSession()).toBe('2026GS')
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('returns prior year GS when month is April or later (month index >= 3)', () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date(2026, 6, 15)) // July 2026: month index 6 >= 3
+      try {
+        expect(getActiveSession()).toBe('2025GS')
+      } finally {
+        vi.useRealTimers()
+      }
     })
   })
 })

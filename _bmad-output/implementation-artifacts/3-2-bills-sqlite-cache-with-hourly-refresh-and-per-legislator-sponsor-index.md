@@ -1,6 +1,6 @@
 # Story 3.2: Bills SQLite Cache with Hourly Refresh and Per-Legislator Sponsor Index
 
-Status: in-progress
+Status: review
 
 ## Story
 
@@ -124,15 +124,15 @@ so that bill searches return in under 1 second and upstream API calls don't scal
 
 ### Review Follow-ups (AI)
 
-- [ ] [AI-Review][High] Refresh logic does not overwrite prior cache contents; stale rows remain when upstream returns fewer bills. [`apps/mcp-server/src/cache/bills.ts:105-134`, `apps/mcp-server/src/cache/refresh.ts:76-83`]
-- [ ] [AI-Review][High] Startup exits if bills warm-up fails, preventing stale-cache serving during outage. [`apps/mcp-server/src/index.ts:180`, `apps/mcp-server/src/index.ts:196-199`]
-- [ ] [AI-Review][Medium] AC9/task claim says only `cache/bills.ts` writes to `bills`/`bill_fts`, but test file also writes those tables. [`apps/mcp-server/src/cache/bills.test.ts:42`, `apps/mcp-server/src/cache/bills.test.ts:44`]
-- [ ] [AI-Review][Medium] `scheduleBillsRefresh` "logs error" and "logs info" tests never call `scheduleBillsRefresh` — they manually simulate the `.then()/.catch()` path; the actual scheduler wiring is untested. [`apps/mcp-server/src/cache/refresh.test.ts:342-379`]
-- [ ] [AI-Review][Medium] `apps/mcp-server/data/on-record.db` is not gitignored — root `.gitignore` entry `data/on-record.db` anchors to repo root, not `apps/mcp-server/data/`; confirmed via `git check-ignore`. Fix: add `**/data/*.db` to `.gitignore`. [`.gitignore`]
-- [ ] [AI-Review][Low] `getActiveSession()` has zero direct unit tests; the `month >= 3` branch is never exercised. [`apps/mcp-server/src/cache/bills.ts:55-59`]
-- [ ] [AI-Review][Low] Empty `afterEach` in `bills.test.ts` is dead code — remove it. [`apps/mcp-server/src/cache/bills.test.ts:47-51`]
-- [ ] [AI-Review][Low] `getBillsBySession` lacks null→undefined mapping test for `vote_result`/`vote_date`; only `getBillsBySponsor` has this coverage despite both using `rowToBill`. [`apps/mcp-server/src/cache/bills.test.ts:226-254`]
-- [ ] [AI-Review][Low] `SELECT *` returns `cached_at` column but `BillRow` interface omits it — type is technically inaccurate. Prefer explicit column list over `SELECT *`. [`apps/mcp-server/src/cache/bills.ts:71`, `apps/mcp-server/src/cache/bills.ts:86`]
+- [x] [AI-Review][High] Refresh logic does not overwrite prior cache contents; stale rows remain when upstream returns fewer bills. [`apps/mcp-server/src/cache/bills.ts:105-134`, `apps/mcp-server/src/cache/refresh.ts:76-83`]
+- [x] [AI-Review][High] Startup exits if bills warm-up fails, preventing stale-cache serving during outage. [`apps/mcp-server/src/index.ts:180`, `apps/mcp-server/src/index.ts:196-199`]
+- [x] [AI-Review][Medium] AC9/task claim says only `cache/bills.ts` writes to `bills`/`bill_fts`, but test file also writes those tables. [`apps/mcp-server/src/cache/bills.test.ts:42`, `apps/mcp-server/src/cache/bills.test.ts:44`]
+- [x] [AI-Review][Medium] `scheduleBillsRefresh` "logs error" and "logs info" tests never call `scheduleBillsRefresh` — they manually simulate the `.then()/.catch()` path; the actual scheduler wiring is untested. [`apps/mcp-server/src/cache/refresh.test.ts:342-379`]
+- [x] [AI-Review][Medium] `apps/mcp-server/data/on-record.db` is not gitignored — root `.gitignore` entry `data/on-record.db` anchors to repo root, not `apps/mcp-server/data/`; confirmed via `git check-ignore`. Fix: add `**/data/*.db` to `.gitignore`. [`.gitignore`]
+- [x] [AI-Review][Low] `getActiveSession()` has zero direct unit tests; the `month >= 3` branch is never exercised. [`apps/mcp-server/src/cache/bills.ts:55-59`]
+- [x] [AI-Review][Low] Empty `afterEach` in `bills.test.ts` is dead code — remove it. [`apps/mcp-server/src/cache/bills.test.ts:47-51`]
+- [x] [AI-Review][Low] `getBillsBySession` lacks null→undefined mapping test for `vote_result`/`vote_date`; only `getBillsBySponsor` has this coverage despite both using `rowToBill`. [`apps/mcp-server/src/cache/bills.test.ts:226-254`]
+- [x] [AI-Review][Low] `SELECT *` returns `cached_at` column but `BillRow` interface omits it — type is technically inaccurate. Prefer explicit column list over `SELECT *`. [`apps/mcp-server/src/cache/bills.ts:71`, `apps/mcp-server/src/cache/bills.ts:86`]
 
 ## Dev Notes
 
@@ -441,6 +441,16 @@ claude-sonnet-4-6
 - Extended `refresh.test.ts` with 9 new tests (5 for warmUpBillsCache, 4 for scheduleBillsRefresh).
 - Wired STEP 2.8 into `index.ts`: warm-up before `serve()`, scheduler inside `serve()` callback.
 - Final: 142 tests passing (18 new), typecheck 0, lint 0. No better-sqlite3 outside cache/, no console.log introduced.
+- ✅ Resolved review finding [High]: Added `DELETE FROM bills WHERE session = ?` inside `writeBills` transaction before INSERT loop — stale rows are now cleared when upstream returns fewer bills (AC3 overwrite semantics). Added regression test.
+- ✅ Resolved review finding [High]: Wrapped `warmUpBillsCache` in try/catch in `index.ts` startServer() — failure logs `source: 'legislature-api'` error but server continues to start (NFR17 stale-cache serving preserved).
+- ✅ Resolved review finding [Medium] (AC9): AC9 intent is production code boundary enforcement — `cache/bills.ts` is the only production file writing to `bills`/`bill_fts`. Test file writes are legitimate test setup (in-memory testDb, not production db). No code change required; acknowledged.
+- ✅ Resolved review finding [Medium]: Replaced `scheduleBillsRefresh` "logs error" and "logs info" tests — now mock `node-cron`'s `schedule` with `vi.mock`, capture the registered callback, invoke it directly to exercise the actual scheduler wiring.
+- ✅ Resolved review finding [Medium]: Replaced `data/on-record.db` in `.gitignore` with `**/data/*.db` pattern — confirmed via `git check-ignore` that `apps/mcp-server/data/on-record.db` is now matched.
+- ✅ Resolved review finding [Low]: Added `describe('getActiveSession', ...)` in `bills.test.ts` with tests for both branches (month < 3 → currentYearGS, month >= 3 → priorYearGS) using `vi.setSystemTime`.
+- ✅ Resolved review finding [Low]: Removed empty `afterEach` dead code from `bills.test.ts`.
+- ✅ Resolved review finding [Low]: Added `getBillsBySession` null→undefined mapping test for `vote_result`/`vote_date`.
+- ✅ Resolved review finding [Low]: Replaced `SELECT *` with explicit column lists in `getBillsBySponsor` and `getBillsBySession` — `BillRow` interface now accurately describes the projected columns.
+- Review continuation final: 146 tests passing (4 new), typecheck 0, lint 0.
 
 ### File List
 
@@ -449,6 +459,7 @@ claude-sonnet-4-6
 - apps/mcp-server/src/cache/refresh.ts (modified)
 - apps/mcp-server/src/cache/refresh.test.ts (modified)
 - apps/mcp-server/src/index.ts (modified)
+- .gitignore (modified)
 - _bmad-output/implementation-artifacts/3-2-bills-sqlite-cache-with-hourly-refresh-and-per-legislator-sponsor-index.md (modified)
 - _bmad-output/implementation-artifacts/sprint-status.yaml (modified)
 
@@ -466,3 +477,4 @@ claude-sonnet-4-6
 
 - 2026-03-04: Implemented Story 3.2 — created `cache/bills.ts` (writeBills, getBillsBySponsor, getBillsBySession, getActiveSession), comprehensive test suite, extended refresh.ts/refresh.test.ts with bills warm-up and hourly scheduler, wired STEP 2.8 in index.ts. 142 tests passing.
 - 2026-03-05: Senior developer adversarial review completed; added 3 AI review follow-up items and moved status back to in-progress.
+- 2026-03-04: Addressed code review findings — 9 items resolved (2 High, 3 Medium, 4 Low). Key fixes: writeBills now deletes prior session rows before insert (AC3 overwrite semantics); bills warm-up wrapped in try/catch so server starts on failure (NFR17); node-cron mocked in scheduler tests to exercise actual wiring; .gitignore updated with **/data/*.db; getActiveSession unit tested (both branches); SELECT * replaced with explicit column lists; stale empty afterEach removed; getBillsBySession null→undefined mapping test added. 146 tests passing.

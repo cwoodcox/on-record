@@ -14,7 +14,9 @@ dist/
 build/
 
 # SQLite database
-data/on-record.db
+# data/on-record.db anchors to repo root only — **/data/*.db covers subdirectories
+# (e.g. apps/mcp-server/data/on-record.db)
+**/data/*.db
 *.db-shm
 *.db-wal
 

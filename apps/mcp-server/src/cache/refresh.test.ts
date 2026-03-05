@@ -28,6 +28,16 @@ vi.mock('../lib/logger.js', () => ({
   },
 }))
 
+// Capture cron callbacks so scheduler tests can fire them directly without relying on
+// wall-clock timers. lastScheduleCallback holds the most recently registered callback.
+let lastScheduleCallback: (() => void) | undefined
+
+vi.mock('node-cron', () => ({
+  schedule: vi.fn((_expression: string, callback: () => void) => {
+    lastScheduleCallback = callback
+  }),
+}))
+
 // ── Imports (after mocks) ─────────────────────────────────────────────────────
 
 import { warmUpLegislatorsCache, scheduleLegislatorsRefresh, warmUpBillsCache, scheduleBillsRefresh } from './refresh.js'
@@ -317,6 +327,7 @@ describe('scheduleBillsRefresh', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.clearAllMocks()
+    lastScheduleCallback = undefined
     testDb = new Database(':memory:')
     initializeSchema(testDb)
   })
@@ -339,7 +350,7 @@ describe('scheduleBillsRefresh', () => {
     expect(provider.getBillsBySession).not.toHaveBeenCalled()
   })
 
-  it('logs error with { source: legislature-api } when refresh fails', async () => {
+  it('logs error with { source: legislature-api } when cron fires and refresh fails', async () => {
     const errorLogger = vi.mocked(logger.error)
 
     const failingProvider: LegislatureDataProvider = {
@@ -348,15 +359,13 @@ describe('scheduleBillsRefresh', () => {
       getBillDetail: vi.fn<() => Promise<BillDetail>>().mockRejectedValue(new Error('not implemented')),
     }
 
-    // Attach .rejects BEFORE vi.runAllTimersAsync() to avoid PromiseRejectionHandledWarning.
-    // Simulate what the cron callback does on failure.
-    const assertion = expect(
-      warmUpBillsCache(testDb, failingProvider).catch((err: unknown) => {
-        logger.error({ source: 'legislature-api', err }, 'Bills cache refresh failed')
-      })
-    ).resolves.toBeUndefined()
+    scheduleBillsRefresh(testDb, failingProvider)
+    expect(lastScheduleCallback).toBeDefined()
+
+    // Fire the captured cron callback directly — this is what node-cron would invoke at
+    // the top of each hour. The callback is synchronous and starts an async .catch() chain.
+    lastScheduleCallback!()
     await vi.runAllTimersAsync()
-    await assertion
 
     expect(errorLogger).toHaveBeenCalledWith(
       expect.objectContaining({ source: 'legislature-api' }),
@@ -364,13 +373,20 @@ describe('scheduleBillsRefresh', () => {
     )
   })
 
-  it('logs info with { source: cache } when refresh succeeds', async () => {
+  it('logs info with { source: cache } when cron fires and refresh succeeds', async () => {
     const infoLogger = vi.mocked(logger.info)
-    const provider = makeProvider()
+    const provider: LegislatureDataProvider = {
+      getLegislatorsByDistrict: vi.fn<() => Promise<Legislator[]>>().mockResolvedValue([]),
+      getBillsBySession: vi.fn().mockResolvedValue([makeBill()]),
+      getBillDetail: vi.fn<() => Promise<BillDetail>>().mockRejectedValue(new Error('not implemented')),
+    }
 
-    // Simulate the success path of the cron callback
-    await warmUpBillsCache(testDb, provider)
-    logger.info({ source: 'cache' }, 'Bills cache refreshed')
+    scheduleBillsRefresh(testDb, provider)
+    expect(lastScheduleCallback).toBeDefined()
+
+    // Fire the captured cron callback and flush the async .then() chain.
+    lastScheduleCallback!()
+    await vi.runAllTimersAsync()
 
     expect(infoLogger).toHaveBeenCalledWith(
       expect.objectContaining({ source: 'cache' }),
