@@ -1,6 +1,6 @@
 # Story 3.2: Bills SQLite Cache with Hourly Refresh and Per-Legislator Sponsor Index
 
-Status: review
+Status: in-progress
 
 ## Story
 
@@ -133,6 +133,9 @@ so that bill searches return in under 1 second and upstream API calls don't scal
 - [x] [AI-Review][Low] Empty `afterEach` in `bills.test.ts` is dead code — remove it. [`apps/mcp-server/src/cache/bills.test.ts:47-51`]
 - [x] [AI-Review][Low] `getBillsBySession` lacks null→undefined mapping test for `vote_result`/`vote_date`; only `getBillsBySponsor` has this coverage despite both using `rowToBill`. [`apps/mcp-server/src/cache/bills.test.ts:226-254`]
 - [x] [AI-Review][Low] `SELECT *` returns `cached_at` column but `BillRow` interface omits it — type is technically inaccurate. Prefer explicit column list over `SELECT *`. [`apps/mcp-server/src/cache/bills.ts:71`, `apps/mcp-server/src/cache/bills.ts:86`]
+- [ ] [AI-Review][High] Story File List claims files are "(modified)" but current git state is clean; review transparency mismatch to reconcile before marking complete. [`_bmad-output/implementation-artifacts/3-2-bills-sqlite-cache-with-hourly-refresh-and-per-legislator-sponsor-index.md:455-464`; `git status --porcelain`]
+- [ ] [AI-Review][Medium] `writeBills` clears only `bills[0].session`; mixed-session payloads can leave stale rows in non-first sessions. [`apps/mcp-server/src/cache/bills.ts:113`, `apps/mcp-server/src/cache/bills.ts:115`, `apps/mcp-server/src/cache/bills.ts:131`]
+- [ ] [AI-Review][Medium] `scheduleLegislatorsRefresh` tests do not execute the registered cron callback, so scheduler wiring is not actually validated end-to-end. [`apps/mcp-server/src/cache/refresh.test.ts:196-205`, `apps/mcp-server/src/cache/refresh.test.ts:219-255`]
 
 ## Dev Notes
 
@@ -472,9 +475,16 @@ claude-sonnet-4-6
   - AC3 not fully met (`overwrite previous cache` behavior missing).
   - NFR17 behavior at startup not fully met for bills warm-up failure path.
   - AC9 verification claim is inaccurate due writes in test code.
+- 2026-03-05 (re-review): Outcome: Changes Requested
+- Summary: 1 High and 2 Medium issues found; action items added under "Review Follow-ups (AI)".
+- Git vs Story File List: discrepancy found — story claims modified files while working tree is clean.
+- Acceptance Criteria impact:
+  - AC9 claim remains too strict as written for repository-wide search due test-file table writes.
+  - Validation commands pass currently (`pnpm --filter mcp-server typecheck`, `test`, `lint`), but review action items remain open.
 
 ## Change Log
 
 - 2026-03-04: Implemented Story 3.2 — created `cache/bills.ts` (writeBills, getBillsBySponsor, getBillsBySession, getActiveSession), comprehensive test suite, extended refresh.ts/refresh.test.ts with bills warm-up and hourly scheduler, wired STEP 2.8 in index.ts. 142 tests passing.
 - 2026-03-05: Senior developer adversarial review completed; added 3 AI review follow-up items and moved status back to in-progress.
 - 2026-03-04: Addressed code review findings — 9 items resolved (2 High, 3 Medium, 4 Low). Key fixes: writeBills now deletes prior session rows before insert (AC3 overwrite semantics); bills warm-up wrapped in try/catch so server starts on failure (NFR17); node-cron mocked in scheduler tests to exercise actual wiring; .gitignore updated with **/data/*.db; getActiveSession unit tested (both branches); SELECT * replaced with explicit column lists; stale empty afterEach removed; getBillsBySession null→undefined mapping test added. 146 tests passing.
+- 2026-03-05: Re-review completed; added 3 new AI review follow-up items (1 High, 2 Medium), kept story in-progress, and queued scheduler/test-data-integrity transparency fixes.
