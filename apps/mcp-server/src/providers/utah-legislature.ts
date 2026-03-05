@@ -36,8 +36,8 @@ const apiBillDetailSchema = z.object({
   billNumber: z.string(),          // e.g. "HB0001"
   sessionID: z.string(),           // e.g. "2026GS"
   shortTitle: z.string(),
-  generalProvisions: z.string().default(''),
-  lastAction: z.string().default(''),
+  generalProvisions: z.string().min(1),
+  lastAction: z.string().min(1),
   primeSponsor: z.string(),        // legislator ID, e.g. "WHYTESL"
   highlightedProvisions: z.string().optional(),
   voteResult: z.string().optional(),  // populated if API provides vote outcome
@@ -111,8 +111,8 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
 
   async getBillsBySession(session: string): Promise<Bill[]> {
     // Bill list endpoint returns minimal stubs (number + trackingID only).
-    // Full bill metadata is fetched via getBillDetail(). Epic 3 will implement
-    // the caching layer that hydrates the full Bill shape.
+    // Full bill metadata is fetched via getBillDetail(). Story 3.2 implements
+    // the caching layer that schedules and persists hydrated Bill records.
     const url = this.url('bills', session, 'billlist')
 
     let rawData: unknown

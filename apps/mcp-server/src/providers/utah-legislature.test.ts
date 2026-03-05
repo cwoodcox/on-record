@@ -251,6 +251,7 @@ describe('UtahLegislatureProvider', () => {
         expect(bill.id).not.toBe('')
         expect(bill.session).not.toBe('')
         expect(bill.title).not.toBe('')
+        expect(bill.summary).not.toBe('')
         expect(bill.status).not.toBe('')
         expect(bill.sponsorId).not.toBe('')
       }
@@ -320,7 +321,7 @@ describe('UtahLegislatureProvider', () => {
 
       const rejectionPromise = expect(provider.getBillsBySession('2026GS')).rejects.toMatchObject({
         source: 'legislature-api',
-        nature: expect.stringContaining('Failed to fetch bill detail for HB0001'),
+        nature: 'Failed to fetch bill detail for HB0001 from Utah Legislature API',
         action: 'Try again in a few seconds — the API may be temporarily unavailable',
       })
       await vi.runAllTimersAsync()
@@ -335,6 +336,8 @@ describe('UtahLegislatureProvider', () => {
 
       const rejectionPromise = expect(provider.getBillsBySession('2026GS')).rejects.toMatchObject({
         source: 'legislature-api',
+        nature: 'Utah Legislature API returned an unexpected bills data format',
+        action: 'This is a system error — please try again later',
       })
       await vi.runAllTimersAsync()
       await rejectionPromise

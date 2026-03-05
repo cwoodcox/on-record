@@ -313,9 +313,14 @@ The `getBillsBySession` stub (which returned empty-field `Bill[]`) was replaced 
 4. Added `voteResult` and `voteDate` as optional fields to `apiBillDetailSchema` and mapped them in `getBillDetail`
 5. Test suite expanded from 4 to 9 tests for `getBillsBySession`, covering full hydration, vote fields present/absent, error paths with specific string assertions, URL correctness, and API key redaction
 
+### Known Limitation — Deferred to Story 3.4
+
+`getBillDetail(billId)` constructs its URL using `getCurrentSession()` rather than accepting a session parameter. This means `getBillsBySession('2025GS')` will correctly fetch the bill list for 2025GS but then fetch each bill's detail from the current session URL — a latent bug for inter-session scenarios. Fixing this requires changing the `LegislatureDataProvider` interface signature, which is out of scope for Story 3.1. Story 3.4 (inter-session bill handling) must address this before fetching detail for past sessions.
+
 ### Change Log
 
 - 2026-03-04: Implemented full `getBillsBySession` hydration loop; updated `apiBillDetailSchema` with optional vote fields; updated `getBillDetail` to map vote fields; expanded test suite with 5 new tests for full Bill hydration and error-path specific string assertions.
+- 2026-03-04: Code review fixes — `generalProvisions`/`lastAction` schema changed from `.default('')` to `.min(1)`; `summary` added to empty-string assertion loop; `stringContaining` replaced with exact `.toBe` for detail error test; zod parse failure test now asserts specific `nature`/`action` strings; stale Epic 3 comment updated.
 
 ### File List
 
