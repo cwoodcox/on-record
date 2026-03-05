@@ -1,11 +1,12 @@
 // apps/mcp-server/src/cache/refresh.ts
-// Legislators cache warm-up and daily refresh scheduler.
+// Legislators and bills cache warm-up and refresh schedulers.
 // Cron callback must NOT be async or throw — async work is wrapped with .catch().
 import type Database from 'better-sqlite3'
 import { schedule } from 'node-cron'
 import { logger } from '../lib/logger.js'
 import type { LegislatureDataProvider } from '../providers/types.js'
 import { writeLegislators } from './legislators.js'
+import { writeBills, getActiveSession } from './bills.js'
 
 // Utah legislative districts:
 //   House:  1–75  (75 districts)
@@ -60,6 +61,48 @@ export function scheduleLegislatorsRefresh(
       })
       .catch((err: unknown) => {
         logger.error({ source: 'legislature-api', err }, 'Legislator cache refresh failed')
+      })
+  })
+}
+
+/**
+ * Fetches all bills for the active session and writes results to cache.
+ * Calls provider.getBillsBySession once — stays within the ≤1×/hour rate limit (AC3).
+ * Propagates errors from the provider — caller (index.ts) handles gracefully with .catch().
+ *
+ * @param db       - Injected SQLite database instance (dependency injection — Boundary 4)
+ * @param provider - Data provider (UtahLegislatureProvider or test mock)
+ */
+export async function warmUpBillsCache(
+  db: Database.Database,
+  provider: LegislatureDataProvider,
+): Promise<void> {
+  const session = getActiveSession()
+  const bills = await provider.getBillsBySession(session)
+  writeBills(db, bills)
+}
+
+/**
+ * Registers an hourly cron job to refresh the bills cache at the top of every hour (0 * * * *).
+ * The cron callback is synchronous and wraps the async warm-up with .catch() to
+ * prevent uncaught rejections from surfacing to callers.
+ * On failure: logs with source 'legislature-api'; stale data continues to be served (NFR17).
+ * On success: logs with source 'cache'.
+ *
+ * @param db       - Injected SQLite database instance (dependency injection — Boundary 4)
+ * @param provider - Data provider
+ */
+export function scheduleBillsRefresh(
+  db: Database.Database,
+  provider: LegislatureDataProvider,
+): void {
+  schedule('0 * * * *', () => {
+    warmUpBillsCache(db, provider)
+      .then(() => {
+        logger.info({ source: 'cache' }, 'Bills cache refreshed')
+      })
+      .catch((err: unknown) => {
+        logger.error({ source: 'legislature-api', err }, 'Bills cache refresh failed')
       })
   })
 }

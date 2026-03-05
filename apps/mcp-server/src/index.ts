@@ -17,7 +17,7 @@ logger.info({ source: 'cache' }, 'SQLite schema initialized')
 // STEP 2.6: Legislators cache warm-up (Story 2.3)
 // Imported here — warm-up awaited inside startServer() below before serve() is called.
 import { UtahLegislatureProvider } from './providers/utah-legislature.js'
-import { warmUpLegislatorsCache, scheduleLegislatorsRefresh } from './cache/refresh.js'
+import { warmUpLegislatorsCache, scheduleLegislatorsRefresh, warmUpBillsCache, scheduleBillsRefresh } from './cache/refresh.js'
 
 // STEP 2.7: MCP tool registrations (Story 2.4)
 import { registerLookupLegislatorTool } from './tools/legislator-lookup.js'
@@ -176,6 +176,10 @@ async function startServer(): Promise<void> {
   await warmUpLegislatorsCache(db, provider)
   logger.info({ source: 'cache', districtCount: 104 }, 'Legislators cache warm-up complete')
 
+  // STEP 2.8: Bills cache warm-up (Story 3.2)
+  await warmUpBillsCache(db, provider)
+  logger.info({ source: 'cache' }, 'Bills cache warm-up complete')
+
   serve(
     {
       fetch: app.fetch,
@@ -184,6 +188,7 @@ async function startServer(): Promise<void> {
     (info) => {
       logger.info({ source: 'app', port: info.port }, 'On Record MCP server started')
       scheduleLegislatorsRefresh(db, provider)
+      scheduleBillsRefresh(db, provider)
     }
   )
 }

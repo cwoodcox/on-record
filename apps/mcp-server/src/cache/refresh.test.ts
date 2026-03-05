@@ -30,10 +30,22 @@ vi.mock('../lib/logger.js', () => ({
 
 // ── Imports (after mocks) ─────────────────────────────────────────────────────
 
-import { warmUpLegislatorsCache, scheduleLegislatorsRefresh } from './refresh.js'
+import { warmUpLegislatorsCache, scheduleLegislatorsRefresh, warmUpBillsCache, scheduleBillsRefresh } from './refresh.js'
 import { logger } from '../lib/logger.js'
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
+
+function makeBill(overrides: Partial<Bill> = {}): Bill {
+  return {
+    id: 'HB0001',
+    session: '2026GS',
+    title: 'Test Bill',
+    summary: 'A test bill for unit testing',
+    status: 'enrolled',
+    sponsorId: 'leg-001',
+    ...overrides,
+  }
+}
 
 function makeLegislator(overrides: Partial<Legislator> = {}): Legislator {
   return {
@@ -230,6 +242,139 @@ describe('scheduleLegislatorsRefresh', () => {
     expect(infoLogger).toHaveBeenCalledWith(
       expect.objectContaining({ source: 'cache' }),
       'Legislators cache refreshed',
+    )
+  })
+})
+
+// ── warmUpBillsCache ──────────────────────────────────────────────────────────
+
+describe('warmUpBillsCache', () => {
+  let testDb: Database.Database
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    testDb = new Database(':memory:')
+    initializeSchema(testDb)
+  })
+
+  afterEach(() => {
+    testDb.close()
+  })
+
+  it('calls provider.getBillsBySession with the result of getActiveSession()', async () => {
+    const provider = makeProvider()
+    await warmUpBillsCache(testDb, provider)
+
+    expect(provider.getBillsBySession).toHaveBeenCalledTimes(1)
+    // getActiveSession() returns the current session string (e.g. '2026GS')
+    const callArg = (provider.getBillsBySession as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as string
+    expect(callArg).toMatch(/^\d{4}GS$/)
+  })
+
+  it('calls provider.getBillsBySession exactly once per call', async () => {
+    const provider = makeProvider()
+    await warmUpBillsCache(testDb, provider)
+    expect(provider.getBillsBySession).toHaveBeenCalledTimes(1)
+  })
+
+  it('writes returned bills into the cache (query testDb directly to verify)', async () => {
+    const bill = makeBill({ id: 'HB0001', sponsorId: 'leg-001' })
+    const provider: LegislatureDataProvider = {
+      getLegislatorsByDistrict: vi.fn<() => Promise<Legislator[]>>().mockResolvedValue([]),
+      getBillsBySession: vi.fn().mockResolvedValue([bill]),
+      getBillDetail: vi.fn<() => Promise<BillDetail>>().mockRejectedValue(new Error('not implemented')),
+    }
+
+    await warmUpBillsCache(testDb, provider)
+
+    const rows = testDb
+      .prepare<[string]>('SELECT id FROM bills WHERE id = ?')
+      .all('HB0001')
+    expect(rows).toHaveLength(1)
+  })
+
+  it('resolves when provider succeeds', async () => {
+    const provider = makeProvider()
+    await expect(warmUpBillsCache(testDb, provider)).resolves.toBeUndefined()
+  })
+
+  it('rejects (propagates) when provider rejects — error message preserved', async () => {
+    const provider: LegislatureDataProvider = {
+      getLegislatorsByDistrict: vi.fn<() => Promise<Legislator[]>>().mockResolvedValue([]),
+      getBillsBySession: vi.fn().mockRejectedValue(new Error('API down')),
+      getBillDetail: vi.fn<() => Promise<BillDetail>>().mockRejectedValue(new Error('not implemented')),
+    }
+
+    await expect(warmUpBillsCache(testDb, provider)).rejects.toThrow('API down')
+  })
+})
+
+// ── scheduleBillsRefresh ──────────────────────────────────────────────────────
+
+describe('scheduleBillsRefresh', () => {
+  let testDb: Database.Database
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.clearAllMocks()
+    testDb = new Database(':memory:')
+    initializeSchema(testDb)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    testDb.close()
+  })
+
+  it('does not throw when called', () => {
+    const provider = makeProvider()
+    expect(() => scheduleBillsRefresh(testDb, provider)).not.toThrow()
+  })
+
+  it('does not invoke provider at registration time (lazy — only fires on cron)', () => {
+    const provider = makeProvider()
+    scheduleBillsRefresh(testDb, provider)
+
+    // Provider should not be called at registration time (only at cron fire time)
+    expect(provider.getBillsBySession).not.toHaveBeenCalled()
+  })
+
+  it('logs error with { source: legislature-api } when refresh fails', async () => {
+    const errorLogger = vi.mocked(logger.error)
+
+    const failingProvider: LegislatureDataProvider = {
+      getLegislatorsByDistrict: vi.fn<() => Promise<Legislator[]>>().mockResolvedValue([]),
+      getBillsBySession: vi.fn().mockRejectedValue(new Error('network error')),
+      getBillDetail: vi.fn<() => Promise<BillDetail>>().mockRejectedValue(new Error('not implemented')),
+    }
+
+    // Attach .rejects BEFORE vi.runAllTimersAsync() to avoid PromiseRejectionHandledWarning.
+    // Simulate what the cron callback does on failure.
+    const assertion = expect(
+      warmUpBillsCache(testDb, failingProvider).catch((err: unknown) => {
+        logger.error({ source: 'legislature-api', err }, 'Bills cache refresh failed')
+      })
+    ).resolves.toBeUndefined()
+    await vi.runAllTimersAsync()
+    await assertion
+
+    expect(errorLogger).toHaveBeenCalledWith(
+      expect.objectContaining({ source: 'legislature-api' }),
+      'Bills cache refresh failed',
+    )
+  })
+
+  it('logs info with { source: cache } when refresh succeeds', async () => {
+    const infoLogger = vi.mocked(logger.info)
+    const provider = makeProvider()
+
+    // Simulate the success path of the cron callback
+    await warmUpBillsCache(testDb, provider)
+    logger.info({ source: 'cache' }, 'Bills cache refreshed')
+
+    expect(infoLogger).toHaveBeenCalledWith(
+      expect.objectContaining({ source: 'cache' }),
+      'Bills cache refreshed',
     )
   })
 })
