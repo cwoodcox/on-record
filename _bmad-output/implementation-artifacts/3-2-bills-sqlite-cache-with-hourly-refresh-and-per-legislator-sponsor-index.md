@@ -1,0 +1,422 @@
+# Story 3.2: Bills SQLite Cache with Hourly Refresh and Per-Legislator Sponsor Index
+
+Status: ready-for-dev
+
+## Story
+
+As a **developer**,
+I want bills cached in SQLite with an hourly refresh and a per-legislator sponsor index rebuilt on each refresh,
+so that bill searches return in under 1 second and upstream API calls don't scale with user load.
+
+## Acceptance Criteria
+
+1. **Given** the server starts, **when** startup completes, **then** the bills cache is warm (bills written to SQLite `bills` table) before the server begins accepting connections (NFR17 — stale served during outage)
+2. **Given** the bills cache is populated, **when** any bill lookup is requested, **then** it is served from SQLite cache and completes in under 1 second (NFR3)
+3. **Given** the bills cache is running, **when** the hourly cron fires (`0 * * * *`), **then** `getBillsBySession` is called exactly once and results overwrite the previous cache — within the ≤1×/hour rate limit
+4. **Given** a cache refresh completes, **when** bills are written to SQLite, **then** the FTS5 `bill_fts` virtual table is rebuilt (`INSERT INTO bill_fts(bill_fts) VALUES('rebuild')`) so full-text search (Story 3.3) has consistent data
+5. **Given** a cache refresh completes, **when** bills are written to SQLite, **then** the `idx_bills_sponsor_id` B-tree index is automatically updated — enabling `getBillsBySponsor(sponsorId)` to return results in under 2 seconds (FR11)
+6. **Given** the Utah Legislature API is unavailable, **when** a refresh attempt fails, **then** stale data continues to be served (NFR17) and the error is logged with `source: 'legislature-api'`
+7. **Given** concurrent users, **when** multiple tool calls arrive simultaneously, **then** all are served from the SQLite cache — upstream API call volume does not increase with user concurrency (NFR10)
+8. **Given** the codebase, **when** a developer searches for `better-sqlite3` imports, **then** they only appear inside `apps/mcp-server/src/cache/` (Boundary 4 enforced)
+9. **Given** the codebase, **when** a developer searches for writes to the `bills` or `bill_fts` tables, **then** only `cache/bills.ts` contains them
+10. `pnpm --filter mcp-server typecheck` exits 0
+11. `pnpm --filter mcp-server test` exits 0 (all existing tests continue passing)
+12. `pnpm --filter mcp-server lint` exits 0
+
+## Tasks / Subtasks
+
+- [ ] Task 1: Create `apps/mcp-server/src/cache/bills.ts` (AC: 1, 2, 4, 5, 8, 9)
+  - [ ] Implement `writeBills(db: Database.Database, bills: Bill[]): void`
+    - [ ] INSERT OR REPLACE all bills into the `bills` table with `cached_at` set to current ISO 8601 datetime
+    - [ ] Wrap all writes + FTS5 rebuild in a single `db.transaction()()` call for atomicity
+    - [ ] After bulk write, run `db.exec("INSERT INTO bill_fts(bill_fts) VALUES('rebuild')")` to sync FTS5 content table
+    - [ ] Map `Bill.sponsorId` to `sponsor_id` column (camelCase → snake_case in cache layer only)
+    - [ ] Map `Bill.voteResult` / `Bill.voteDate` to `vote_result` / `vote_date` — store as `null` when `undefined` (SQLite NULL)
+    - [ ] No-op (return early) when `bills` array is empty — but still handle gracefully without FTS5 rebuild
+  - [ ] Implement `getBillsBySponsor(sponsorId: string): Bill[]` using the db singleton (same pattern as `getLegislatorsByDistrict`)
+    - [ ] Query: `SELECT * FROM bills WHERE sponsor_id = ?` — uses `idx_bills_sponsor_id` automatically
+    - [ ] Map `snake_case` columns back to `camelCase` `Bill` fields
+    - [ ] `vote_result` / `vote_date` as `null` in DB → `undefined` (not `null`) in returned `Bill`
+  - [ ] Implement `getBillsBySession(session: string): Bill[]` using the db singleton
+    - [ ] Query: `SELECT * FROM bills WHERE session = ?` — uses `idx_bills_session` automatically
+    - [ ] Same column→field mapping as `getBillsBySponsor`
+  - [ ] Implement `getActiveSession(): string` — minimal helper for Story 3.2 warm-up
+    - [ ] Mirror the logic in `providers/utah-legislature.ts`'s private `getCurrentSession()`: if `now.getMonth() < 3`, return `${year}GS`; else return `${year - 1}GS`
+    - [ ] Add JSDoc noting this is a stub — Story 3.4 replaces with full inter-session logic
+  - [ ] No barrel file — no `index.ts` in `cache/`
+
+- [ ] Task 2: Create `apps/mcp-server/src/cache/bills.test.ts` (AC: 2, 4, 5, 10, 11)
+  - [ ] Use in-memory SQLite + `vi.mock('./db.js', () => ({ db: testDb }))` for singleton injection (same pattern as `legislators.test.ts`)
+  - [ ] `writeBills` tests:
+    - [ ] Inserts bills into the `bills` table
+    - [ ] Upserts by primary key — no duplicate rows on second call with same ids
+    - [ ] Replaces existing row on upsert — updated `title` is reflected
+    - [ ] Sets `cached_at` to a non-empty ISO 8601 string
+    - [ ] Stores `NULL` for `vote_result`/`vote_date` when `Bill` fields are `undefined`
+    - [ ] Stores values for `vote_result`/`vote_date` when present
+    - [ ] Inserts multiple bills in one call
+    - [ ] Is a no-op when passed empty array (does not throw)
+    - [ ] Rebuilds FTS5 — after `writeBills`, `SELECT count(*) FROM bill_fts` (or FTS5 match query) returns consistent results
+  - [ ] `getBillsBySponsor` tests:
+    - [ ] Returns empty array when no bills cached (cache miss)
+    - [ ] Returns bills matching `sponsorId`
+    - [ ] Does not return bills with a different `sponsorId`
+    - [ ] Maps `snake_case` DB columns to `camelCase` `Bill` fields (round-trip test)
+    - [ ] `vote_result = NULL` in DB → `voteResult` is `undefined` (not `null`) in returned `Bill`
+    - [ ] `vote_result = 'Passed'` in DB → `voteResult: 'Passed'` in returned `Bill`
+  - [ ] `getBillsBySession` tests:
+    - [ ] Returns empty array when no bills cached
+    - [ ] Returns all bills for the session
+    - [ ] Does not return bills from a different session
+  - [ ] All test describe blocks named descriptively (`'bills cache'`, `'writeBills'`, `'getBillsBySponsor'`, `'getBillsBySession'`)
+
+- [ ] Task 3: Extend `apps/mcp-server/src/cache/refresh.ts` (AC: 1, 3, 6)
+  - [ ] Import `writeBills, getActiveSession` from `./bills.js`
+  - [ ] Add `warmUpBillsCache(db: Database.Database, provider: LegislatureDataProvider): Promise<void>`
+    - [ ] Call `getActiveSession()` to determine the session string
+    - [ ] Call `provider.getBillsBySession(session)` to get the full hydrated `Bill[]`
+    - [ ] Call `writeBills(db, bills)` to persist
+    - [ ] Propagates errors from the provider — caller (`index.ts`) handles gracefully with `.catch()`
+  - [ ] Add `scheduleBillsRefresh(db: Database.Database, provider: LegislatureDataProvider): void`
+    - [ ] Cron expression: `'0 * * * *'` (top of every hour)
+    - [ ] Cron callback: synchronous, wraps async `warmUpBillsCache` with `.then()/.catch()` pattern (same as `scheduleLegislatorsRefresh`)
+    - [ ] On success: `logger.info({ source: 'cache' }, 'Bills cache refreshed')`
+    - [ ] On failure: `logger.error({ source: 'legislature-api', err }, 'Bills cache refresh failed')`
+  - [ ] Export both new functions alongside existing `warmUpLegislatorsCache` / `scheduleLegislatorsRefresh`
+
+- [ ] Task 4: Extend `apps/mcp-server/src/cache/refresh.test.ts` (AC: 3, 6, 11)
+  - [ ] Import `warmUpBillsCache, scheduleBillsRefresh` from `./refresh.js`
+  - [ ] Fixtures: add `makeBill()` helper function for test data
+  - [ ] `warmUpBillsCache` tests:
+    - [ ] Calls `provider.getBillsBySession` with the result of `getActiveSession()`
+    - [ ] Calls `provider.getBillsBySession` exactly once per call
+    - [ ] Writes returned bills into the cache (query `testDb` directly to verify)
+    - [ ] Resolves when provider succeeds
+    - [ ] Rejects (propagates) when provider rejects — error message preserved
+  - [ ] `scheduleBillsRefresh` tests:
+    - [ ] Does not throw when called
+    - [ ] Does not invoke provider at registration time (lazy — only fires on cron)
+    - [ ] Logs error with `{ source: 'legislature-api' }` when refresh fails (simulate via `.catch()` callback)
+    - [ ] Logs info with `{ source: 'cache' }` when refresh succeeds
+  - [ ] Use `vi.useFakeTimers()` in `scheduleBillsRefresh` describe block with `beforeEach/afterEach` (same as existing pattern)
+
+- [ ] Task 5: Wire bills cache in `apps/mcp-server/src/index.ts` (AC: 1, 3)
+  - [ ] Import `warmUpBillsCache, scheduleBillsRefresh` from `./cache/refresh.js`
+  - [ ] In `startServer()`, after `warmUpLegislatorsCache` + its log, add:
+    ```typescript
+    await warmUpBillsCache(db, provider)
+    logger.info({ source: 'cache' }, 'Bills cache warm-up complete')
+    ```
+  - [ ] In the `serve()` callback, after `scheduleLegislatorsRefresh`, add:
+    ```typescript
+    scheduleBillsRefresh(db, provider)
+    ```
+  - [ ] Add a comment: `// STEP 2.8: Bills cache warm-up (Story 3.2)` above the warm-up call
+  - [ ] No other changes to index.ts — keep it as an orchestration-only module
+
+- [ ] Task 6: Final verification (AC: 10, 11, 12)
+  - [ ] `pnpm --filter mcp-server typecheck` exits 0
+  - [ ] `pnpm --filter mcp-server test` exits 0 (including all 115+ pre-existing tests)
+  - [ ] `pnpm --filter mcp-server lint` exits 0
+  - [ ] Confirm no `better-sqlite3` imports outside `apps/mcp-server/src/cache/`
+  - [ ] Confirm no `console.log` introduced anywhere in `apps/mcp-server/`
+  - [ ] Confirm `cache/bills.ts` is the only file with SQL writes to `bills` or `bill_fts` tables
+
+## Dev Notes
+
+### Scope — What Story 3.2 IS and IS NOT
+
+**In scope:**
+- `apps/mcp-server/src/cache/bills.ts` — create (write + read functions + `getActiveSession` stub)
+- `apps/mcp-server/src/cache/bills.test.ts` — create (comprehensive unit tests)
+- `apps/mcp-server/src/cache/refresh.ts` — extend (`warmUpBillsCache` + `scheduleBillsRefresh`)
+- `apps/mcp-server/src/cache/refresh.test.ts` — extend (bills warm-up/scheduler tests)
+- `apps/mcp-server/src/index.ts` — extend (wire warm-up + scheduler, STEP 2.8)
+
+**NOT in scope:**
+- `cache/bills.ts` FTS5 keyword search function (`searchBillsByTheme`) — Story 3.3
+- Full inter-session logic replacing `getActiveSession()` — Story 3.4 (Story 3.4 also fixes the latent bug in `getBillDetail` using `getCurrentSession()` internally)
+- `tools/bill-search.ts` MCP tool — Story 3.5
+- `components/BillCard.tsx` — Story 3.6
+- No changes to `providers/utah-legislature.ts` — `getBillsBySession` is already implemented (Story 3.1)
+- No changes to `packages/types/index.ts` — `Bill` type is already correct
+- No changes to `cache/schema.ts` — `bills` table, `bill_fts`, indexes are already defined
+
+### Architecture Pattern: `writeBills` follows `writeLegislators` exactly
+
+`writeLegislators` is the proven pattern for this codebase. Mirror it for `writeBills`:
+
+```typescript
+// legislators.ts pattern — bills.ts follows the same shape
+export function writeLegislators(db: Database.Database, legislators: Legislator[]): void {
+  if (legislators.length === 0) return
+
+  const stmt = db.prepare<[...]>(`INSERT OR REPLACE INTO legislators (...) VALUES (?, ...)`)
+  const cachedAt = new Date().toISOString()
+  db.transaction(() => {
+    for (const leg of legislators) { stmt.run(...) }
+  })()
+}
+
+// bills.ts — same pattern + FTS5 rebuild
+export function writeBills(db: Database.Database, bills: Bill[]): void {
+  if (bills.length === 0) return
+
+  const stmt = db.prepare<[...]>(`INSERT OR REPLACE INTO bills (...) VALUES (?, ...)`)
+  const cachedAt = new Date().toISOString()
+  db.transaction(() => {
+    for (const bill of bills) { stmt.run(...) }
+    db.exec("INSERT INTO bill_fts(bill_fts) VALUES('rebuild')")
+  })()
+}
+```
+
+**Key difference:** `writeBills` must call the FTS5 rebuild INSIDE the transaction, after all rows are inserted. This is safe with better-sqlite3 since `db.exec()` runs synchronously.
+
+### FTS5 Content Table: Why `rebuild` Is Required
+
+The `bill_fts` table is a **content FTS5 table** (`content='bills'`), not a standalone FTS5 table. Content tables don't duplicate data — they read `title` and `summary` from the `bills` table. However, after bulk INSERT OR REPLACE operations, FTS5's internal inverted index becomes stale. Running:
+
+```sql
+INSERT INTO bill_fts(bill_fts) VALUES('rebuild')
+```
+
+forces FTS5 to re-scan the `bills` table and rebuild the inverted index. Without this, `MATCH` queries (Story 3.3) would return incorrect/empty results after a bulk load.
+
+This is documented in `cache/schema.ts` lines 47–49. The `writeBills` function is the only place that triggers the rebuild.
+
+### Per-Legislator Sponsor Index: How It Works
+
+The architecture says "per-legislator sponsor index rebuilt on each refresh." This is implemented via SQLite's automatic B-tree index maintenance:
+
+1. `idx_bills_sponsor_id` is defined in `schema.ts` as `CREATE INDEX IF NOT EXISTS idx_bills_sponsor_id ON bills (sponsor_id)`
+2. Every INSERT OR REPLACE automatically updates this B-tree index
+3. `getBillsBySponsor(sponsorId)` queries `WHERE sponsor_id = ?` — SQLite uses `idx_bills_sponsor_id` automatically
+
+No separate rebuild step is needed for the B-tree index — it's always consistent with the `bills` table. The "rebuild" in the acceptance criteria refers to the logical rebuild of the sponsor index data (new bills replacing old ones), not a DDL operation.
+
+### `getActiveSession()` Stub — Scope and Known Limitation
+
+Story 3.2 needs a session string to call `provider.getBillsBySession(session)`. A minimal helper is added to `cache/bills.ts`:
+
+```typescript
+/**
+ * Returns the current legislative session identifier (e.g. '2026GS').
+ * Utah General Sessions run January–March. Outside session, returns the most recent.
+ *
+ * STUB: Story 3.4 (inter-session bill handling) replaces this with full logic that:
+ * - detects when the legislature is not in session
+ * - serves up to 5 bills from the last 2 completed sessions
+ * - stores session metadata in SQLite
+ */
+export function getActiveSession(): string {
+  const now = new Date()
+  const year = now.getFullYear()
+  return now.getMonth() < 3 ? `${year}GS` : `${year - 1}GS`
+}
+```
+
+This mirrors the private `getCurrentSession()` in `providers/utah-legislature.ts`. Story 3.4 will replace both. The function is exported from `cache/bills.ts` (not `cache/refresh.ts`) so Story 3.4 can find and replace it in one place.
+
+**Known limitation inherited from Story 3.1:** `getBillDetail()` in the provider constructs its URL using `getCurrentSession()` rather than accepting the `session` parameter. This is a latent bug for inter-session scenarios (e.g., fetching 2025GS bills during the 2026 session). Story 3.4 must address this before fetching detail for past sessions.
+
+### Column Mapping: snake_case ↔ camelCase
+
+All `snake_case` → `camelCase` mapping is confined to `cache/bills.ts`. Never leak DB column names to tool output.
+
+| DB column | Bill field |
+|---|---|
+| `id` | `id` |
+| `session` | `session` |
+| `title` | `title` |
+| `summary` | `summary` |
+| `status` | `status` |
+| `sponsor_id` | `sponsorId` |
+| `vote_result` | `voteResult` |
+| `vote_date` | `voteDate` |
+
+`vote_result` and `vote_date` are nullable in the DB. When reading from DB:
+```typescript
+// CORRECT — null → undefined (not null) for TypeScript Bill interface
+voteResult: row.vote_result ?? undefined,
+voteDate: row.vote_date ?? undefined,
+```
+
+When writing to DB with `exactOptionalPropertyTypes: true`:
+```typescript
+// CORRECT — undefined → null for SQLite (cannot pass undefined to better-sqlite3 bind param)
+bill.voteResult ?? null,
+bill.voteDate ?? null,
+```
+
+### `getBillsBySponsor` and `getBillsBySession` Use the DB Singleton
+
+These functions will be called from `tools/bill-search.ts` (Story 3.5), which is in `tools/` — outside `cache/`. Per Boundary 4, `tools/` cannot import `better-sqlite3` directly. The solution (same as `getLegislatorsByDistrict` in `legislators.ts`) is to use the db singleton from `./db.js` directly inside these functions:
+
+```typescript
+import { db } from './db.js'  // singleton — used for functions called from tools/
+
+export function getBillsBySponsor(sponsorId: string): Bill[] {
+  const rows = db
+    .prepare<[string], BillRow>('SELECT * FROM bills WHERE sponsor_id = ?')
+    .all(sponsorId)
+  return rows.map(rowToBill)
+}
+```
+
+`writeBills` receives `db` as a parameter (dependency injection — called from `cache/refresh.ts` which receives db from `index.ts`). This is the same DI pattern as `writeLegislators`.
+
+### Test Pattern for Singleton Injection (from `legislators.test.ts`)
+
+```typescript
+// Create in-memory test DB before mock registration
+const testDb = new Database(':memory:')
+initializeSchema(testDb)
+
+// Inject testDb as the `db` singleton before module under test is evaluated.
+vi.mock('./db.js', () => ({ db: testDb }))
+
+// Import after mock is registered
+import type { getBillsBySponsor as GetFn, writeBills as WriteFn } from './bills.js'
+let getBillsBySponsor: typeof GetFn
+let writeBills: typeof WriteFn
+
+beforeAll(async () => {
+  const mod = await import('./bills.js')
+  getBillsBySponsor = mod.getBillsBySponsor
+  writeBills = mod.writeBills
+})
+
+describe('bills cache', () => {
+  beforeEach(() => {
+    testDb.prepare('DELETE FROM bills').run()
+    // Also clear FTS5 after each test
+    testDb.prepare("INSERT INTO bill_fts(bill_fts) VALUES('delete-all')").run()
+  })
+  // ...
+})
+```
+
+**Important:** Between tests, also reset FTS5. The simplest way is to run the `delete-all` FTS5 command:
+```sql
+INSERT INTO bill_fts(bill_fts) VALUES('delete-all')
+```
+Then after writing fresh bills in tests that need FTS5, `writeBills` triggers the rebuild.
+
+### Cron Callback Pattern (from `scheduleLegislatorsRefresh`)
+
+```typescript
+export function scheduleBillsRefresh(
+  db: Database.Database,
+  provider: LegislatureDataProvider,
+): void {
+  schedule('0 * * * *', () => {
+    warmUpBillsCache(db, provider)
+      .then(() => {
+        logger.info({ source: 'cache' }, 'Bills cache refreshed')
+      })
+      .catch((err: unknown) => {
+        logger.error({ source: 'legislature-api', err }, 'Bills cache refresh failed')
+      })
+  })
+}
+```
+
+The cron callback must NOT be `async` — `node-cron` v4 does not handle async callbacks. Async work is wrapped with `.catch()` to prevent unhandled rejections. This pattern is already established in `scheduleLegislatorsRefresh` — follow it exactly.
+
+### `index.ts` Wiring (STEP 2.8)
+
+The bills warm-up runs AFTER the legislators warm-up, in `startServer()`:
+
+```typescript
+// STEP 2.6: Legislators cache warm-up (Story 2.3)
+const provider = new UtahLegislatureProvider()
+await warmUpLegislatorsCache(db, provider)
+logger.info({ source: 'cache', districtCount: 104 }, 'Legislators cache warm-up complete')
+
+// STEP 2.8: Bills cache warm-up (Story 3.2)
+await warmUpBillsCache(db, provider)
+logger.info({ source: 'cache' }, 'Bills cache warm-up complete')
+```
+
+And in the `serve()` callback:
+
+```typescript
+serve({ fetch: app.fetch, port: env.PORT }, (info) => {
+  logger.info({ source: 'app', port: info.port }, 'On Record MCP server started')
+  scheduleLegislatorsRefresh(db, provider)
+  scheduleBillsRefresh(db, provider)   // Story 3.2
+})
+```
+
+**Performance note:** `warmUpBillsCache` calls `provider.getBillsBySession(session)` which in turn makes ~500-1000 concurrent `getBillDetail` HTTP requests (as documented in Story 3.1). This is acceptable for startup warm-up. The total startup time may be several seconds. This was established in Story 3.1 as the accepted behavior for cache population.
+
+### `BillRow` Interface (internal to `bills.ts`)
+
+```typescript
+interface BillRow {
+  id: string
+  session: string
+  title: string
+  summary: string
+  status: string
+  sponsor_id: string
+  vote_result: string | null
+  vote_date: string | null
+}
+```
+
+This internal row shape maps directly to the SQLite columns. Never expose it outside `bills.ts`.
+
+### ESLint / TypeScript Enforcement Reminders
+
+- `console.log` is FORBIDDEN in `apps/mcp-server/` — use `logger.info`, `logger.error` only
+- `strict: true` + `exactOptionalPropertyTypes: true` — conditional spread for optional fields
+- `better-sqlite3` imports only in `cache/` — ESLint enforces this via `no-restricted-imports`
+- No `any`, no `@ts-ignore`
+- Import paths use `.js` extensions (NodeNext resolution): `import { writeBills } from './bills.js'`
+- No barrel file — no `index.ts` in `cache/` (do not create one)
+
+### Previous Story Intelligence (Story 3.1)
+
+Key learnings from Story 3.1 implementation:
+- The `getBillsBySession` implementation uses `Promise.all` for concurrent `getBillDetail` calls — warm-up will be slow for large sessions (~500-1000 HTTP calls). This is expected and documented.
+- `exactOptionalPropertyTypes: true` is enforced — use `??` nullish coalescing and conditional spread; never assign `undefined` directly to optional properties
+- Test rejection patterns: attach `.rejects` assertion BEFORE `vi.runAllTimersAsync()` to avoid `PromiseRejectionHandledWarning`
+- All error-path tests must assert specific `nature` and `action` string values — NOT `typeof result.nature === 'string'`
+- The `voteResult` and `voteDate` fields are not confirmed to be provided by the Utah Legislature API — they may always be `undefined`
+- `getBillDetail` has a latent inter-session bug (uses `getCurrentSession()` internally) — deferred to Story 3.4
+
+### Project Structure Notes
+
+- `apps/mcp-server/src/cache/bills.ts` — new file; co-located with `bills.test.ts`
+- No barrel file in `cache/` — import directly: `import { writeBills } from './cache/bills.js'`
+- Test co-location rule: `bills.test.ts` lives next to `bills.ts` in `cache/`
+- `better-sqlite3` is only in `cache/` — enforced by ESLint
+
+### References
+
+- [Source: apps/mcp-server/src/cache/schema.ts] — `bills` table DDL, `bill_fts` FTS5 with `content='bills'`, `idx_bills_sponsor_id`, `idx_bills_session`
+- [Source: apps/mcp-server/src/cache/legislators.ts] — `writeLegislators` and `getLegislatorsByDistrict` patterns to mirror
+- [Source: apps/mcp-server/src/cache/legislators.test.ts] — test patterns: `vi.mock('./db.js')`, in-memory SQLite, `beforeAll` dynamic import, `beforeEach` table clear
+- [Source: apps/mcp-server/src/cache/refresh.ts] — `warmUpLegislatorsCache` and `scheduleLegislatorsRefresh` patterns to follow for bills equivalents
+- [Source: apps/mcp-server/src/cache/refresh.test.ts] — `makeProvider()` fixture, cron test patterns, `vi.useFakeTimers()` usage
+- [Source: apps/mcp-server/src/cache/db.ts] — singleton `db` export
+- [Source: apps/mcp-server/src/providers/utah-legislature.ts] — `getCurrentSession()` logic to mirror in `getActiveSession()`; `getBillsBySession` implementation
+- [Source: apps/mcp-server/src/index.ts] — `startServer()` startup sequence, `serve()` callback, STEP numbering convention
+- [Source: packages/types/index.ts] — `Bill`, `BillDetail` type shapes; `sponsorId` is `camelCase` in interface
+- [Source: _bmad-output/planning-artifacts/architecture.md#Data Architecture] — bills table schema, refresh strategy, per-legislator sponsor index definition, FTS5 content table
+- [Source: _bmad-output/planning-artifacts/architecture.md#Process Patterns] — mock at `LegislatureDataProvider` boundary; never import SQLite in tests directly
+- [Source: _bmad-output/implementation-artifacts/3-1-utah-legislature-api-integration-bills-by-session.md] — Story 3.1 completion notes, known limitation about `getCurrentSession()`, test patterns
+
+## Dev Agent Record
+
+### Agent Model Used
+
+{{agent_model_name_version}}
+
+### Debug Log References
+
+### Completion Notes List
+
+### File List
