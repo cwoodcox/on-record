@@ -98,8 +98,7 @@ describe('bills cache', () => {
       const row = testDb
         .prepare('SELECT cached_at FROM bills WHERE id = ?')
         .get('HB0001') as { cached_at: string } | undefined
-      expect(row?.cached_at).toBeTruthy()
-      expect(new Date(row?.cached_at ?? '').toISOString()).toBeTruthy()
+      expect(row?.cached_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
     })
 
     it('stores NULL for vote_result/vote_date when Bill fields are undefined', () => {
@@ -153,6 +152,28 @@ describe('bills cache', () => {
       const rows = testDb.prepare("SELECT id FROM bills WHERE session = '2026GS'").all()
       expect(rows).toHaveLength(1)
       expect((rows[0] as { id: string }).id).toBe('HB0002')
+    })
+
+    it('clears stale rows for ALL sessions in a mixed-session payload', () => {
+      // Pre-populate both sessions with extra rows
+      writeBills(testDb, [
+        makeBill({ id: 'HB0001', session: '2026GS' }),
+        makeBill({ id: 'HB0002', session: '2026GS' }),
+        makeBill({ id: 'SB0001', session: '2025GS' }),
+        makeBill({ id: 'SB0002', session: '2025GS' }),
+      ])
+      // Refresh with a mixed payload: 1 bill per session (drops HB0002 and SB0002)
+      writeBills(testDb, [
+        makeBill({ id: 'HB0001', session: '2026GS' }),
+        makeBill({ id: 'SB0001', session: '2025GS' }),
+      ])
+
+      const rows2026 = testDb.prepare("SELECT id FROM bills WHERE session = '2026GS'").all()
+      const rows2025 = testDb.prepare("SELECT id FROM bills WHERE session = '2025GS'").all()
+      expect(rows2026).toHaveLength(1)
+      expect((rows2026[0] as { id: string }).id).toBe('HB0001')
+      expect(rows2025).toHaveLength(1)
+      expect((rows2025[0] as { id: string }).id).toBe('SB0001')
     })
 
     it('rebuilds FTS5 — after writeBills, FTS5 match query returns consistent results', () => {

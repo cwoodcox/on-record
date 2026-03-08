@@ -109,8 +109,8 @@ export function getBillsBySession(session: string): Bill[] {
 export function writeBills(db: Database.Database, bills: Bill[]): void {
   if (bills.length === 0) return
 
-  // Infer session from the batch — all bills in a single refresh call share one session.
-  const session = bills[0]!.session
+  // Collect all unique sessions present in this batch (normally one, but handle mixed payloads).
+  const sessions = [...new Set(bills.map((b) => b.session))]
 
   const deleteStmt = db.prepare<[string]>('DELETE FROM bills WHERE session = ?')
   const stmt = db.prepare<
@@ -125,9 +125,11 @@ export function writeBills(db: Database.Database, bills: Bill[]): void {
   const cachedAt = new Date().toISOString()
 
   db.transaction(() => {
-    // Delete all prior bills for this session so stale rows are removed when
+    // Delete all prior bills for every session in this batch so stale rows are removed when
     // upstream returns fewer bills than the previous refresh (AC3 overwrite semantics).
-    deleteStmt.run(session)
+    for (const s of sessions) {
+      deleteStmt.run(s)
+    }
     for (const bill of bills) {
       stmt.run(
         bill.id,
