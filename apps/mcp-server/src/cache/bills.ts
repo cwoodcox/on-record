@@ -98,11 +98,11 @@ export function getBillsBySession(session: string): Bill[] {
 // 'Medicaid' (after normalization to 'medicaid') resolves to the healthcare query.
 const THEME_QUERIES: Record<string, string> = {
   // Healthcare
-  healthcare: 'health OR insurance OR Medicaid OR prescription',
-  health: 'health OR insurance OR Medicaid OR prescription',
-  insurance: 'health OR insurance OR Medicaid OR prescription',
-  medicaid: 'health OR insurance OR Medicaid OR prescription',
-  prescription: 'health OR insurance OR Medicaid OR prescription',
+  healthcare: 'healthcare OR health OR insurance OR Medicaid OR prescription',
+  health: 'healthcare OR health OR insurance OR Medicaid OR prescription',
+  insurance: 'healthcare OR health OR insurance OR Medicaid OR prescription',
+  medicaid: 'healthcare OR health OR insurance OR Medicaid OR prescription',
+  prescription: 'healthcare OR health OR insurance OR Medicaid OR prescription',
   // Education
   education: 'school OR teacher OR student OR education',
   school: 'school OR teacher OR student OR education',
@@ -124,11 +124,11 @@ const THEME_QUERIES: Record<string, string> = {
   pollution: 'climate OR pollution OR water OR environment',
   water: 'climate OR pollution OR water OR environment',
   // Taxes
-  taxes: 'revenue OR budget OR fiscal OR tax',
-  tax: 'revenue OR budget OR fiscal OR tax',
-  revenue: 'revenue OR budget OR fiscal OR tax',
-  budget: 'revenue OR budget OR fiscal OR tax',
-  fiscal: 'revenue OR budget OR fiscal OR tax',
+  taxes: 'revenue OR budget OR fiscal OR tax OR taxes',
+  tax: 'revenue OR budget OR fiscal OR tax OR taxes',
+  revenue: 'revenue OR budget OR fiscal OR tax OR taxes',
+  budget: 'revenue OR budget OR fiscal OR tax OR taxes',
+  fiscal: 'revenue OR budget OR fiscal OR tax OR taxes',
 }
 
 /**
@@ -146,18 +146,24 @@ export function searchBillsByTheme(sponsorId: string, theme: string): Bill[] {
 
   const ftsQuery = THEME_QUERIES[normalized] ?? theme.trim()
 
-  const rows = db
-    .prepare<[string, string], BillRow>(
-      `SELECT b.id, b.session, b.title, b.summary, b.status, b.sponsor_id, b.vote_result, b.vote_date
-       FROM bill_fts
-       JOIN bills b ON b.rowid = bill_fts.rowid
-       WHERE bill_fts MATCH ?
-         AND b.sponsor_id = ?
-       ORDER BY bill_fts.rank`,
-    )
-    .all(ftsQuery, sponsorId)
+  try {
+    const rows = db
+      .prepare<[string, string], BillRow>(
+        `SELECT b.id, b.session, b.title, b.summary, b.status, b.sponsor_id, b.vote_result, b.vote_date
+         FROM bill_fts
+         JOIN bills b ON b.rowid = bill_fts.rowid
+         WHERE bill_fts MATCH ?
+           AND b.sponsor_id = ?
+         ORDER BY bill_fts.rank`,
+      )
+      .all(ftsQuery, sponsorId)
 
-  return rows.map(rowToBill)
+    return rows.map(rowToBill)
+  } catch {
+    // Malformed FTS5 query syntax (e.g. bare operators, unmatched quotes) —
+    // return empty results rather than propagating a SQLite error.
+    return []
+  }
 }
 
 /**

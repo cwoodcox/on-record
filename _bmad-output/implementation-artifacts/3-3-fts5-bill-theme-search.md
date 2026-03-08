@@ -1,6 +1,6 @@
 # Story 3.3: FTS5 Bill Theme Search
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -348,6 +348,31 @@ claude-sonnet-4-6
 - apps/mcp-server/src/cache/bills.ts
 - apps/mcp-server/src/cache/bills.test.ts
 
+## Senior Developer Review (AI)
+
+**Reviewer:** Corey (via claude-opus-4-6)
+**Date:** 2026-03-08
+**Outcome:** Approved with fixes applied
+
+### Findings (all resolved)
+
+| # | Severity | Issue | Fix Applied |
+|---|----------|-------|-------------|
+| H1 | HIGH | Healthcare FTS query omitted canonical token `healthcare` — inconsistent with all other categories; bills containing "healthcare" (single token) wouldn't match | Added `healthcare` to FTS query string for all healthcare entries |
+| H2 | HIGH | Unrecognized theme input passed raw to FTS5 MATCH — malformed syntax (`*`, `OR`, unmatched quotes) would throw uncaught SQLite error | Wrapped `.all()` in try/catch; returns `[]` on FTS5 parse errors |
+| M1 | MEDIUM | Tests only covered 2 of 6 theme categories (healthcare, education) — typos in other 4 categories undetectable | Added parameterized `it.each` tests for housing, redistricting, environment, taxes |
+| M2 | MEDIUM | Taxes FTS query used `tax` but not `taxes` — plural form in bill text wouldn't match (FTS5 unicode61 doesn't stem) | Added `taxes` to FTS query string for all taxes entries |
+| L1 | LOW | No test for whitespace-only theme input | Added explicit whitespace-only test |
+
+### Verification
+
+- `pnpm --filter mcp-server typecheck` → 0
+- `pnpm --filter mcp-server lint` → 0
+- `pnpm --filter mcp-server test` → 162 passing (was 156; +6 new)
+- Boundary 4: `better-sqlite3` imports confined to `cache/` only
+- No `console.log` introduced
+
 ## Change Log
 
 - 2026-03-08: Implemented `searchBillsByTheme` with `THEME_QUERIES` synonym expansion and FTS5 JOIN query; added 10 tests (156 total passing). Story complete.
+- 2026-03-08: Code review (claude-opus-4-6): Fixed healthcare/taxes FTS query gaps, added try/catch for malformed FTS5 input, added 6 tests (162 total). Status → done.

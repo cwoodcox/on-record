@@ -396,8 +396,34 @@ describe('bills cache', () => {
       expect(result[0]?.id).toBe('HB0014')
     })
 
+    it.each([
+      ['housing', 'rent', 'Affordable rent assistance program'],
+      ['redistricting', 'gerrymandering', 'Anti-gerrymandering transparency act'],
+      ['environment', 'water', 'Clean water protection standards'],
+      ['taxes', 'fiscal', 'Fiscal responsibility and budget reform'],
+    ])(
+      'theme %s matches synonym %s in title/summary',
+      (theme, _synonym, titleText) => {
+        writeBills(testDb, [
+          makeBill({ id: 'HB9999', title: titleText, sponsorId: 'leg-001' }),
+        ])
+        const result = searchBillsByTheme('leg-001', theme)
+        expect(result.length).toBeGreaterThan(0)
+      },
+    )
+
     it('empty string theme returns empty array without throwing', () => {
       expect(searchBillsByTheme('leg-001', '').length).toBe(0)
+    })
+
+    it('whitespace-only theme returns empty array without throwing', () => {
+      expect(searchBillsByTheme('leg-001', '   ').length).toBe(0)
+    })
+
+    it('malformed FTS5 input returns empty array instead of throwing', () => {
+      expect(searchBillsByTheme('leg-001', 'OR').length).toBe(0)
+      expect(searchBillsByTheme('leg-001', '"unclosed').length).toBe(0)
+      expect(searchBillsByTheme('leg-001', '*').length).toBe(0)
     })
 
     it('returns only bills matching theme, not all sponsor bills', () => {
