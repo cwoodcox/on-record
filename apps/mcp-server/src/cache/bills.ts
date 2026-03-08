@@ -92,6 +92,74 @@ export function getBillsBySession(session: string): Bill[] {
   return rows.map(rowToBill)
 }
 
+// Internal constant — not exported. Maps normalized (lowercase) theme keywords
+// and their synonyms to FTS5 OR query strings.
+// Both canonical theme names AND individual synonyms are keys, so input like
+// 'Medicaid' (after normalization to 'medicaid') resolves to the healthcare query.
+const THEME_QUERIES: Record<string, string> = {
+  // Healthcare
+  healthcare: 'health OR insurance OR Medicaid OR prescription',
+  health: 'health OR insurance OR Medicaid OR prescription',
+  insurance: 'health OR insurance OR Medicaid OR prescription',
+  medicaid: 'health OR insurance OR Medicaid OR prescription',
+  prescription: 'health OR insurance OR Medicaid OR prescription',
+  // Education
+  education: 'school OR teacher OR student OR education',
+  school: 'school OR teacher OR student OR education',
+  teacher: 'school OR teacher OR student OR education',
+  student: 'school OR teacher OR student OR education',
+  // Housing
+  housing: 'rent OR landlord OR affordable OR housing',
+  rent: 'rent OR landlord OR affordable OR housing',
+  landlord: 'rent OR landlord OR affordable OR housing',
+  affordable: 'rent OR landlord OR affordable OR housing',
+  // Redistricting
+  redistricting: 'redistricting OR gerrymandering OR district',
+  gerrymandering: 'redistricting OR gerrymandering OR district',
+  'prop 4': 'redistricting OR gerrymandering OR district',
+  district: 'redistricting OR gerrymandering OR district',
+  // Environment
+  environment: 'climate OR pollution OR water OR environment',
+  climate: 'climate OR pollution OR water OR environment',
+  pollution: 'climate OR pollution OR water OR environment',
+  water: 'climate OR pollution OR water OR environment',
+  // Taxes
+  taxes: 'revenue OR budget OR fiscal OR tax',
+  tax: 'revenue OR budget OR fiscal OR tax',
+  revenue: 'revenue OR budget OR fiscal OR tax',
+  budget: 'revenue OR budget OR fiscal OR tax',
+  fiscal: 'revenue OR budget OR fiscal OR tax',
+}
+
+/**
+ * Full-text searches the bills cache by issue theme keyword.
+ * Expands known theme names and synonyms to FTS5 OR queries for broader matching.
+ * Results are filtered to bills sponsored by the given legislator.
+ * Returns bills ordered by FTS5 relevance (BM25 rank).
+ *
+ * @param sponsorId - Legislator ID (e.g. 'RRabbitt')
+ * @param theme     - Issue theme keyword (e.g. 'healthcare', 'education', 'water')
+ */
+export function searchBillsByTheme(sponsorId: string, theme: string): Bill[] {
+  const normalized = theme.trim().toLowerCase()
+  if (normalized === '') return []
+
+  const ftsQuery = THEME_QUERIES[normalized] ?? theme.trim()
+
+  const rows = db
+    .prepare<[string, string], BillRow>(
+      `SELECT b.id, b.session, b.title, b.summary, b.status, b.sponsor_id, b.vote_result, b.vote_date
+       FROM bill_fts
+       JOIN bills b ON b.rowid = bill_fts.rowid
+       WHERE bill_fts MATCH ?
+         AND b.sponsor_id = ?
+       ORDER BY bill_fts.rank`,
+    )
+    .all(ftsQuery, sponsorId)
+
+  return rows.map(rowToBill)
+}
+
 /**
  * Upserts bills into the SQLite cache.
  * Uses INSERT OR REPLACE keyed by primary key `id`.

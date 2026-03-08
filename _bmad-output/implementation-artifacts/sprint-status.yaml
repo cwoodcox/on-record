@@ -69,7 +69,7 @@ development_status:
   epic-3: in-progress
   3-1-utah-legislature-api-integration-bills-by-session: done
   3-2-bills-sqlite-cache-with-hourly-refresh-and-per-legislator-sponsor-index: done
-  3-3-fts5-bill-theme-search: backlog
+  3-3-fts5-bill-theme-search: review
   3-4-inter-session-bill-handling: backlog
   3-5-search-bills-mcp-tool-with-retry-logic: backlog
   3-6-billcard-and-citationtag-ui-components: backlog
