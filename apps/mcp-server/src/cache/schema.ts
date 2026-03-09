@@ -57,6 +57,19 @@ export function initializeSchema(db: Database.Database): void {
       )
     `)
 
+    // --- sessions table ---
+    // Stores known Utah legislative session metadata. Seeded at startup by cache/sessions.ts.
+    // Used by sessions.ts to detect active/inter-session and select sessions for bill refresh.
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS sessions (
+        id         TEXT    PRIMARY KEY,
+        year       INTEGER NOT NULL,
+        type       TEXT    NOT NULL,
+        start_date TEXT    NOT NULL,
+        end_date   TEXT    NOT NULL
+      )
+    `)
+
     // --- events table ---
     // Anonymous analytics events. Written by routes/events.ts (Story 7.3).
     // Never contains PII — district only, no addresses (FR39, NFR7).
@@ -70,6 +83,12 @@ export function initializeSchema(db: Database.Database): void {
     `)
 
     // --- indexes ---
+    // idx_sessions_start_end: supports efficient date-range queries for active session detection
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_sessions_start_end
+      ON sessions (start_date, end_date)
+    `)
+
     // idx_bills_session: used by bills cache queries scoped to a legislative session
     db.exec(`
       CREATE INDEX IF NOT EXISTS idx_bills_session

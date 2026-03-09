@@ -44,21 +44,6 @@ function rowToBill(row: BillRow): Bill {
 }
 
 /**
- * Returns the current legislative session identifier (e.g. '2026GS').
- * Utah General Sessions run January–March. Outside session, returns the most recent.
- *
- * STUB: Story 3.4 (inter-session bill handling) replaces this with full logic that:
- * - detects when the legislature is not in session
- * - serves up to 5 bills from the last 2 completed sessions
- * - stores session metadata in SQLite
- */
-export function getActiveSession(): string {
-  const now = new Date()
-  const year = now.getFullYear()
-  return now.getMonth() < 3 ? `${year}GS` : `${year - 1}GS`
-}
-
-/**
  * Reads bills from the SQLite cache for a specific sponsor.
  * Returns an empty array on cache miss — the tool handler treats this as appropriate.
  * Uses the db singleton directly since this function is called from tools/ which

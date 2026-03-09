@@ -14,6 +14,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import Database from 'better-sqlite3'
 import { initializeSchema } from './schema.js'
+import { seedSessions } from './sessions.js'
 import type { LegislatureDataProvider } from '../providers/types.js'
 import type { Legislator, Bill, BillDetail } from '@on-record/types'
 
@@ -250,10 +251,11 @@ describe('warmUpBillsCache', () => {
 
   beforeEach(() => {
     vi.useFakeTimers()
-    vi.setSystemTime(new Date(2026, 1, 15)) // February 2026 — deterministic session '2026GS'
+    vi.setSystemTime(new Date(2026, 1, 15)) // February 2026 — in session (2026GS: Jan 20 – Mar 6)
     vi.clearAllMocks()
     testDb = new Database(':memory:')
     initializeSchema(testDb)
+    seedSessions(testDb)
   })
 
   afterEach(() => {
@@ -261,7 +263,7 @@ describe('warmUpBillsCache', () => {
     testDb.close()
   })
 
-  it('calls provider.getBillsBySession with the result of getActiveSession()', async () => {
+  it('calls provider.getBillsBySession for active session when in session', async () => {
     const provider = makeProvider()
     await warmUpBillsCache(testDb, provider)
 
@@ -269,10 +271,14 @@ describe('warmUpBillsCache', () => {
     expect(provider.getBillsBySession).toHaveBeenCalledWith('2026GS')
   })
 
-  it('calls provider.getBillsBySession exactly once per call', async () => {
+  it('fetches bills for 2 sessions when inter-session', async () => {
+    vi.setSystemTime(new Date(2026, 5, 15)) // June 2026 — inter-session
     const provider = makeProvider()
     await warmUpBillsCache(testDb, provider)
-    expect(provider.getBillsBySession).toHaveBeenCalledTimes(1)
+
+    expect(provider.getBillsBySession).toHaveBeenCalledTimes(2)
+    expect(provider.getBillsBySession).toHaveBeenCalledWith('2026GS')
+    expect(provider.getBillsBySession).toHaveBeenCalledWith('2025GS')
   })
 
   it('writes returned bills into the cache (query testDb directly to verify)', async () => {

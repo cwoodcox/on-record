@@ -1,10 +1,9 @@
 // apps/mcp-server/src/cache/bills.test.ts
-// Tests for writeBills, getBillsBySponsor, getBillsBySession, getActiveSession using in-memory SQLite.
+// Tests for writeBills, getBillsBySponsor, getBillsBySession, searchBillsByTheme using in-memory SQLite.
 //
 // Architecture:
 //   - writeBills: receives db as a parameter — use in-memory db directly.
 //   - getBillsBySponsor, getBillsBySession: use the db singleton from ./db.js — inject via vi.mock.
-//   - getActiveSession: pure function (no db) — test with vi.setSystemTime to control date.
 //
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
 import Database from 'better-sqlite3'
@@ -25,13 +24,11 @@ import type {
   getBillsBySponsor as GetBySponsorFn,
   getBillsBySession as GetBySessionFn,
   writeBills as WriteFn,
-  getActiveSession as GetActiveSessionFn,
   searchBillsByTheme as SearchFn,
 } from './bills.js'
 let getBillsBySponsor: typeof GetBySponsorFn
 let getBillsBySession: typeof GetBySessionFn
 let writeBills: typeof WriteFn
-let getActiveSession: typeof GetActiveSessionFn
 let searchBillsByTheme: typeof SearchFn
 
 beforeAll(async () => {
@@ -39,7 +36,6 @@ beforeAll(async () => {
   getBillsBySponsor = mod.getBillsBySponsor
   getBillsBySession = mod.getBillsBySession
   writeBills = mod.writeBills
-  getActiveSession = mod.getActiveSession
   searchBillsByTheme = mod.searchBillsByTheme
 })
 
@@ -446,27 +442,4 @@ describe('bills cache', () => {
     })
   })
 
-  // ── getActiveSession ─────────────────────────────────────────────────────
-
-  describe('getActiveSession', () => {
-    it('returns current year GS when month is January–March (month index < 3)', () => {
-      vi.useFakeTimers()
-      vi.setSystemTime(new Date(2026, 1, 15)) // February 2026: month index 1 < 3
-      try {
-        expect(getActiveSession()).toBe('2026GS')
-      } finally {
-        vi.useRealTimers()
-      }
-    })
-
-    it('returns prior year GS when month is April or later (month index >= 3)', () => {
-      vi.useFakeTimers()
-      vi.setSystemTime(new Date(2026, 6, 15)) // July 2026: month index 6 >= 3
-      try {
-        expect(getActiveSession()).toBe('2025GS')
-      } finally {
-        vi.useRealTimers()
-      }
-    })
-  })
 })

@@ -6,7 +6,8 @@ import { schedule } from 'node-cron'
 import { logger } from '../lib/logger.js'
 import type { LegislatureDataProvider } from '../providers/types.js'
 import { writeLegislators } from './legislators.js'
-import { writeBills, getActiveSession } from './bills.js'
+import { writeBills } from './bills.js'
+import { getSessionsForRefresh } from './sessions.js'
 
 // Utah legislative districts:
 //   House:  1–75  (75 districts)
@@ -66,8 +67,10 @@ export function scheduleLegislatorsRefresh(
 }
 
 /**
- * Fetches all bills for the active session and writes results to cache.
- * Calls provider.getBillsBySession once — stays within the ≤1×/hour rate limit (AC3).
+ * Fetches bills for the active session (or the 2 most recent completed sessions during
+ * inter-session periods) and writes results to cache.
+ * During active session: 1 API call. During inter-session: 2 parallel API calls.
+ * Both fit within the ≤1 refresh per hour rate limit (calls happen in a single refresh cycle).
  * Propagates errors from the provider — caller (index.ts) handles gracefully with .catch().
  *
  * @param db       - Injected SQLite database instance (dependency injection — Boundary 4)
@@ -77,9 +80,9 @@ export async function warmUpBillsCache(
   db: Database.Database,
   provider: LegislatureDataProvider,
 ): Promise<void> {
-  const session = getActiveSession()
-  const bills = await provider.getBillsBySession(session)
-  writeBills(db, bills)
+  const sessions = getSessionsForRefresh(db)
+  const allBills = await Promise.all(sessions.map((s) => provider.getBillsBySession(s)))
+  writeBills(db, allBills.flat())
 }
 
 /**
@@ -99,7 +102,7 @@ export function scheduleBillsRefresh(
   schedule('0 * * * *', () => {
     warmUpBillsCache(db, provider)
       .then(() => {
-        logger.info({ source: 'cache' }, 'Bills cache refreshed')
+        logger.info({ source: 'cache', sessions: getSessionsForRefresh(db) }, 'Bills cache refreshed')
       })
       .catch((err: unknown) => {
         logger.error({ source: 'legislature-api', err }, 'Bills cache refresh failed')

@@ -11,8 +11,11 @@ import { logger } from './lib/logger.js'
 // initializeSchema is idempotent — safe on every restart.
 import { db } from './cache/db.js'
 import { initializeSchema } from './cache/schema.js'
+import { seedSessions } from './cache/sessions.js'
 initializeSchema(db)
 logger.info({ source: 'cache' }, 'SQLite schema initialized')
+seedSessions(db)
+logger.info({ source: 'cache' }, 'Sessions seeded')
 
 // STEP 2.6: Legislators cache warm-up (Story 2.3)
 // Imported here — warm-up awaited inside startServer() below before serve() is called.
