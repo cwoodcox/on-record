@@ -140,9 +140,9 @@ describe('sessions', () => {
       const freshDb = new Database(':memory:')
       initializeSchema(freshDb)
 
+      // IN_SESSION = Feb 15 2026 → calendar fallback: UTC month 1 < 3 → '2026GS'
       const result = getSessionsForRefresh(freshDb, IN_SESSION)
-      expect(result).toHaveLength(1)
-      expect(typeof result[0]).toBe('string')
+      expect(result).toEqual(['2026GS'])
 
       freshDb.close()
     })

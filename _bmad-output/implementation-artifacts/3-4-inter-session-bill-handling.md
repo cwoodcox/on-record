@@ -1,6 +1,6 @@
 # Story 3.4: Inter-Session Bill Handling
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -567,6 +567,23 @@ None — implementation was straightforward with no blocking issues.
 - apps/mcp-server/src/index.ts (modified: import and call seedSessions(db) at startup)
 - _bmad-output/implementation-artifacts/sprint-status.yaml (updated: 3-4 status → review)
 
+### Senior Developer Review (AI)
+
+**Reviewer:** Corey (via Claude Opus 4.6) — 2026-03-08
+
+**Findings (3 HIGH, 3 MEDIUM, 1 LOW):**
+
+- [x] [AI-Review][HIGH] `isInSession` fallback fired even when sessions table had data — returned incorrect `true` during inter-session Jan/Mar dates. **Fixed:** added `COUNT(*)` guard before calendar fallback.
+- [x] [AI-Review][HIGH] Calendar fallbacks in `isInSession` and `getActiveSession` used `.getMonth()` (local time) but SQL queries used `.toISOString()` (UTC) — timezone mismatch. **Fixed:** changed to `.getUTCMonth()` / `.getUTCFullYear()`.
+- [x] [AI-Review][HIGH] Test `'returns false when now is before session start'` passed by timezone accident (MST) — would fail in UTC CI. **Fixed:** underlying code fix (H1+H2) makes test genuinely correct.
+- [x] [AI-Review][MEDIUM] `scheduleBillsRefresh` called `getSessionsForRefresh(db)` twice per cycle. **Fixed:** `warmUpBillsCache` now returns `string[]` sessions; `.then()` uses returned value.
+- [x] [AI-Review][MEDIUM] Startup warm-up log in `index.ts` lacked sessions context. **Fixed:** logs `{ source: 'cache', sessions }`.
+- [x] [AI-Review][MEDIUM] `getSessionsForRefresh` fallback test used weak `typeof` assertion. **Fixed:** changed to `expect(result).toEqual(['2026GS'])`.
+- [ ] [AI-Review][LOW] Active session SQL query duplicated 3 times in `sessions.ts` — could extract to helper. Not fixed (style preference, single-file scope).
+
+**Outcome:** All HIGH and MEDIUM issues fixed. 175 tests pass. typecheck + lint clean.
+
 ### Change Log
 
 - 2026-03-08: Implemented Story 3.4 — inter-session bill handling. Created sessions.ts module with SQLite-backed session detection and multi-session refresh. Removed getActiveSession stub from bills.ts. Added 15 new tests. 175 total tests passing.
+- 2026-03-08: Code review fixes — isInSession empty-table guard, UTC timezone consistency in calendar fallbacks, warmUpBillsCache returns sessions array, strengthened test assertions.

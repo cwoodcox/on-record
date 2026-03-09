@@ -184,8 +184,8 @@ async function startServer(): Promise<void> {
   // (empty cache) is acceptable during an upstream outage. Errors are logged so the
   // operator can investigate without impacting availability.
   try {
-    await warmUpBillsCache(db, provider)
-    logger.info({ source: 'cache' }, 'Bills cache warm-up complete')
+    const sessions = await warmUpBillsCache(db, provider)
+    logger.info({ source: 'cache', sessions }, 'Bills cache warm-up complete')
   } catch (err: unknown) {
     logger.error({ source: 'legislature-api', err }, 'Bills cache warm-up failed — serving stale data')
   }

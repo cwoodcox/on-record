@@ -297,9 +297,10 @@ describe('warmUpBillsCache', () => {
     expect(rows).toHaveLength(1)
   })
 
-  it('resolves when provider succeeds', async () => {
+  it('resolves with sessions array when provider succeeds', async () => {
     const provider = makeProvider()
-    await expect(warmUpBillsCache(testDb, provider)).resolves.toBeUndefined()
+    const sessions = await warmUpBillsCache(testDb, provider)
+    expect(sessions).toEqual(['2026GS'])
   })
 
   it('rejects (propagates) when provider rejects — error message preserved', async () => {

@@ -59,9 +59,14 @@ export function isInSession(db: Database.Database, now?: Date): boolean {
     .get(today, today)
   if (row !== undefined) return true
 
-  // Fallback if no session data — calendar heuristic
+  // If sessions table has data and no match found → definitively inter-session
+  const hasData = db.prepare<[], { n: number }>('SELECT COUNT(*) AS n FROM sessions').get()
+  if (hasData !== undefined && hasData.n > 0) return false
+
+  // Fallback only when sessions table truly empty — calendar heuristic
+  // Use getUTCMonth() to match the UTC date string used in the SQL query above
   const d = now ?? new Date()
-  return d.getMonth() < 3
+  return d.getUTCMonth() < 3
 }
 
 /**
@@ -92,9 +97,10 @@ export function getActiveSession(db: Database.Database, now?: Date): string {
   if (completedRow !== undefined) return completedRow.id
 
   // Fallback: calendar computation (Jan-Mar = current year, else prior year)
+  // Use getUTCMonth() to match the UTC date string used in the SQL queries above
   const d = now ?? new Date()
-  const year = d.getFullYear()
-  return d.getMonth() < 3 ? `${year}GS` : `${year - 1}GS`
+  const year = d.getUTCFullYear()
+  return d.getUTCMonth() < 3 ? `${year}GS` : `${year - 1}GS`
 }
 
 /**

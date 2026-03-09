@@ -79,10 +79,11 @@ export function scheduleLegislatorsRefresh(
 export async function warmUpBillsCache(
   db: Database.Database,
   provider: LegislatureDataProvider,
-): Promise<void> {
+): Promise<string[]> {
   const sessions = getSessionsForRefresh(db)
   const allBills = await Promise.all(sessions.map((s) => provider.getBillsBySession(s)))
   writeBills(db, allBills.flat())
+  return sessions
 }
 
 /**
@@ -101,8 +102,8 @@ export function scheduleBillsRefresh(
 ): void {
   schedule('0 * * * *', () => {
     warmUpBillsCache(db, provider)
-      .then(() => {
-        logger.info({ source: 'cache', sessions: getSessionsForRefresh(db) }, 'Bills cache refreshed')
+      .then((sessions) => {
+        logger.info({ source: 'cache', sessions }, 'Bills cache refreshed')
       })
       .catch((err: unknown) => {
         logger.error({ source: 'legislature-api', err }, 'Bills cache refresh failed')
