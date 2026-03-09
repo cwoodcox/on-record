@@ -71,7 +71,7 @@ development_status:
   3-2-bills-sqlite-cache-with-hourly-refresh-and-per-legislator-sponsor-index: done
   3-3-fts5-bill-theme-search: done
   3-4-inter-session-bill-handling: done
-  3-5-search-bills-mcp-tool-with-retry-logic: backlog
+  3-5-search-bills-mcp-tool-with-retry-logic: review
   3-6-billcard-and-citationtag-ui-components: backlog
   epic-3-retrospective: optional
 

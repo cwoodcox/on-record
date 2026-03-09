@@ -25,11 +25,13 @@ import type {
   getBillsBySession as GetBySessionFn,
   writeBills as WriteFn,
   searchBillsByTheme as SearchFn,
+  getActiveSessionId as GetActiveSessionIdFn,
 } from './bills.js'
 let getBillsBySponsor: typeof GetBySponsorFn
 let getBillsBySession: typeof GetBySessionFn
 let writeBills: typeof WriteFn
 let searchBillsByTheme: typeof SearchFn
+let getActiveSessionId: typeof GetActiveSessionIdFn
 
 beforeAll(async () => {
   const mod = await import('./bills.js')
@@ -37,6 +39,7 @@ beforeAll(async () => {
   getBillsBySession = mod.getBillsBySession
   writeBills = mod.writeBills
   searchBillsByTheme = mod.searchBillsByTheme
+  getActiveSessionId = mod.getActiveSessionId
 })
 
 describe('bills cache', () => {
@@ -292,6 +295,16 @@ describe('bills cache', () => {
       const result = getBillsBySession('2026GS')
       expect(result[0]?.voteResult).toBeUndefined()
       expect(result[0]?.voteDate).toBeUndefined()
+    })
+  })
+
+  // ── getActiveSessionId ───────────────────────────────────────────────────
+
+  describe('getActiveSessionId', () => {
+    it('returns a non-empty string session ID', () => {
+      const result = getActiveSessionId()
+      expect(typeof result === 'string').toBe(true)
+      expect(result.length > 0).toBe(true)
     })
   })
 

@@ -2,15 +2,18 @@
 // Cache read/write module for bills.
 // Boundary 4: only cache/ modules import better-sqlite3.
 // Column-to-type mapping (snake_case DB → camelCase Bill) is confined here only.
+// Also exports singleton wrappers for sessions.ts functions (getActiveSessionId) for use from tools/.
 //
 // Architecture note on db access:
-//   - getBillsBySponsor, getBillsBySession: called from tools/ (outside cache/) which cannot
-//     import the db singleton — these functions use the db singleton directly.
+//   - getBillsBySponsor, getBillsBySession, searchBillsByTheme: called from tools/ (outside cache/)
+//     which cannot import the db singleton — these functions use the db singleton directly.
+//   - getActiveSessionId: singleton wrapper for getActiveSession(db), callable from tools/.
 //   - writeBills: called exclusively from cache/refresh.ts (inside cache/); receives
 //     db as a parameter for dependency injection and testability.
 import { db } from './db.js'
 import type Database from 'better-sqlite3'
 import type { Bill } from '@on-record/types'
+import { getActiveSession } from './sessions.js'
 
 // ── Row shape returned from SQLite ──────────────────────────────────────────
 interface BillRow {
@@ -149,6 +152,15 @@ export function searchBillsByTheme(sponsorId: string, theme: string): Bill[] {
     // return empty results rather than propagating a SQLite error.
     return []
   }
+}
+
+/**
+ * Returns the active or most recently completed legislative session ID.
+ * Wraps getActiveSession(db) using the db singleton.
+ * Callable from tools/ where the db singleton cannot be imported directly (Boundary 4).
+ */
+export function getActiveSessionId(): string {
+  return getActiveSession(db)
 }
 
 /**
