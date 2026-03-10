@@ -31,17 +31,28 @@ export function registerSearchBillsTool(server: McpServer): void {
         .describe('Issue theme keyword (e.g. "healthcare", "education", "water", "taxes")'),
     },
     async ({ legislatorId, theme }) => {
-      let bills: ReturnType<typeof searchBillsByTheme>
-
       try {
-        bills = await retryWithDelay(
+        const bills = await retryWithDelay(
           async () => searchBillsByTheme(legislatorId, theme),
           2,    // 2 retries (3 total attempts: 1 initial + 2 retries)
           1000, // 1s delay then 3s delay (FR36: "at least 2 retries with increasing delay")
         )
+
+        const result: SearchBillsResult = {
+          bills: bills.slice(0, 5),
+          legislatorId,
+          session: getActiveSessionId(),
+        }
+
+        logger.info(
+          { source: 'mcp-tool', legislatorId, billCount: result.bills.length, theme },
+          'search_bills succeeded',
+        )
+
+        return { content: [{ type: 'text', text: JSON.stringify(result) }] }
       } catch {
         logger.error(
-          { source: 'legislature-api', legislatorId },
+          { source: 'legislature-api', legislatorId, theme },
           'search_bills failed after retries',
         )
         return {
@@ -59,19 +70,6 @@ export function registerSearchBillsTool(server: McpServer): void {
           ],
         }
       }
-
-      const result: SearchBillsResult = {
-        bills: bills.slice(0, 5),
-        legislatorId,
-        session: getActiveSessionId(),
-      }
-
-      logger.info(
-        { source: 'mcp-tool', legislatorId, billCount: result.bills.length, theme },
-        'search_bills succeeded',
-      )
-
-      return { content: [{ type: 'text', text: JSON.stringify(result) }] }
     },
   )
 }

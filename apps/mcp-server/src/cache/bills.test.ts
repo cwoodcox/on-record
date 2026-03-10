@@ -1,5 +1,5 @@
 // apps/mcp-server/src/cache/bills.test.ts
-// Tests for writeBills, getBillsBySponsor, getBillsBySession, searchBillsByTheme using in-memory SQLite.
+// Tests for writeBills, getBillsBySponsor, getBillsBySession, getActiveSessionId, searchBillsByTheme using in-memory SQLite.
 //
 // Architecture:
 //   - writeBills: receives db as a parameter — use in-memory db directly.
@@ -8,11 +8,13 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
 import Database from 'better-sqlite3'
 import { initializeSchema } from './schema.js'
+import { seedSessions } from './sessions.js'
 import type { Bill } from '@on-record/types'
 
 // Create in-memory test DB before mock registration
 const testDb = new Database(':memory:')
 initializeSchema(testDb)
+seedSessions(testDb)
 
 // Inject testDb as the `db` singleton before module under test is evaluated.
 // Vitest hoists vi.mock() calls so the mock is in place when the module evaluates.
@@ -303,8 +305,8 @@ describe('bills cache', () => {
   describe('getActiveSessionId', () => {
     it('returns a non-empty string session ID', () => {
       const result = getActiveSessionId()
-      expect(typeof result === 'string').toBe(true)
-      expect(result.length > 0).toBe(true)
+      expect(result).toBeTypeOf('string')
+      expect(result.length).toBeGreaterThan(0)
     })
   })
 

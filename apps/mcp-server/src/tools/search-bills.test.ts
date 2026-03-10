@@ -17,8 +17,7 @@ vi.mock('../lib/logger.js', () => ({
 }))
 
 // ── Imports (after mocks) ────────────────────────────────────────────────────
-import { searchBillsByTheme } from '../cache/bills.js'
-import { getActiveSessionId } from '../cache/bills.js'
+import { searchBillsByTheme, getActiveSessionId } from '../cache/bills.js'
 import { logger } from '../lib/logger.js'
 import { registerSearchBillsTool } from './search-bills.js'
 
@@ -110,6 +109,7 @@ describe('registerSearchBillsTool', () => {
     expect(result.bills[0]?.voteDate).toBe('2026-02-15')
     expect(result.legislatorId).toBe('RRabbitt')
     expect(result.session).toBe('2026GS')
+    expect(vi.mocked(searchBillsByTheme)).toHaveBeenCalledWith('RRabbitt', 'healthcare')
   })
 
   // ── AC#5: 5-bill limit ───────────────────────────────────────────────────
@@ -242,7 +242,7 @@ describe('registerSearchBillsTool', () => {
     await promise
 
     expect(vi.mocked(logger.error)).toHaveBeenCalledWith(
-      expect.objectContaining({ source: 'legislature-api', legislatorId: 'RRabbitt' }),
+      expect.objectContaining({ source: 'legislature-api', legislatorId: 'RRabbitt', theme: 'healthcare' }),
       'search_bills failed after retries',
     )
   })

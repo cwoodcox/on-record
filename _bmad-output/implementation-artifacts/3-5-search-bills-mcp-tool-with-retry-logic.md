@@ -1,6 +1,6 @@
 # Story 3.5: `search_bills` MCP Tool with Retry Logic
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -643,6 +643,31 @@ None — implementation proceeded cleanly with no blocking issues.
 - `apps/mcp-server/src/index.ts` — modified: import + register `registerSearchBillsTool`
 - `_bmad-output/implementation-artifacts/sprint-status.yaml` — modified: story status in-progress → review
 
+## Senior Developer Review (AI)
+
+**Reviewer:** Corey (via Claude Opus 4.6)
+**Date:** 2026-03-09
+**Outcome:** Approved with fixes applied
+
+### Findings (4 Medium, 3 Low — all fixed)
+
+**M1 (fixed):** Error log on retry exhaustion was missing `theme` field — added to logger.error context.
+**M2 (fixed):** `getActiveSessionId()` was called outside try/catch — restructured handler to put result-building inside the try block so any throw returns structured AppError.
+**M3 (fixed):** `getActiveSessionId` test in `bills.test.ts` used poor assertion style (`typeof x === 'string'` → `toBeTypeOf`, `length > 0` → `toBeGreaterThan(0)`).
+**M4 (fixed):** Happy path test missing `toHaveBeenCalledWith` assertion — added to verify `searchBillsByTheme` receives correct `(legislatorId, theme)` args.
+**L1 (fixed):** Combined duplicate import from `../cache/bills.js` in `search-bills.test.ts`.
+**L2 (fixed):** Updated `bills.test.ts` header comment to include `getActiveSessionId`.
+**L3 (fixed):** Added `seedSessions(testDb)` in `bills.test.ts` so `getActiveSessionId` test exercises the production-realistic code path (seeded sessions table) instead of the calendar fallback.
+
+### Verification
+
+- `pnpm --filter mcp-server typecheck` — exits 0
+- `pnpm --filter mcp-server test` — 185 tests pass (14 files)
+- `pnpm --filter mcp-server lint` — exits 0
+- Boundary 4: `better-sqlite3` imports only in `cache/` (confirmed via grep)
+- No `console.log` in `apps/mcp-server/` (confirmed via grep)
+
 ## Change Log
 
 - Implemented Story 3.5: `search_bills` MCP tool with retry logic — new tool file, new tests, `getActiveSessionId()` singleton wrapper in `bills.ts`, and `index.ts` registration (Date: 2026-03-08)
+- Code review: 4 medium + 3 low findings — all fixed. Restructured handler try/catch, added theme to error log, improved test assertions and argument verification (Date: 2026-03-09)
