@@ -39,10 +39,9 @@ describe('BillCard', () => {
     expect(screen.queryByText('healthcare')).not.toBeInTheDocument()
   })
 
-  it('renders vote result and vote date (muted) when bill.voteResult is defined', () => {
+  it('renders vote result and formatted vote date (muted) when bill.voteResult is defined', () => {
     render(<BillCard bill={makeBill({ voteResult: 'Pass', voteDate: '2026-02-15' })} />)
-    expect(screen.getByText(/Pass/)).toBeInTheDocument()
-    expect(screen.getByText(/2026-02-15/)).toBeInTheDocument()
+    expect(screen.getByText(/Pass · Feb 15, 2026/)).toBeInTheDocument()
   })
 
   it('does not render vote result section when bill.voteResult is undefined', () => {
@@ -63,6 +62,11 @@ describe('BillCard', () => {
     render(<BillCard bill={makeBill()} />)
     // CitationTag renders "HB0042 · 2026 General Session · Feb 15, 2026"
     expect(screen.getByText(/HB0042 · 2026 General Session/)).toBeInTheDocument()
+  })
+
+  it('sets aria-label to the bill title', () => {
+    render(<BillCard bill={makeBill()} />)
+    expect(screen.getByLabelText('Utah Healthcare Access Act')).toBeInTheDocument()
   })
 
   it('does not render role="button" when selectable is false/undefined', () => {

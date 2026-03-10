@@ -2,7 +2,7 @@
 
 import type { Bill } from '@on-record/types'
 import { Skeleton } from '@/components/ui/skeleton'
-import { CitationTag } from './CitationTag'
+import { CitationTag, formatVoteDate } from './CitationTag'
 
 interface BillCardProps {
   bill: Bill
@@ -65,7 +65,7 @@ export function BillCard({
       {bill.voteResult !== undefined && (
         <p className="text-sm text-on-record-text/60 mb-3">
           {bill.voteResult}
-          {bill.voteDate !== undefined && ` · ${bill.voteDate}`}
+          {bill.voteDate !== undefined && ` · ${formatVoteDate(bill.voteDate)}`}
         </p>
       )}
 

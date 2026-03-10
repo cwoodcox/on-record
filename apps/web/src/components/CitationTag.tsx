@@ -1,6 +1,6 @@
 "use client"
 
-interface CitationTagProps {
+export interface CitationTagProps {
   billId: string
   session: string
   voteDate?: string // ISO 8601: "2026-02-15" — optional (undefined when bill has no vote)
@@ -16,7 +16,7 @@ function formatSession(session: string): string {
   return `${year} ${typeLabel}`
 }
 
-function formatVoteDate(isoDate: string): string {
+export function formatVoteDate(isoDate: string): string {
   // Parse as UTC to prevent timezone shift (e.g. "2026-02-15" parsed locally
   // in UTC-7 becomes Feb 14 — this is the bug pattern caught in Story 3.4).
   const [year, month, day] = isoDate.split('-').map(Number)

@@ -1,6 +1,6 @@
 # Story 3.6: `BillCard` and `CitationTag` UI Components
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -397,7 +397,7 @@ No blockers encountered.
 - Implemented `CitationTag.tsx` with UTC-safe date formatting using `Date.UTC` + `timeZone: 'UTC'` to prevent timezone off-by-one bug (pattern from Story 3.4). Conditional spread pattern `{...(bill.voteDate !== undefined ? { voteDate: bill.voteDate } : {})}` used in `BillCard` to satisfy `exactOptionalPropertyTypes: true`.
 - Implemented `BillCard.tsx` following `LegislatorCard` pattern exactly: `article` shell, `.filter(Boolean).join(' ')` className array, `handleKeyDown` Enter/Space, `aria-pressed`, `min-h-[44px]` for touch target compliance.
 - Implemented `BillCardSkeleton` with `aria-busy="true"`, five Skeleton rows matching content dimensions, `[animation:none] motion-safe:animate-pulse` on each.
-- All 46 tests pass (6 CitationTag + 16 BillCard + pre-existing 18 LegislatorCard + 6 ErrorBanner). Typecheck exits 0, lint exits 0.
+- All 48 tests pass (7 CitationTag + 17 BillCard + pre-existing 18 LegislatorCard + 6 ErrorBanner). Typecheck exits 0, lint exits 0.
 - No hex values, no barrel files, no mcp-server changes, no types changes — scope boundary enforced.
 
 ### File List
@@ -412,3 +412,4 @@ No blockers encountered.
 ## Change Log
 
 - 2026-03-09: Implemented `CitationTag` and `BillCard` UI components with full test coverage. 4 new files created, 46 tests passing, typecheck and lint clean. Story marked for review.
+- 2026-03-09: Code review fixes — exported `CitationTagProps` and `formatVoteDate` for Epic 4 reusability (M2, L1); added `formatSession` SS + fallback branch tests (M1); added `aria-label` assertion (L3); removed redundant test (L4); BillCard now formats vote date consistently with CitationTag. 48 tests passing.
