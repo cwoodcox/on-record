@@ -73,7 +73,15 @@ development_status:
   3-4-inter-session-bill-handling: done
   3-5-search-bills-mcp-tool-with-retry-logic: done
   3-6-billcard-and-citationtag-ui-components: done
-  epic-3-retrospective: optional
+  epic-3-retrospective: done
+  # Retrospective notes (2026-03-10):
+  #   - API behavior surprises (200 OK non-JSON) contained within stories; no post-review bug commits
+  #   - Tool description enumerated themes → LLM presented category menu, blocking fallback path. Fix: reword to freeform.
+  #   - Sponsored bills only (not voting record) — API limitation; Epic 4 system prompt must represent this accurately
+  #   - Testing isolation critical: LLM instances with implementation memory give unreliable UX signals; use clean sessions
+  #   - OpenStates flagged as post-MVP provider replacement (votes, 50-state, well-documented)
+  #   - Error message test pattern: toContain('key phrase') over exact string or type-only assertions
+  #   - Discovery spike principle: fill API doc gaps + spot-check error cases before writing spec for any new integration
 
   # ─── Epic 4: Constituent Can Get a Voiced, Cited Draft ─────────────────────
   epic-4: backlog
