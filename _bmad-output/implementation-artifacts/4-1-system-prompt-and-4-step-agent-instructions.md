@@ -95,10 +95,10 @@ Use at least two different constituent personas across the 5 runs:
   - [ ] Confirm `system-prompt/agent-instructions.md` exists at the monorepo root level (not inside `apps/`)
   - [ ] Confirm the file is plain Markdown — no TypeScript, no JSON
 
-- [ ] Task 3: Manual testing (AC: 12 — Manual Testing Protocol)
-  - [ ] Run 5 independent sessions per the protocol above
-  - [ ] Verify at least 4 of 5 runs complete the full flow
-  - [ ] Document results (pass/fail per run, any behavioral anomalies observed)
+- [ ] Task 3: Produce expected test run outline (AC: 12 — owner-executed, not dev agent)
+  - [ ] Write an "Expected Test Run" section inside `system-prompt/agent-instructions.md` (or as a companion `system-prompt/testing-notes.md`) that describes, step by step, what a passing test run should look like for each persona — what the LLM should say, what tool calls should be made, what the draft should contain
+  - [ ] The outline must be specific enough that the project owner can compare actual LLM behavior against expected behavior and make a clear pass/fail call
+  - **NOTE: The dev agent does NOT run the sessions.** After Task 1, Task 2, and Task 3 are complete, set story status to `review`. The project owner (Corey) executes the 5 manual test runs using the protocol above and decides whether the story passes before status moves to `done`.
 
 ## Dev Notes
 
