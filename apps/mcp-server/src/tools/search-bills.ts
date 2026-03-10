@@ -28,7 +28,7 @@ export function registerSearchBillsTool(server: McpServer): void {
       theme: z
         .string()
         .min(1)
-        .describe('Issue theme keyword (e.g. "healthcare", "education", "water", "taxes")'),
+        .describe('Freeform search term derived from the constituent\'s stated concern (e.g. "clean water", "school funding", "property taxes"). Infer this from the conversation — do not present a list of options for the user to choose from.'),
     },
     async ({ legislatorId, theme }) => {
       try {
