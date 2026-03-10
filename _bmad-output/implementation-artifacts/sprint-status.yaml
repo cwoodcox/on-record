@@ -72,7 +72,7 @@ development_status:
   3-3-fts5-bill-theme-search: done
   3-4-inter-session-bill-handling: done
   3-5-search-bills-mcp-tool-with-retry-logic: done
-  3-6-billcard-and-citationtag-ui-components: ready-for-dev
+  3-6-billcard-and-citationtag-ui-components: review
   epic-3-retrospective: optional
 
   # ─── Epic 4: Constituent Can Get a Voiced, Cited Draft ─────────────────────

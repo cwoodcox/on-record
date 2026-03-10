@@ -1,6 +1,6 @@
 # Story 3.6: `BillCard` and `CitationTag` UI Components
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -25,30 +25,30 @@ so that I can verify the legislative data at a glance before it goes into my dra
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create `apps/web/src/components/CitationTag.tsx` (AC: 2, 3, 6, 7)
-  - [ ] Add `"use client"` directive at top
-  - [ ] Define `CitationTagProps`: `{ billId: string; session: string; voteDate?: string }`
-  - [ ] Implement `formatSession(session: string): string` — see Dev Notes for logic
-  - [ ] Implement `formatVoteDate(isoDate: string): string` — parse with `Date.UTC` to avoid timezone off-by-one (see Dev Notes)
-  - [ ] Export `CitationTag({ billId, session, voteDate }: CitationTagProps)` — renders a `<span>` pill with the formatted text; when `voteDate` is defined append ` · {dateLabel}` segment; when absent, render only `{billId} · {sessionLabel}`
-  - [ ] Styling: `text-sm font-mono text-on-record-text/70 bg-on-record-surface border border-on-record-accent/30 rounded-full px-2.5 py-0.5 inline-block` — all tokens, no hex
+- [x] Task 1: Create `apps/web/src/components/CitationTag.tsx` (AC: 2, 3, 6, 7)
+  - [x] Add `"use client"` directive at top
+  - [x] Define `CitationTagProps`: `{ billId: string; session: string; voteDate?: string }`
+  - [x] Implement `formatSession(session: string): string` — see Dev Notes for logic
+  - [x] Implement `formatVoteDate(isoDate: string): string` — parse with `Date.UTC` to avoid timezone off-by-one (see Dev Notes)
+  - [x] Export `CitationTag({ billId, session, voteDate }: CitationTagProps)` — renders a `<span>` pill with the formatted text; when `voteDate` is defined append ` · {dateLabel}` segment; when absent, render only `{billId} · {sessionLabel}`
+  - [x] Styling: `text-sm font-mono text-on-record-text/70 bg-on-record-surface border border-on-record-accent/30 rounded-full px-2.5 py-0.5 inline-block` — all tokens, no hex
 
-- [ ] Task 2: Create `apps/web/src/components/CitationTag.test.tsx` (AC: 2, 9)
-  - [ ] Test: renders `billId · sessionLabel` when `voteDate` is undefined
-  - [ ] Test: renders `billId · sessionLabel · dateLabel` when `voteDate` is provided
-  - [ ] Test: formats `"2026GS"` → `"2026 General Session"`
-  - [ ] Test: formats `"2025GS"` → `"2025 General Session"`
-  - [ ] Test: formats `voteDate = "2026-02-15"` → `"Feb 15, 2026"` (UTC-safe, no off-by-one)
-  - [ ] Test: formats `voteDate = "2026-03-01"` → `"Mar 1, 2026"`
+- [x] Task 2: Create `apps/web/src/components/CitationTag.test.tsx` (AC: 2, 9)
+  - [x] Test: renders `billId · sessionLabel` when `voteDate` is undefined
+  - [x] Test: renders `billId · sessionLabel · dateLabel` when `voteDate` is provided
+  - [x] Test: formats `"2026GS"` → `"2026 General Session"`
+  - [x] Test: formats `"2025GS"` → `"2025 General Session"`
+  - [x] Test: formats `voteDate = "2026-02-15"` → `"Feb 15, 2026"` (UTC-safe, no off-by-one)
+  - [x] Test: formats `voteDate = "2026-03-01"` → `"Mar 1, 2026"`
 
-- [ ] Task 3: Create `apps/web/src/components/BillCard.tsx` (AC: 1, 4, 5, 6, 7)
-  - [ ] Add `"use client"` directive
-  - [ ] Import `type { Bill } from '@on-record/types'`
-  - [ ] Import `{ Skeleton } from '@/components/ui/skeleton'`
-  - [ ] Import `{ CitationTag } from './CitationTag'`
-  - [ ] Define `BillCardProps`: `{ bill: Bill; theme?: string; selectable?: boolean; selected?: boolean; onSelect?: () => void }`
-  - [ ] Implement `handleKeyDown`: Enter or Space triggers `onSelect?.()` when `selectable`
-  - [ ] Export `BillCard` — renders `<article>` with:
+- [x] Task 3: Create `apps/web/src/components/BillCard.tsx` (AC: 1, 4, 5, 6, 7)
+  - [x] Add `"use client"` directive
+  - [x] Import `type { Bill } from '@on-record/types'`
+  - [x] Import `{ Skeleton } from '@/components/ui/skeleton'`
+  - [x] Import `{ CitationTag } from './CitationTag'`
+  - [x] Define `BillCardProps`: `{ bill: Bill; theme?: string; selectable?: boolean; selected?: boolean; onSelect?: () => void }`
+  - [x] Implement `handleKeyDown`: Enter or Space triggers `onSelect?.()` when `selectable`
+  - [x] Export `BillCard` — renders `<article>` with:
     - `role={selectable ? 'button' : undefined}`, `tabIndex={selectable ? 0 : undefined}`
     - `aria-pressed={selectable ? selected : undefined}`
     - `aria-label` including bill title (see Dev Notes for exact format)
@@ -62,32 +62,32 @@ so that I can verify the legislative data at a glance before it goes into my dra
     - Vote result + date (muted): only when `bill.voteResult` is defined; `text-sm text-on-record-text/60`
     - `<CitationTag billId={bill.id} session={bill.session} voteDate={bill.voteDate} />`
     - Minimum touch target: ensure `min-h-[44px]` when `selectable`
-  - [ ] Export `BillCardSkeleton` — same card shell with `aria-busy="true"` and `aria-label="Loading bill information"`; Skeleton rows matching title, meta, citation heights; `[animation:none] motion-safe:animate-pulse` on each Skeleton
+  - [x] Export `BillCardSkeleton` — same card shell with `aria-busy="true"` and `aria-label="Loading bill information"`; Skeleton rows matching title, meta, citation heights; `[animation:none] motion-safe:animate-pulse` on each Skeleton
 
-- [ ] Task 4: Create `apps/web/src/components/BillCard.test.tsx` (AC: 1, 4, 5, 6, 9)
-  - [ ] Define `makeBill(overrides?)` fixture (see Dev Notes)
-  - [ ] Test: renders bill ID in the document
-  - [ ] Test: renders bill title in the document
-  - [ ] Test: renders theme pill when `theme` prop is provided
-  - [ ] Test: does NOT render theme pill when `theme` prop is omitted
-  - [ ] Test: renders vote result and vote date (muted) when `bill.voteResult` is defined
-  - [ ] Test: does NOT render vote result section when `bill.voteResult` is undefined
-  - [ ] Test: renders `CitationTag` — verify the bill ID text appears inside (integration with CitationTag)
-  - [ ] Test: no `role="button"` when `selectable` is false/undefined
-  - [ ] Test: renders `role="button"` with `aria-pressed="false"` when `selectable` and `selected={false}`
-  - [ ] Test: renders `aria-pressed="true"` when `selectable` and `selected={true}`
-  - [ ] Test: calls `onSelect` on click when selectable
-  - [ ] Test: calls `onSelect` on Enter key when selectable
-  - [ ] Test: calls `onSelect` on Space key when selectable
-  - [ ] `BillCardSkeleton`: smoke test (`aria-busy="true"` in DOM)
-  - [ ] `BillCardSkeleton`: no heading rendered (no bill title shown)
+- [x] Task 4: Create `apps/web/src/components/BillCard.test.tsx` (AC: 1, 4, 5, 6, 9)
+  - [x] Define `makeBill(overrides?)` fixture (see Dev Notes)
+  - [x] Test: renders bill ID in the document
+  - [x] Test: renders bill title in the document
+  - [x] Test: renders theme pill when `theme` prop is provided
+  - [x] Test: does NOT render theme pill when `theme` prop is omitted
+  - [x] Test: renders vote result and vote date (muted) when `bill.voteResult` is defined
+  - [x] Test: does NOT render vote result section when `bill.voteResult` is undefined
+  - [x] Test: renders `CitationTag` — verify the bill ID text appears inside (integration with CitationTag)
+  - [x] Test: no `role="button"` when `selectable` is false/undefined
+  - [x] Test: renders `role="button"` with `aria-pressed="false"` when `selectable` and `selected={false}`
+  - [x] Test: renders `aria-pressed="true"` when `selectable` and `selected={true}`
+  - [x] Test: calls `onSelect` on click when selectable
+  - [x] Test: calls `onSelect` on Enter key when selectable
+  - [x] Test: calls `onSelect` on Space key when selectable
+  - [x] `BillCardSkeleton`: smoke test (`aria-busy="true"` in DOM)
+  - [x] `BillCardSkeleton`: no heading rendered (no bill title shown)
 
-- [ ] Task 5: Final verification (AC: 8–10)
-  - [ ] `pnpm --filter web typecheck` exits 0
-  - [ ] `pnpm --filter web test` exits 0 — all pre-existing + new tests pass
-  - [ ] `pnpm --filter web lint` exits 0
-  - [ ] Confirm no hardcoded hex values in `BillCard.tsx` or `CitationTag.tsx`
-  - [ ] Confirm no barrel files created or modified (`components/index.ts` must not exist)
+- [x] Task 5: Final verification (AC: 8–10)
+  - [x] `pnpm --filter web typecheck` exits 0
+  - [x] `pnpm --filter web test` exits 0 — all pre-existing + new tests pass
+  - [x] `pnpm --filter web lint` exits 0
+  - [x] Confirm no hardcoded hex values in `BillCard.tsx` or `CitationTag.tsx`
+  - [x] Confirm no barrel files created or modified (`components/index.ts` must not exist)
 
 ## Dev Notes
 
@@ -390,6 +390,25 @@ claude-sonnet-4-6
 
 ### Debug Log References
 
+No blockers encountered.
+
 ### Completion Notes List
 
+- Implemented `CitationTag.tsx` with UTC-safe date formatting using `Date.UTC` + `timeZone: 'UTC'` to prevent timezone off-by-one bug (pattern from Story 3.4). Conditional spread pattern `{...(bill.voteDate !== undefined ? { voteDate: bill.voteDate } : {})}` used in `BillCard` to satisfy `exactOptionalPropertyTypes: true`.
+- Implemented `BillCard.tsx` following `LegislatorCard` pattern exactly: `article` shell, `.filter(Boolean).join(' ')` className array, `handleKeyDown` Enter/Space, `aria-pressed`, `min-h-[44px]` for touch target compliance.
+- Implemented `BillCardSkeleton` with `aria-busy="true"`, five Skeleton rows matching content dimensions, `[animation:none] motion-safe:animate-pulse` on each.
+- All 46 tests pass (6 CitationTag + 16 BillCard + pre-existing 18 LegislatorCard + 6 ErrorBanner). Typecheck exits 0, lint exits 0.
+- No hex values, no barrel files, no mcp-server changes, no types changes — scope boundary enforced.
+
 ### File List
+
+- `apps/web/src/components/CitationTag.tsx` — CREATED
+- `apps/web/src/components/CitationTag.test.tsx` — CREATED
+- `apps/web/src/components/BillCard.tsx` — CREATED
+- `apps/web/src/components/BillCard.test.tsx` — CREATED
+- `_bmad-output/implementation-artifacts/3-6-billcard-and-citationtag-ui-components.md` — MODIFIED (status, task checkboxes, dev record)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` — MODIFIED (status: review)
+
+## Change Log
+
+- 2026-03-09: Implemented `CitationTag` and `BillCard` UI components with full test coverage. 4 new files created, 46 tests passing, typecheck and lint clean. Story marked for review.
