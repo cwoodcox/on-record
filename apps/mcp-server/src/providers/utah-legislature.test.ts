@@ -158,8 +158,8 @@ describe('UtahLegislatureProvider', () => {
 
       const rejectionPromise = expect(provider.getLegislatorsByDistrict('house', 10)).rejects.toMatchObject({
         source: 'legislature-api',
-        nature: expect.any(String),
-        action: expect.any(String),
+        nature: 'Failed to fetch legislators from Utah Legislature API',
+        action: 'Try again in a few seconds — the API may be temporarily unavailable',
       })
       await vi.runAllTimersAsync()
       await rejectionPromise
@@ -206,6 +206,21 @@ describe('UtahLegislatureProvider', () => {
         const serialized = JSON.stringify(call)
         expect(serialized).not.toContain('testapikey123')
       }
+    })
+
+    it('throws AppError when API returns non-JSON HTTP 200 body (regression: "Invalid request" plain text)', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        text: async () => 'Invalid request',
+      })
+
+      const rejectionPromise = expect(provider.getLegislatorsByDistrict('house', 10)).rejects.toMatchObject({
+        source: 'legislature-api',
+        nature: 'Failed to fetch legislators from Utah Legislature API',
+        action: 'Try again in a few seconds — the API may be temporarily unavailable',
+      })
+      await vi.runAllTimersAsync()
+      await rejectionPromise
     })
   })
 
@@ -356,6 +371,21 @@ describe('UtahLegislatureProvider', () => {
         expect(serialized).not.toContain('testapikey123')
       }
     })
+
+    it('throws AppError when bill list API returns non-JSON HTTP 200 body (regression: "Invalid request" plain text)', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        text: async () => 'Invalid request',
+      })
+
+      const rejectionPromise = expect(provider.getBillsBySession('2026GS')).rejects.toMatchObject({
+        source: 'legislature-api',
+        nature: 'Failed to fetch bills from Utah Legislature API',
+        action: 'Try again in a few seconds — the API may be temporarily unavailable',
+      })
+      await vi.runAllTimersAsync()
+      await rejectionPromise
+    })
   })
 
   describe('getBillDetail', () => {
@@ -383,7 +413,11 @@ describe('UtahLegislatureProvider', () => {
     it('throws AppError on API failure', async () => {
       fetchMock.mockRejectedValue(new Error('Bill not found'))
 
-      const rejectionPromise = expect(provider.getBillDetail('HB0001', '2026GS')).rejects.toMatchObject({ source: 'legislature-api' })
+      const rejectionPromise = expect(provider.getBillDetail('HB0001', '2026GS')).rejects.toMatchObject({
+        source: 'legislature-api',
+        nature: 'Failed to fetch bill detail for HB0001 from Utah Legislature API',
+        action: 'Try again in a few seconds — the API may be temporarily unavailable',
+      })
       await vi.runAllTimersAsync()
       await rejectionPromise
     })
@@ -396,6 +430,8 @@ describe('UtahLegislatureProvider', () => {
 
       const rejectionPromise = expect(provider.getBillDetail('HB0001', '2026GS')).rejects.toMatchObject({
         source: 'legislature-api',
+        nature: 'Utah Legislature API returned an unexpected bill detail format',
+        action: 'This is a system error — please try again later',
       })
       await vi.runAllTimersAsync()
       await rejectionPromise
@@ -413,6 +449,21 @@ describe('UtahLegislatureProvider', () => {
 
       const firstCall = fetchMock.mock.calls[0] as [string, ...unknown[]]
       expect(firstCall[0]).toContain('/bills/2025GS/HB0001/')
+    })
+
+    it('throws AppError when API returns non-JSON HTTP 200 body (regression: "Invalid request" plain text)', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        text: async () => 'Invalid request',
+      })
+
+      const rejectionPromise = expect(provider.getBillDetail('HB0001', '2026GS')).rejects.toMatchObject({
+        source: 'legislature-api',
+        nature: 'Failed to fetch bill detail for HB0001 from Utah Legislature API',
+        action: 'Try again in a few seconds — the API may be temporarily unavailable',
+      })
+      await vi.runAllTimersAsync()
+      await rejectionPromise
     })
   })
 })
