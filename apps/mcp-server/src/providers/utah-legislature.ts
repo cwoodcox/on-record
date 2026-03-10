@@ -69,7 +69,14 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
       rawData = await retryWithDelay(async () => {
         const res = await fetch(url)
         if (!res.ok) throw new Error(`Legislature API responded with HTTP ${res.status}`)
-        return res.json() as Promise<unknown>
+        const text = await res.text()
+        let rawJson: unknown
+        try {
+          rawJson = JSON.parse(text)
+        } catch {
+          throw new Error(`Legislature API returned non-JSON response: ${text}`)
+        }
+        return rawJson
       }, 2, 1000)
     } catch (err) {
       logger.error({ source: 'legislature-api', err }, 'getLegislatorsByDistrict failed after retries')
@@ -120,7 +127,14 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
       rawData = await retryWithDelay(async () => {
         const res = await fetch(url)
         if (!res.ok) throw new Error(`Legislature API responded with HTTP ${res.status}`)
-        return res.json() as Promise<unknown>
+        const text = await res.text()
+        let rawJson: unknown
+        try {
+          rawJson = JSON.parse(text)
+        } catch {
+          throw new Error(`Legislature API returned non-JSON response: ${text}`)
+        }
+        return rawJson
       }, 2, 1000)
     } catch (err) {
       logger.error({ source: 'legislature-api', err }, 'getBillsBySession failed after retries')
@@ -146,7 +160,7 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
     // Rate note: Promise.all sends ~500-1000 concurrent requests for a full session;
     // this is acceptable for one-time cache warm-up (Story 3.2 schedules the refresh).
     const details = await Promise.all(
-      parsed.data.map((stub) => this.getBillDetail(stub.number))
+      parsed.data.map((stub) => this.getBillDetail(stub.number, session))
     )
 
     return details.map((detail) => ({
@@ -161,8 +175,7 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
     }))
   }
 
-  async getBillDetail(billId: string): Promise<BillDetail> {
-    const session = getCurrentSession()
+  async getBillDetail(billId: string, session: string): Promise<BillDetail> {
     const url = this.url('bills', session, billId)
 
     let rawData: unknown
@@ -170,7 +183,14 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
       rawData = await retryWithDelay(async () => {
         const res = await fetch(url)
         if (!res.ok) throw new Error(`Legislature API responded with HTTP ${res.status}`)
-        return res.json() as Promise<unknown>
+        const text = await res.text()
+        let rawJson: unknown
+        try {
+          rawJson = JSON.parse(text)
+        } catch {
+          throw new Error(`Legislature API returned non-JSON response: ${text}`)
+        }
+        return rawJson
       }, 2, 1000)
     } catch (err) {
       logger.error({ source: 'legislature-api', err }, 'getBillDetail failed after retries')

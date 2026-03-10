@@ -78,7 +78,7 @@ function makeProvider(
   return {
     getLegislatorsByDistrict: vi.fn().mockResolvedValue(legislators),
     getBillsBySession: vi.fn<() => Promise<Bill[]>>().mockResolvedValue([]),
-    getBillDetail: vi.fn<() => Promise<BillDetail>>().mockRejectedValue(new Error('not implemented')),
+    getBillDetail: vi.fn<(billId: string, session: string) => Promise<BillDetail>>().mockRejectedValue(new Error('not implemented')),
   }
 }
 
@@ -143,7 +143,7 @@ describe('warmUpLegislatorsCache', () => {
           return Promise.resolve([])
         }),
       getBillsBySession: vi.fn<() => Promise<Bill[]>>().mockResolvedValue([]),
-      getBillDetail: vi.fn<() => Promise<BillDetail>>().mockRejectedValue(new Error('not implemented')),
+      getBillDetail: vi.fn<(billId: string, session: string) => Promise<BillDetail>>().mockRejectedValue(new Error('not implemented')),
     }
 
     await warmUpLegislatorsCache(testDb, provider)
@@ -165,7 +165,7 @@ describe('warmUpLegislatorsCache', () => {
     const provider: LegislatureDataProvider = {
       getLegislatorsByDistrict: vi.fn().mockRejectedValue(new Error('API down')),
       getBillsBySession: vi.fn<() => Promise<Bill[]>>().mockResolvedValue([]),
-      getBillDetail: vi.fn<() => Promise<BillDetail>>().mockRejectedValue(new Error('not implemented')),
+      getBillDetail: vi.fn<(billId: string, session: string) => Promise<BillDetail>>().mockRejectedValue(new Error('not implemented')),
     }
 
     await expect(warmUpLegislatorsCache(testDb, provider)).rejects.toThrow('API down')
@@ -209,7 +209,7 @@ describe('scheduleLegislatorsRefresh', () => {
     const failingProvider: LegislatureDataProvider = {
       getLegislatorsByDistrict: vi.fn().mockRejectedValue(new Error('network error')),
       getBillsBySession: vi.fn<() => Promise<Bill[]>>().mockResolvedValue([]),
-      getBillDetail: vi.fn<() => Promise<BillDetail>>().mockRejectedValue(new Error('not implemented')),
+      getBillDetail: vi.fn<(billId: string, session: string) => Promise<BillDetail>>().mockRejectedValue(new Error('not implemented')),
     }
 
     scheduleLegislatorsRefresh(testDb, failingProvider)
@@ -286,7 +286,7 @@ describe('warmUpBillsCache', () => {
     const provider: LegislatureDataProvider = {
       getLegislatorsByDistrict: vi.fn<() => Promise<Legislator[]>>().mockResolvedValue([]),
       getBillsBySession: vi.fn().mockResolvedValue([bill]),
-      getBillDetail: vi.fn<() => Promise<BillDetail>>().mockRejectedValue(new Error('not implemented')),
+      getBillDetail: vi.fn<(billId: string, session: string) => Promise<BillDetail>>().mockRejectedValue(new Error('not implemented')),
     }
 
     await warmUpBillsCache(testDb, provider)
@@ -307,7 +307,7 @@ describe('warmUpBillsCache', () => {
     const provider: LegislatureDataProvider = {
       getLegislatorsByDistrict: vi.fn<() => Promise<Legislator[]>>().mockResolvedValue([]),
       getBillsBySession: vi.fn().mockRejectedValue(new Error('API down')),
-      getBillDetail: vi.fn<() => Promise<BillDetail>>().mockRejectedValue(new Error('not implemented')),
+      getBillDetail: vi.fn<(billId: string, session: string) => Promise<BillDetail>>().mockRejectedValue(new Error('not implemented')),
     }
 
     await expect(warmUpBillsCache(testDb, provider)).rejects.toThrow('API down')
@@ -351,7 +351,7 @@ describe('scheduleBillsRefresh', () => {
     const failingProvider: LegislatureDataProvider = {
       getLegislatorsByDistrict: vi.fn<() => Promise<Legislator[]>>().mockResolvedValue([]),
       getBillsBySession: vi.fn().mockRejectedValue(new Error('network error')),
-      getBillDetail: vi.fn<() => Promise<BillDetail>>().mockRejectedValue(new Error('not implemented')),
+      getBillDetail: vi.fn<(billId: string, session: string) => Promise<BillDetail>>().mockRejectedValue(new Error('not implemented')),
     }
 
     scheduleBillsRefresh(testDb, failingProvider)
@@ -373,7 +373,7 @@ describe('scheduleBillsRefresh', () => {
     const provider: LegislatureDataProvider = {
       getLegislatorsByDistrict: vi.fn<() => Promise<Legislator[]>>().mockResolvedValue([]),
       getBillsBySession: vi.fn().mockResolvedValue([makeBill()]),
-      getBillDetail: vi.fn<() => Promise<BillDetail>>().mockRejectedValue(new Error('not implemented')),
+      getBillDetail: vi.fn<(billId: string, session: string) => Promise<BillDetail>>().mockRejectedValue(new Error('not implemented')),
     }
 
     scheduleBillsRefresh(testDb, provider)

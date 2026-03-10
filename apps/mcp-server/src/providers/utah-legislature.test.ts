@@ -100,7 +100,7 @@ describe('UtahLegislatureProvider', () => {
     it('returns mapped Legislator[] on valid API response', async () => {
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => mockLegislatorResponse,
+        text: async () => JSON.stringify(mockLegislatorResponse),
       })
 
       const promise = provider.getLegislatorsByDistrict('house', 22)
@@ -126,7 +126,7 @@ describe('UtahLegislatureProvider', () => {
     it('sets phoneTypeUnknown: true and omits phoneLabel when cell is absent (FR5)', async () => {
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => mockLegislatorNoCellResponse,
+        text: async () => JSON.stringify(mockLegislatorNoCellResponse),
       })
 
       const promise = provider.getLegislatorsByDistrict('senate', 5)
@@ -142,7 +142,7 @@ describe('UtahLegislatureProvider', () => {
     it('district string from API is parsed to number', async () => {
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => mockLegislatorResponse, // district: "22"
+        text: async () => JSON.stringify(mockLegislatorResponse), // district: "22"
       })
 
       const promise = provider.getLegislatorsByDistrict('house', 22)
@@ -168,7 +168,7 @@ describe('UtahLegislatureProvider', () => {
     it('throws AppError when API returns unexpected response shape (zod parse failure)', async () => {
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => [{ unexpected: 'shape' }], // array instead of object
+        text: async () => JSON.stringify([{ unexpected: 'shape' }]), // array instead of object
       })
 
       const rejectionPromise = expect(provider.getLegislatorsByDistrict('house', 10)).rejects.toMatchObject({
@@ -179,7 +179,7 @@ describe('UtahLegislatureProvider', () => {
     })
 
     it('uses correct URL structure with token in path (no auth header)', async () => {
-      fetchMock.mockResolvedValueOnce({ ok: true, json: async () => mockLegislatorResponse })
+      fetchMock.mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockLegislatorResponse) })
 
       const promise = provider.getLegislatorsByDistrict('house', 10)
       await vi.runAllTimersAsync()
@@ -213,9 +213,9 @@ describe('UtahLegislatureProvider', () => {
     it('returns fully-hydrated Bill[] with all required fields populated', async () => {
       // list call + two detail calls (one per bill)
       fetchMock
-        .mockResolvedValueOnce({ ok: true, json: async () => mockBillListResponse })
-        .mockResolvedValueOnce({ ok: true, json: async () => mockBillDetailResponse })
-        .mockResolvedValueOnce({ ok: true, json: async () => mockBillDetail2Response })
+        .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockBillListResponse) })
+        .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockBillDetailResponse) })
+        .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockBillDetail2Response) })
 
       const promise = provider.getBillsBySession('2026GS')
       await vi.runAllTimersAsync()
@@ -239,9 +239,9 @@ describe('UtahLegislatureProvider', () => {
 
     it('returns Bill[] with no empty-string fields — all required fields populated', async () => {
       fetchMock
-        .mockResolvedValueOnce({ ok: true, json: async () => mockBillListResponse })
-        .mockResolvedValueOnce({ ok: true, json: async () => mockBillDetailResponse })
-        .mockResolvedValueOnce({ ok: true, json: async () => mockBillDetail2Response })
+        .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockBillListResponse) })
+        .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockBillDetailResponse) })
+        .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockBillDetail2Response) })
 
       const promise = provider.getBillsBySession('2026GS')
       await vi.runAllTimersAsync()
@@ -259,8 +259,8 @@ describe('UtahLegislatureProvider', () => {
 
     it('populates voteResult and voteDate when detail response includes them', async () => {
       fetchMock
-        .mockResolvedValueOnce({ ok: true, json: async () => [{ number: 'HB0001', trackingID: 'TUBFCRPIYI' }] })
-        .mockResolvedValueOnce({ ok: true, json: async () => mockBillDetailWithVoteResponse })
+        .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify([{ number: 'HB0001', trackingID: 'TUBFCRPIYI' }]) })
+        .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockBillDetailWithVoteResponse) })
 
       const promise = provider.getBillsBySession('2026GS')
       await vi.runAllTimersAsync()
@@ -274,8 +274,8 @@ describe('UtahLegislatureProvider', () => {
 
     it('omits voteResult and voteDate (undefined, not empty string) when detail response lacks them', async () => {
       fetchMock
-        .mockResolvedValueOnce({ ok: true, json: async () => [{ number: 'HB0002', trackingID: 'BKSTYLLAEC' }] })
-        .mockResolvedValueOnce({ ok: true, json: async () => mockBillDetail2Response })
+        .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify([{ number: 'HB0002', trackingID: 'BKSTYLLAEC' }]) })
+        .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockBillDetail2Response) })
 
       const promise = provider.getBillsBySession('2026GS')
       await vi.runAllTimersAsync()
@@ -290,8 +290,8 @@ describe('UtahLegislatureProvider', () => {
 
     it('uses correct URL with token in path for bill list fetch', async () => {
       fetchMock
-        .mockResolvedValueOnce({ ok: true, json: async () => [{ number: 'HB0001', trackingID: 'TUBFCRPIYI' }] })
-        .mockResolvedValueOnce({ ok: true, json: async () => mockBillDetailResponse })
+        .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify([{ number: 'HB0001', trackingID: 'TUBFCRPIYI' }]) })
+        .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockBillDetailResponse) })
 
       const promise = provider.getBillsBySession('2026GS')
       await vi.runAllTimersAsync()
@@ -316,7 +316,7 @@ describe('UtahLegislatureProvider', () => {
 
     it('throws AppError with specific nature and action strings when bill detail fetch fails after retries', async () => {
       fetchMock
-        .mockResolvedValueOnce({ ok: true, json: async () => [{ number: 'HB0001', trackingID: 'TUBFCRPIYI' }] })
+        .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify([{ number: 'HB0001', trackingID: 'TUBFCRPIYI' }]) })
         .mockRejectedValue(new Error('Network error on detail'))
 
       const rejectionPromise = expect(provider.getBillsBySession('2026GS')).rejects.toMatchObject({
@@ -331,7 +331,7 @@ describe('UtahLegislatureProvider', () => {
     it('throws AppError when bill list API returns unexpected response shape (zod parse failure)', async () => {
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ unexpected: 'shape' }), // object instead of array
+        text: async () => JSON.stringify({ unexpected: 'shape' }), // object instead of array
       })
 
       const rejectionPromise = expect(provider.getBillsBySession('2026GS')).rejects.toMatchObject({
@@ -362,10 +362,10 @@ describe('UtahLegislatureProvider', () => {
     it('returns BillDetail mapped from real API field names', async () => {
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => mockBillDetailResponse,
+        text: async () => JSON.stringify(mockBillDetailResponse),
       })
 
-      const promise = provider.getBillDetail('HB0001')
+      const promise = provider.getBillDetail('HB0001', '2026GS')
       await vi.runAllTimersAsync()
       const result = await promise
 
@@ -383,7 +383,7 @@ describe('UtahLegislatureProvider', () => {
     it('throws AppError on API failure', async () => {
       fetchMock.mockRejectedValue(new Error('Bill not found'))
 
-      const rejectionPromise = expect(provider.getBillDetail('HB0001')).rejects.toMatchObject({ source: 'legislature-api' })
+      const rejectionPromise = expect(provider.getBillDetail('HB0001', '2026GS')).rejects.toMatchObject({ source: 'legislature-api' })
       await vi.runAllTimersAsync()
       await rejectionPromise
     })
@@ -391,14 +391,28 @@ describe('UtahLegislatureProvider', () => {
     it('throws AppError when API returns unexpected response shape (zod parse failure)', async () => {
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => [{ unexpected: 'shape' }],
+        text: async () => JSON.stringify([{ unexpected: 'shape' }]),
       })
 
-      const rejectionPromise = expect(provider.getBillDetail('HB0001')).rejects.toMatchObject({
+      const rejectionPromise = expect(provider.getBillDetail('HB0001', '2026GS')).rejects.toMatchObject({
         source: 'legislature-api',
       })
       await vi.runAllTimersAsync()
       await rejectionPromise
+    })
+
+    it('builds URL using the provided session, not getCurrentSession()', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(mockBillDetailResponse),
+      })
+
+      const promise = provider.getBillDetail('HB0001', '2025GS')
+      await vi.runAllTimersAsync()
+      await promise
+
+      const firstCall = fetchMock.mock.calls[0] as [string, ...unknown[]]
+      expect(firstCall[0]).toContain('/bills/2025GS/HB0001/')
     })
   })
 })

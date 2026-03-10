@@ -13,5 +13,5 @@ import type { Legislator, Bill, BillDetail } from '@on-record/types'
 export interface LegislatureDataProvider {
   getLegislatorsByDistrict(chamber: 'house' | 'senate', district: number): Promise<Legislator[]>
   getBillsBySession(session: string): Promise<Bill[]>
-  getBillDetail(billId: string): Promise<BillDetail>
+  getBillDetail(billId: string, session: string): Promise<BillDetail>
 }
