@@ -100,6 +100,18 @@ Use at least two different constituent personas across the 5 runs:
   - [x] The outline must be specific enough that the project owner can compare actual LLM behavior against expected behavior and make a clear pass/fail call
   - **NOTE: The dev agent does NOT run the sessions.** After Task 1, Task 2, and Task 3 are complete, set story status to `review`. The project owner (Corey) executes the 5 manual test runs using the protocol above and decides whether the story passes before status moves to `done`.
 
+### Review Follow-ups (AI)
+
+- [ ] [AI-Review][High] FTS Search Failure for Bill IDs: `bill_fts` does not index `id`. Update prompt to handle specific Bill IDs (search by title/summary if ID given). [system-prompt/agent-instructions.md:115]
+- [ ] [AI-Review][High] Drafts Generated Without Citations: AC 9 violation in Test Runs 1 & 5. Ensure citation is mandatory. [system-prompt/agent-instructions.md:165]
+- [ ] [AI-Review][High] Missing "No Bill" Fallback/Blocker: Instruction needed for zero-result searches. [system-prompt/agent-instructions.md:115]
+- [ ] [AI-Review][Medium] `resolvedAddress` Verification Gap: Verify `resolvedAddress` against user input. [system-prompt/agent-instructions.md:85]
+- [ ] [AI-Review][Medium] Impersonal Drafts: No name capture in Step 1 or 4a. [system-prompt/agent-instructions.md:55]
+- [ ] [AI-Review][Medium] SMS Citation Length: Use condensed format for SMS. [system-prompt/agent-instructions.md:175]
+- [ ] [AI-Review][Medium] Undocumented Test Artifact: Add `system-prompt/test-runs.md` to story File List/Change Log. [_bmad-output/implementation-artifacts/4-1-system-prompt-and-4-step-agent-instructions.md:275]
+- [ ] [AI-Review][Low] Redundant Preference Asking: Allow confirmation of tone if unambiguous. [system-prompt/agent-instructions.md:145]
+- [ ] [AI-Review][Low] Missing Local Identity: Explicitly identify as a constituent of the specific city/district. [system-prompt/agent-instructions.md:165]
+
 ## Dev Notes
 
 ### What This Story Is
