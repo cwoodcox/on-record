@@ -1,6 +1,6 @@
 # Story 4.1: System Prompt and 4-Step Agent Instructions
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -81,23 +81,23 @@ Use at least two different constituent personas across the 5 runs:
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create directory and file `system-prompt/agent-instructions.md` (AC: 1–11)
-  - [ ] Write the system prompt preamble: role, mission, scope boundary (sponsored bills only — not voting record), and no-editorializing rule
-  - [ ] Write Step 1 instructions: warm open question, empathetic concern capture, validate-before-inform pattern
-  - [ ] Write Step 2 instructions: address collection → `lookup_legislator` invocation with `{ street, zone }` params
-  - [ ] Write Step 3 instructions: freeform theme inference → `search_bills` invocation → present 2–3 bills → confirm before proceeding
-  - [ ] Write Step 4a instructions: ask medium (email/text) and formality (conversational/formal), both required before draft generation
-  - [ ] Write Step 4b instructions: draft generation constraints (length, voice, citation format, no editorializing)
-  - [ ] Write revision loop instructions: incorporate feedback without restarting the flow; preserve citations
-  - [ ] Write scope-boundary note: redirect "voting record" questions to sponsored legislation
+- [x] Task 1: Create directory and file `system-prompt/agent-instructions.md` (AC: 1–11)
+  - [x] Write the system prompt preamble: role, mission, scope boundary (sponsored bills only — not voting record), and no-editorializing rule
+  - [x] Write Step 1 instructions: warm open question, empathetic concern capture, validate-before-inform pattern
+  - [x] Write Step 2 instructions: address collection → `lookup_legislator` invocation with `{ street, zone }` params
+  - [x] Write Step 3 instructions: freeform theme inference → `search_bills` invocation → present 2–3 bills → confirm before proceeding
+  - [x] Write Step 4a instructions: ask medium (email/text) and formality (conversational/formal), both required before draft generation
+  - [x] Write Step 4b instructions: draft generation constraints (length, voice, citation format, no editorializing)
+  - [x] Write revision loop instructions: incorporate feedback without restarting the flow; preserve citations
+  - [x] Write scope-boundary note: redirect "voting record" questions to sponsored legislation
 
-- [ ] Task 2: Verify file structure and placement (AC: 1)
-  - [ ] Confirm `system-prompt/agent-instructions.md` exists at the monorepo root level (not inside `apps/`)
-  - [ ] Confirm the file is plain Markdown — no TypeScript, no JSON
+- [x] Task 2: Verify file structure and placement (AC: 1)
+  - [x] Confirm `system-prompt/agent-instructions.md` exists at the monorepo root level (not inside `apps/`)
+  - [x] Confirm the file is plain Markdown — no TypeScript, no JSON
 
-- [ ] Task 3: Produce expected test run outline (AC: 12 — owner-executed, not dev agent)
-  - [ ] Write an "Expected Test Run" section inside `system-prompt/agent-instructions.md` (or as a companion `system-prompt/testing-notes.md`) that describes, step by step, what a passing test run should look like for each persona — what the LLM should say, what tool calls should be made, what the draft should contain
-  - [ ] The outline must be specific enough that the project owner can compare actual LLM behavior against expected behavior and make a clear pass/fail call
+- [x] Task 3: Produce expected test run outline (AC: 12 — owner-executed, not dev agent)
+  - [x] Write an "Expected Test Run" section inside `system-prompt/agent-instructions.md` (or as a companion `system-prompt/testing-notes.md`) that describes, step by step, what a passing test run should look like for each persona — what the LLM should say, what tool calls should be made, what the draft should contain
+  - [x] The outline must be specific enough that the project owner can compare actual LLM behavior against expected behavior and make a clear pass/fail call
   - **NOTE: The dev agent does NOT run the sessions.** After Task 1, Task 2, and Task 3 are complete, set story status to `review`. The project owner (Corey) executes the 5 manual test runs using the protocol above and decides whether the story passes before status moves to `done`.
 
 ## Dev Notes
@@ -309,8 +309,20 @@ claude-sonnet-4-6
 
 ### Debug Log References
 
+None — this story delivers a Markdown product artifact, not TypeScript code. No compilation or runtime errors possible.
+
 ### Completion Notes List
+
+- Created `system-prompt/agent-instructions.md` at monorepo root with full 4-step agent instructions covering: preamble/role/scope boundary, Step 1 (warm open + validate-before-inform), Step 2 (address → `lookup_legislator({street,zone})`), Step 3 (freeform theme inference → `search_bills` → confirmation gate), Step 4a (delivery prefs), Step 4b (draft constraints + citation format), revision loop, error handling, and tool schemas.
+- Created `system-prompt/testing-notes.md` as companion testing guide with step-by-step expected behavior for Persona A (Deb — specific concern) and Persona B (Marcus — vague concern), scope boundary test, and pass/fail recording template.
+- All behavioral rules from story AC and Dev Notes are encoded in the system prompt: no-editorializing, freeform theme only (no category menu), sponsored-bills-only scope, validate-before-inform, confirm-before-generate, revision-loop-without-restart.
+- No automated tests written — this is a non-deterministic LLM product artifact; all verification is manual per testing protocol above (AC 12).
 
 ### File List
 
 - `system-prompt/agent-instructions.md` (new — product artifact, monorepo root)
+- `system-prompt/testing-notes.md` (new — manual testing guide, monorepo root)
+
+### Change Log
+
+- 2026-03-10: Implemented Story 4.1 — created `system-prompt/agent-instructions.md` (4-step agent instructions) and `system-prompt/testing-notes.md` (expected test run outline for manual verification per AC 12)
