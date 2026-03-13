@@ -287,6 +287,20 @@ describe('UtahLegislatureProvider', () => {
       expect(bill?.voteDate).toBe('2026-03-01')
     })
 
+    it('includes bill with empty lastAction as status "" rather than silently dropping it', async () => {
+      const billWithEmptyLastAction = { ...mockBillDetailResponse, lastAction: '' }
+      fetchMock
+        .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify([{ number: 'HB0001', trackingID: 'TUBFCRPIYI' }]) })
+        .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(billWithEmptyLastAction) })
+
+      const promise = provider.getBillsBySession('2026GS')
+      await vi.runAllTimersAsync()
+      const result = await promise
+
+      expect(result).toHaveLength(1)
+      expect(result[0]?.status).toBe('')
+    })
+
     it('omits voteResult and voteDate (undefined, not empty string) when detail response lacks them', async () => {
       fetchMock
         .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify([{ number: 'HB0002', trackingID: 'BKSTYLLAEC' }]) })

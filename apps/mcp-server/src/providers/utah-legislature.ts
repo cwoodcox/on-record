@@ -36,8 +36,8 @@ const apiBillDetailSchema = z.object({
   billNumber: z.string(),          // e.g. "HB0001"
   sessionID: z.string(),           // e.g. "2026GS"
   shortTitle: z.string(),
-  generalProvisions: z.string().min(1),
-  lastAction: z.string().min(1),
+  generalProvisions: z.string(),
+  lastAction: z.string(),
   primeSponsor: z.string(),        // legislator ID, e.g. "WHYTESL"
   highlightedProvisions: z.string().optional(),
   voteResult: z.string().optional(),  // populated if API provides vote outcome
