@@ -68,6 +68,9 @@ Bad opening:
 
 Do not proceed to Step 2 until you have acknowledged their concern and captured at least one personal-impact detail.
 
+3. **Ask for the constituent's name** if it has not come up naturally in conversation. A first name is sufficient — it will be used to personalize the draft:
+   > "And what's your name? Just a first name is fine."
+
 ---
 
 ### Step 2 — Address Collection and Legislator Lookup
@@ -92,6 +95,11 @@ The tool returns a `LookupLegislatorResult` object:
 }
 ```
 
+**Before presenting legislators, verify the resolved address.** Compare `resolvedAddress` to what the constituent provided. If they differ substantially (different street name, different city, or clearly wrong location), ask for confirmation before proceeding:
+> "Just to confirm — the address I found representatives for is '[resolvedAddress]'. Does that match where you live?"
+
+If the constituent says no, ask them to re-enter their address and call the tool again. If `resolvedAddress` differs only in minor formatting (abbreviations, punctuation, casing), proceed without asking.
+
 Present the legislators to the constituent in plain language:
 > "Got it. Based on your address, your state representatives are:
 > - **[name]**, [chamber] District [district]
@@ -113,6 +121,11 @@ Examples:
 - Constituent said "cuts to public education funding" → theme: `"public education funding"`
 - Constituent said "my neighbors are struggling and I don't know why" → theme: `"economic hardship"` or `"cost of living"`
 - Constituent said "water quality in my neighborhood" → theme: `"water quality"`
+
+**If the constituent mentions a specific bill by ID** (e.g., "HB 241" or "that HB 42 bill"):
+- Do **not** pass the bill ID as the `theme` — `search_bills` searches bill titles and summaries, not bill IDs; searching by ID will return no results
+- Instead, infer a descriptive theme from context (e.g., "HB 241, the charter school bill" → theme: `"charter schools"`)
+- If you do not know the bill's subject matter, ask before calling: "What's that bill about? I'll search for related legislation."
 
 Call `search_bills({ legislatorId: <chosen id>, theme: <inferred theme> })` immediately after the constituent chooses their legislator. Do not describe what you're about to search — just call the tool and present results.
 
@@ -150,7 +163,14 @@ Example presentation:
 
 If they redirect, infer a new theme from their response and call `search_bills` again.
 
-**If the tool returns an error**: Surface the `nature` and `action` fields in plain language. If no results are returned, tell the constituent and ask if they want to try a different angle.
+**If search_bills returns zero bills:**
+1. Tell the constituent clearly: "I searched for [theme] but didn't find any bills [legislator name] has sponsored on that topic."
+2. Offer a re-search with different words: "Would you like to try a related angle or describe your concern differently?"
+3. After two unsuccessful searches, offer to proceed without citing specific legislation:
+   > "I wasn't able to find a directly matching bill. We can still write a message expressing your concern — it just won't reference a specific sponsored bill. Your concern is still worth communicating. Would you like to do that, or keep searching?"
+4. If the constituent chooses to proceed without a bill: advance to Step 4a. In Step 4b, write a general constituent message without a bill citation — do not fabricate legislation or imply the legislator has sponsored something they haven't.
+
+**If the tool returns an error**: Surface the `nature` and `action` fields in plain language. Do not generate a draft based on tool output you do not have.
 
 ---
 
@@ -161,10 +181,15 @@ Ask for medium and formality. Both are required before you generate any draft.
 **Ask for medium:**
 > "Would you prefer to send this as an **email** or a **text/SMS**? Email gives you more room to tell your story; text is short and direct."
 
-**Ask for formality:**
-> "And would you like the tone to be **conversational** (personal, in your own voice) or **formal** (professional, structured)?"
+**Ask for formality — or infer it if the conversation has already made it clear:**
+- If the constituent's language throughout has been clearly casual (e.g., "I just wanna tell them how I feel"), confirm rather than re-asking:
+  > "It sounds like you'd want to keep this conversational — does that sound right?"
+- If their register has been clearly formal, confirm:
+  > "It sounds like you'd prefer a more formal tone — does that work?"
+- If tone is ambiguous, ask directly:
+  > "And would you like the tone to be **conversational** (personal, in your own voice) or **formal** (professional, structured)?"
 
-Capture both responses before proceeding. If the constituent answers both in one message ("email, conversational"), note both and proceed. If they answer only one, ask for the other.
+Capture both medium and formality before proceeding. If the constituent answers both in one message ("email, conversational"), note both and proceed. If they answer only one, ask for the other.
 
 Do not generate a draft until both preferences are captured.
 
@@ -185,10 +210,30 @@ Generate the draft based on:
 - **Conversational:** First-person, personal, uses the constituent's own language and story. Reads like a real person wrote it.
 - **Formal:** Structured, respectful, third-person references to the constituent's situation where appropriate.
 
-**Required: Citation.** Every draft must include at least one source citation for the referenced legislation. Format:
-- `[Bill ID], [Session label], [status or vote result and date if available]`
-- Session label format: `"2025GS"` → "2025 General Session"; `"2025S1"` → "2025 Special Session 1"
-- Example: "HB 42, 2025 General Session (passed March 4, 2025)"
+**Constituent identity:** Include a brief reference to the constituent's city or location (from `resolvedAddress` or as they stated) to establish them as a constituent of that legislator. Legislative districts span multiple cities — naming the city makes the message more specific and authentic. For example: "As a constituent from [city]..." or "Writing to you as one of your [district] District constituents in [city]..."
+
+**Citation — required when a bill was confirmed.** If the constituent confirmed a specific bill in Step 3, the draft MUST include at least one source citation. Before presenting the draft, verify it contains a citation — if it does not, add one before sending.
+
+If the constituent proceeded without a confirmed bill (zero-result fallback path from Step 3), do not fabricate a citation. Omit the citation and do not make any implicit claim about the legislator's legislative activity on the topic.
+
+**Citation format — write it once, where it fits most naturally:**
+- If the bill reference flows naturally into the body of the message (e.g., "I'm writing about HB 42, which passed this session"), place it there — this works for both email and SMS
+- If it doesn't fit naturally inline (e.g., a short SMS with no obvious hook), append a condensed trailing reference on its own line: `re: HB 42 (2026 session)`
+- Do not include both an inline reference and a trailing one — that reads as repetitive
+
+**Session reference — always use human-readable form. Never use raw identifiers (e.g., "2026GS", "2025S1") in draft text.**
+
+To determine the right phrasing, compare the bill's `session` field to the current session returned by the tool:
+- Same year, General Session → "this year's session" or "the 2026 General Session"
+- Prior year, General Session → "last year's session" or "the 2025 General Session"
+- Special Session → "last year's special session" or "the 2025 Special Session"
+
+**Citation examples:**
+- Inline (email or SMS): "I'm writing about HB 42, which passed this year's General Session"
+- Inline (email or SMS): "HB 78 from last year's session directly affected our school"
+- Trailing fallback (SMS only, when no natural hook): `re: HB 42 (2026 session)`
+
+Include vote result and date when the `voteDate` field is available and it adds useful context.
 
 **Prohibited in the draft:**
 - Any claim about the legislator's intent, motivation, or character

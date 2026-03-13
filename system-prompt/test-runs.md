@@ -113,3 +113,22 @@ ZodError: [
 **Options to explore:**
 - Prompt instruction: if the constituent's language unambiguously signals a tone (casual phrasing → conversational; formal register → formal), confirm rather than re-ask ("sounds like you want to keep it conversational — does that sound right?")
 - Keep the explicit ask as fallback when tone is ambiguous
+
+---
+
+## Future Work — Response Tracking ("Did They Answer You?")
+
+**Idea:** After delivering the draft, the agent instructs the constituent to come back and report whether they received a response from their legislator. Maintains a simple log of outcomes (responded / no response) and optionally a rating or sentiment.
+
+**Product value:**
+- Answers the key trust question: "Do legislators actually respond when constituents write?"
+- Longitudinal data across users builds a public accountability signal per legislator
+- Response outcome data could inform future draft tailoring — e.g. messaging approaches that historically get responses from a given legislator
+
+**What this touches:**
+- System prompt: closing instruction after draft delivery ("Come back and let me know if they respond!")
+- Potentially a new MCP tool or web endpoint to log outcomes
+- UI component to capture the follow-up (response received Y/N, optional rating/note)
+- Data model: associate outcome with legislator ID, session, message medium
+
+**Retro flag:** Surface in Epic 4 retrospective and Epic 5+ planning.
