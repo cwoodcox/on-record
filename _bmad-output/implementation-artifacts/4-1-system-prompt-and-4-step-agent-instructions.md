@@ -1,6 +1,6 @@
 # Story 4.1: System Prompt and 4-Step Agent Instructions
 
-Status: review
+Status: in-progress
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -113,6 +113,16 @@ Use at least two different constituent personas across the 5 runs:
 - [x] [AI-Review][Medium] Undocumented Test Artifact: Add `system-prompt/test-runs.md` to story File List/Change Log. [_bmad-output/implementation-artifacts/4-1-system-prompt-and-4-step-agent-instructions.md:275]
 - [x] [AI-Review][Low] Redundant Preference Asking: Allow confirmation of tone if unambiguous. [system-prompt/agent-instructions.md:145]
 - [x] [AI-Review][Low] Missing Local Identity: Explicitly identify as a constituent of the specific city/district. [system-prompt/agent-instructions.md:165]
+
+### Review Follow-ups (AI) - Round 2
+
+- [ ] [AI-Review][Medium] Test Run 3 Inconsistency: Run 3 marked "Pass" despite "Fail" in Step 1 Validation. [system-prompt/test-runs.md]
+- [ ] [AI-Review][Medium] Address Parsing Ambiguity: Clarify handling of sub-units (Apt/Suite) in Step 2. [system-prompt/agent-instructions.md]
+- [ ] [AI-Review][Medium] Hallucination Risk for Thin Summaries: Explicitly forbid inventing details when `summary` is sparse. [system-prompt/agent-instructions.md]
+- [ ] [AI-Review][Medium] Git Hygiene: Add `.gemini/` and `CLAUDE.md` to `.gitignore` or document them. [.gitignore]
+- [ ] [AI-Review][Low] Unused Captured Name: Instruct LLM to use captured name in draft closing. [system-prompt/agent-instructions.md]
+- [ ] [AI-Review][Low] Multiple Addresses Edge Case: Add guidance for multiple address inputs. [system-prompt/agent-instructions.md]
+- [ ] [AI-Review][Low] Redundant Session Label Notes: Consolidate session label instructions for efficiency. [system-prompt/agent-instructions.md]
 
 ## Dev Notes
 
