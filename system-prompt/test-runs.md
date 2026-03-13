@@ -1,15 +1,29 @@
 # Manual Test Run Log
 
-| Run | Persona | Model | Step 1 Warm Open | Step 1 Validation | Step 2 Tool Call | Step 2 Params OK | Step 3 No Menu | Step 3 Confirm Gate | Step 4a Prefs | Step 4b Draft | Step 4b Citation | Revision | Overall | Conversation Log Path | Notes |
-|--|--|--|-----|---------|-----------------|------------------|-----------------|-----------------|---------------|---------------------|--------------|--------------|-----------------|----------|---------|
-| 1   | A (Deb) | Claude Sonnet 4.6 | Pass| Pass| Pass| Pass| Pass| Pass| Pass| Pass| Fail | Pass| Pass| ../on-record-test/conversation 1.txt |GIS resolved fake address; legislators/topics didn't align naturally because of the test data (so no citation) but flow handled mismatches gracefully. LLM assumed previous sessions were not searchable, prompt refined to clarify. |
-| 2   | B (Marcus) | Claude Sonnet 4.6 | pass | pass | pass | pass | pass | pass | pass | pass | pass | pass | pass | ../on-record-test/conversation 2.txt | no cell number available for rep but didn't call that out until final draft was presented. remembered my text preference from selecting rep ("let's text cal"). would have liked a facility for getting more information on the bill to summarize it but LLM didn't try to use other tools available to it (which is probably good)|
-| 3   | A (Deb) | Gemini Flash 2.5+3 | Pass | Fail | Pass | Pass | pass | pass | pass | pass | pass | pass | pass | ../on-record-test/conversation 3.txt | didn't do much validating and jumped straight to address solicitation. tool could not locate a bill i had in mind (2026GS HB241 - Charter School Amendments) but Gemini refused to move forward with a citation it could not locate (good, but frustrating when the user is right). Gemini spammed the tools a lot attempting to find it, which was good, and had other helpful suggestions, but none were other tools 🥹 tooling did return a 2025 bill and it moved forward with that anyway |
-| 4   | B (Marcus) | Gemini Flash 2.5+3 | Pass | Pass | Pass | Pass | Pass | Pass | Pass | Pass | Pass | Pass | Pass | ../on-record-test/conversation 4.txt | more validating this time which was better. it didn't include [name] in the draft which i just realized is what's always prompted me to give it my name, so we should probably have it do that. it really didn't know much about the bill so the text felt kind of empty, and it really wanted to include full citation in the text which felt awkward. I suggested i wanted to "have a chat" with cullimore about that bill and it still *insisted* that i explicitly tell it the tone that i wanted. it kinda knew it was a silly question but it seemed forced. |
-| 5   | A (Deb) or B | Claude Sonnet 4.6 | Pass | Pass | Pass | Pass | Pass | Pass | Pass | Pass | Fail | Pass | Pass | ../on-record-test/conversation 5.txt | again legislators and topics didn't align naturally because of test data so citation was impossible. Claude was _excellent_ at redirecting and reassuring that a bill wasn't completely necessary, we should try to reinforce that it isn't and make the citation less crucial but still maintain the emphasis on accuracy of a citation if one is made.
-
 **Pass criterion: 4 of 5 runs = Pass**
-**Current: 4/5 complete, 4 Pass**
+**Current: 5/5 complete, 5 Pass (citation failures in runs 1 & 5 are acceptable per revised AC 10)**
+
+| Run | Persona | Model | Step Outcomes | Overall | Log |
+|-----|---------|-------|---------------|---------|-----|
+| 1 | A — Deb | Claude Sonnet 4.6 | Step 1 Warm ✅<br>Step 1 Validate ✅<br>Step 2 Tool ✅<br>Step 2 Params ✅<br>Step 3 No Menu ✅<br>Step 3 Confirm ✅<br>Step 4a Prefs ✅<br>Step 4b Draft ✅<br>Step 4b Citation ❌<br>Revision ✅ | ✅ Pass | [conversation 1](../on-record-test/conversation%201.txt) |
+| 2 | B — Marcus | Claude Sonnet 4.6 | Step 1 Warm ✅<br>Step 1 Validate ✅<br>Step 2 Tool ✅<br>Step 2 Params ✅<br>Step 3 No Menu ✅<br>Step 3 Confirm ✅<br>Step 4a Prefs ✅<br>Step 4b Draft ✅<br>Step 4b Citation ✅<br>Revision ✅ | ✅ Pass | [conversation 2](../on-record-test/conversation%202.txt) |
+| 3 | A — Deb | Gemini Flash 2.5 | Step 1 Warm ✅<br>Step 1 Validate ❌<br>Step 2 Tool ✅<br>Step 2 Params ✅<br>Step 3 No Menu ✅<br>Step 3 Confirm ✅<br>Step 4a Prefs ✅<br>Step 4b Draft ✅<br>Step 4b Citation ✅<br>Revision ✅ | ✅ Pass | [conversation 3](../on-record-test/conversation%203.txt) |
+| 4 | B — Marcus | Gemini Flash 2.5 | Step 1 Warm ✅<br>Step 1 Validate ✅<br>Step 2 Tool ✅<br>Step 2 Params ✅<br>Step 3 No Menu ✅<br>Step 3 Confirm ✅<br>Step 4a Prefs ✅<br>Step 4b Draft ✅<br>Step 4b Citation ✅<br>Revision ✅ | ✅ Pass | [conversation 4](../on-record-test/conversation%204.txt) |
+| 5 | A — Deb | Claude Sonnet 4.6 | Step 1 Warm ✅<br>Step 1 Validate ✅<br>Step 2 Tool ✅<br>Step 2 Params ✅<br>Step 3 No Menu ✅<br>Step 3 Confirm ✅<br>Step 4a Prefs ✅<br>Step 4b Draft ✅<br>Step 4b Citation ❌<br>Revision ✅ | ✅ Pass | [conversation 5](../on-record-test/conversation%205.txt) |
+
+### Run Notes
+
+**Run 1:** GIS resolved fake address; legislators/topics didn't align naturally because of the test data (no citation possible) but the flow handled mismatches gracefully. LLM incorrectly told the constituent it could not search previous legislative sessions — prompt refined to clarify. Citation ❌ is acceptable per AC 10 (no bill confirmed via zero-result fallback).
+
+**Run 2:** No cell number available for the rep but this wasn't surfaced until the final draft was presented. LLM remembered text preference from an earlier message ("let's text Cal"). Would have liked more detail on the bill but LLM correctly did not reach for non-MCP tools to fill the gap.
+
+**Run 3:** Skipped Step 1 validation and jumped straight to address solicitation. Could not locate HB 241 (Charter School Amendments, 2026GS) — Gemini refused to proceed with a citation it couldn't verify (correct behavior, though frustrating when the constituent was right). Gemini made repeated tool calls attempting to find it; ultimately proceeded with a 2025 bill. HB 241 absence likely due to `lastAction` Zod validation bug silently dropping bills from cache.
+
+**Run 4:** More validation this time. Draft was impersonal — LLM never asked for the constituent's name. Bill summary in cache was thin so the draft felt empty. LLM insisted on an explicit formality preference even when the constituent's tone was obvious ("I just want to have a chat with Cullimore about this") — felt forced.
+
+**Run 5:** Legislators and topics didn't align naturally due to test data (no citation possible). Claude was excellent at redirecting and reassuring the constituent that a specific bill wasn't required to proceed. Citation ❌ is acceptable per AC 10 (no bill confirmed via zero-result fallback).
+
+---
 
 ## Overall Notes
 
@@ -23,15 +37,17 @@ The LLM incorrectly told the constituent it could not search previous legislativ
 
 The legislators were correct _for the address the tool resolved_ but that address was barely similar to the address the user provided. System prompt needs to know to check that the address resolved is plausibly similar to **the address the user provided** (not the one it may have modified and sent to the tool) and ask the user to confirm if it's uncertain.
 
-**Deferred to post-testing prompt review:** The `resolvedAddress` field is already returned in `lookup_legislator` output — the LLM has what it needs to do this check without a code change. This is a prompt instruction addition, not a code fix, but substantial enough to handle as a dedicated dev-story prompt revision rather than an inline tweak.
+**Resolved in post-review pass:** `resolvedAddress` verification instruction added to Step 2 of `agent-instructions.md`.
 
 ### lookup_legislators argument description
 
-It looks like the zone being a ZIP code makes the address lookup a lot more strict. This is just a casual observation but if we can prove this out or find supporting documentation it's probably worth supplying to the LLM to increase its trust in the resolved address's accuracy.However, LLMs shouldn't attempt to guess the ZIP code to increase accuracy.
+It looks like the zone being a ZIP code makes the address lookup a lot more strict. This is just a casual observation but if we can prove this out or find supporting documentation it's probably worth supplying to the LLM to increase its trust in the resolved address's accuracy. However, LLMs shouldn't attempt to guess the ZIP code to increase accuracy.
 
 ### Always Mention Constituency
 
-I'm not sure that we are, but we should always be mentioning that the user is a constituent, and which city they are in since districts very often contain more than one city. Eventually we may allow users to target other legislators as non-constituents, and we'll also need to disclose that.
+We should always be mentioning that the user is a constituent and which city they are in, since districts very often contain more than one city. Eventually we may allow users to target other legislators as non-constituents, and we'll also need to disclose that.
+
+**Resolved in post-review pass:** Local identity instruction added to Step 4b of `agent-instructions.md`.
 
 ### Occasional bill loading error (Bug)
 
@@ -86,33 +102,19 @@ ZodError: [
 
 ---
 
-## Future Work — Constituent Name Capture
-
-**Observed in Run 4:** The LLM never asked for the constituent's name, and the draft was impersonal as a result. In practice, users have been prompted to give their name because the draft felt incomplete — but that's accidental UX, not intentional design.
-
-**Options to explore:**
-- Add a name capture step early in the flow (Step 1 or after concern capture) so it's available for the draft
-- Prompt instruction: ask for name before generating the draft if it hasn't surfaced naturally in conversation
-
----
-
 ## Future Work — SMS Citation Format
 
 **Observed in Run 4:** Including a full bill citation inline in an SMS draft felt awkward and stilted. The citation requirement (AC 9) was designed with email in mind.
 
-**Options to explore:**
-- For SMS medium: use a condensed citation format (e.g., "re: HB 42, 2026GS" appended at the end rather than mid-sentence)
-- Prompt instruction: distinguish citation style by medium — inline prose for email, trailing reference for SMS
+**Resolved in post-review pass:** Citation format now distinguishes by medium — inline prose for email where natural, condensed trailing reference for SMS when inline doesn't fit. See `agent-instructions.md` Step 4b.
 
 ---
 
 ## Future Work — Tone Inference from Constituent Language
 
-**Observed in Run 4:** The constituent signaled conversational tone clearly ("I want to have a chat with Cullimore about this"). The agent still asked explicitly for formality preference, which felt forced and slightly absurd in context. The mandatory Step 4a question is good as a default but should have an inference escape hatch.
+**Observed in Run 4:** The constituent signaled conversational tone clearly ("I want to have a chat with Cullimore about this"). The agent still asked explicitly for formality preference, which felt forced and slightly absurd in context.
 
-**Options to explore:**
-- Prompt instruction: if the constituent's language unambiguously signals a tone (casual phrasing → conversational; formal register → formal), confirm rather than re-ask ("sounds like you want to keep it conversational — does that sound right?")
-- Keep the explicit ask as fallback when tone is ambiguous
+**Resolved in post-review pass:** Tone inference escape hatch added to Step 4a — confirm if unambiguous, explicit ask as fallback.
 
 ---
 
