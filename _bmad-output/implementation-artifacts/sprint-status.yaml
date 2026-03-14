@@ -86,7 +86,7 @@ development_status:
   # ─── Epic 4: Constituent Can Get a Voiced, Cited Draft ─────────────────────
   epic-4: in-progress
   4-1-system-prompt-and-4-step-agent-instructions: done
-  4-2-personal-concern-capture-and-empathetic-issue-discovery: ready-for-dev
+  4-2-personal-concern-capture-and-empathetic-issue-discovery: review
   4-3-medium-and-formality-selection: backlog
   4-4-voice-calibrated-draft-generation-with-source-citations: backlog
   4-5-draft-revision-loop: backlog

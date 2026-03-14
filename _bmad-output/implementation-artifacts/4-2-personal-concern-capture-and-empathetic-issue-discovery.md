@@ -1,6 +1,6 @@
 # Story 4.2: Personal Concern Capture and Empathetic Issue Discovery
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -127,11 +127,11 @@ If testing reveals a behavioral gap (e.g., chatbot consistently skips emotional 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Write expected test run outline in `system-prompt/testing-notes-4-2.md` (AC: 1–9 — reference for owner-executed runs)
-  - [ ] For each persona (A–D), write a step-by-step description of what a **passing** run looks like: what the chatbot should say, what tool calls should be made, and what signals confirm each AC is met
-  - [ ] Include explicit "PASS signal" and "FAIL signal" for each behavioral checkpoint so Corey can make a clear call during execution
-  - [ ] The outline must be specific enough to compare actual LLM output against expected output — not a general checklist, but a scripted walkthrough
-  - [ ] **NOTE: The dev agent does NOT run the sessions.** After Task 1 is complete, set story status to `review`. Corey executes the 5 manual runs using this outline and the protocol above.
+- [x] Task 1: Write expected test run outline in `system-prompt/testing-notes-4-2.md` (AC: 1–9 — reference for owner-executed runs)
+  - [x] For each persona (A–D), write a step-by-step description of what a **passing** run looks like: what the chatbot should say, what tool calls should be made, and what signals confirm each AC is met
+  - [x] Include explicit "PASS signal" and "FAIL signal" for each behavioral checkpoint so Corey can make a clear call during execution
+  - [x] The outline must be specific enough to compare actual LLM output against expected output — not a general checklist, but a scripted walkthrough
+  - [x] **NOTE: The dev agent does NOT run the sessions.** After Task 1 is complete, set story status to `review`. Corey executes the 5 manual runs using this outline and the protocol above.
 
 - [ ] Task 2: Run 5 manual test sessions (AC: 10 — owner-executed after Task 1)
   - [ ] Run 1: Persona A (Deb — specific concern, emotional)
@@ -276,10 +276,16 @@ claude-sonnet-4-6
 
 ### Debug Log References
 
+_(none — no TypeScript code; no runtime errors)_
+
 ### Completion Notes List
+
+- Task 1 complete: Created `system-prompt/testing-notes-4-2.md` — scripted walkthrough for all 4 personas (A–D), with explicit PASS/FAIL signals for every AC checkpoint (AC 1–9 plus 4.1 AC 3). Includes Run 5 variation suggestions, AC quick-reference table, and failure response protocol.
+- Story is now ready for Corey to execute the 5 manual test runs using the outline. Tasks 2–4 are owner-executed and are left unchecked per the story spec.
+- No TypeScript code, no npm packages, no CI changes, no Vitest tests written — this is a behavioral documentation story.
 
 ### File List
 
 - `system-prompt/testing-notes-4-2.md` (new — expected run outline for concern capture + issue discovery sub-flow; monorepo root)
-- `system-prompt/test-runs-4-2.md` (new — manual test run log; monorepo root)
-- `system-prompt/agent-instructions.md` (possibly modified — only if testing reveals behavioral gaps)
+- `system-prompt/test-runs-4-2.md` (new — manual test run log; created by Corey during execution)
+- `system-prompt/agent-instructions.md` (possibly modified — only if testing reveals behavioral gaps; not modified by dev agent)
