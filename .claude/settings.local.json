@@ -12,7 +12,11 @@
       "Bash(git:*)",
       "Bash(pnpm:*)",
       "WebFetch(domain:le.utah.gov)",
-      "WebFetch(domain:api.mapserv.utah.gov)"
+      "WebFetch(domain:api.mapserv.utah.gov)",
+      "Bash(gh label:*)",
+      "Bash(gh api:*)",
+      "Bash(gh issue:*)",
+      "Bash(curl:*)"
     ]
   }
 }

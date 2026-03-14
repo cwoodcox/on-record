@@ -1,6 +1,6 @@
 # Story 4.1: System Prompt and 4-Step Agent Instructions
 
-Status: review
+Status: in-progress
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -123,6 +123,14 @@ Use at least two different constituent personas across the 5 runs:
 - [x] [AI-Review][Low] Unused Captured Name: Instruct LLM to use captured name in draft closing. [system-prompt/agent-instructions.md]
 - [x] [AI-Review][Low] Multiple Addresses Edge Case: Add guidance for multiple address inputs. [system-prompt/agent-instructions.md]
 - [x] [AI-Review][Low] Redundant Session Label Notes: Consolidate session label instructions for efficiency. [system-prompt/agent-instructions.md]
+
+### Review Follow-ups (AI) - Round 3
+
+- [ ] [AI-Review][High] SMS Length Discrepancy: `agent-instructions.md` specifies "1–3 sentences per segment," potentially violating the total length constraint in AC 8. [system-prompt/agent-instructions.md:175]
+- [ ] [AI-Review][High] Citation Requirement Ambiguity: AC 9 requires "exactly one" citation, but instructions say "at least one," risking repetitive citations. [system-prompt/agent-instructions.md:185]
+- [ ] [AI-Review][Medium] Test Run Marking Inconsistency: Runs 1 & 5 in `test-runs.md` are marked ❌ for citations despite notes saying they are acceptable. Use ✅ or N/A for consistency. [system-prompt/test-runs.md:10]
+- [ ] [AI-Review][Medium] Name Capture Usage: Emphasize using the constituent's name during conversation to maintain a "warm" feel, not just in the draft closing. [system-prompt/agent-instructions.md:55]
+- [ ] [AI-Review][Low] Uncommitted IDE Config: `.claude/settings.local.json` has uncommitted changes causing noise in git status. [.gitignore]
 
 ## Dev Notes
 
