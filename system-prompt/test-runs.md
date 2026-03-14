@@ -2,17 +2,19 @@
 
 **Pass criterion: 4 of 5 runs = Pass**
 **Overall Pass/Fail definition:** "Pass" means the 4-step flow completed end-to-end (FR27) — warm open → address lookup → bill surfacing → draft generated → revision tested. Individual step check failures (e.g., Step 1 Validate ❌) are behavioral gaps tracked below; they do not fail the run unless the flow itself did not complete.
-**Current: 5/5 complete, 5 Pass (citation failures in runs 1 & 5 are acceptable per revised AC 10)**
+**Current: 5/5 complete, 5 Pass**
 
 | Run | Persona | Model | Step Outcomes | Overall | Log |
 |-----|---------|-------|---------------|---------|-----|
-| 1 | A — Deb | Claude Sonnet 4.6 | Step 1 Warm ✅<br>Step 1 Validate ✅<br>Step 2 Tool ✅<br>Step 2 Params ✅<br>Step 3 No Menu ✅<br>Step 3 Confirm ✅<br>Step 4a Prefs ✅<br>Step 4b Draft ✅<br>Step 4b Citation ❌<br>Revision ✅ | ✅ Pass | [conversation 1](../on-record-test/conversation%201.txt) |
+| 1 | A — Deb | Claude Sonnet 4.6 | Step 1 Warm ✅<br>Step 1 Validate ✅<br>Step 2 Tool ✅<br>Step 2 Params ✅<br>Step 3 No Menu ✅<br>Step 3 Confirm ✅<br>Step 4a Prefs ✅<br>Step 4b Draft ✅<br>Step 4b Citation N/A²<br>Revision ✅ | ✅ Pass | [conversation 1](../on-record-test/conversation%201.txt) |
 | 2 | B — Marcus | Claude Sonnet 4.6 | Step 1 Warm ✅<br>Step 1 Validate ✅<br>Step 2 Tool ✅<br>Step 2 Params ✅<br>Step 3 No Menu ✅<br>Step 3 Confirm ✅<br>Step 4a Prefs ✅<br>Step 4b Draft ✅<br>Step 4b Citation ✅<br>Revision ✅ | ✅ Pass | [conversation 2](../on-record-test/conversation%202.txt) |
 | 3 | A — Deb | Gemini Flash 2.5 | Step 1 Warm ✅<br>Step 1 Validate ❌ (behavioral gap — see note)<br>Step 2 Tool ✅<br>Step 2 Params ✅<br>Step 3 No Menu ✅<br>Step 3 Confirm ✅<br>Step 4a Prefs ✅<br>Step 4b Draft ✅<br>Step 4b Citation ✅<br>Revision ✅ | ✅ Pass¹ | [conversation 3](../on-record-test/conversation%203.txt) |
 | 4 | B — Marcus | Gemini Flash 2.5 | Step 1 Warm ✅<br>Step 1 Validate ✅<br>Step 2 Tool ✅<br>Step 2 Params ✅<br>Step 3 No Menu ✅<br>Step 3 Confirm ✅<br>Step 4a Prefs ✅<br>Step 4b Draft ✅<br>Step 4b Citation ✅<br>Revision ✅ | ✅ Pass | [conversation 4](../on-record-test/conversation%204.txt) |
-| 5 | A — Deb | Claude Sonnet 4.6 | Step 1 Warm ✅<br>Step 1 Validate ✅<br>Step 2 Tool ✅<br>Step 2 Params ✅<br>Step 3 No Menu ✅<br>Step 3 Confirm ✅<br>Step 4a Prefs ✅<br>Step 4b Draft ✅<br>Step 4b Citation ❌<br>Revision ✅ | ✅ Pass | [conversation 5](../on-record-test/conversation%205.txt) |
+| 5 | A — Deb | Claude Sonnet 4.6 | Step 1 Warm ✅<br>Step 1 Validate ✅<br>Step 2 Tool ✅<br>Step 2 Params ✅<br>Step 3 No Menu ✅<br>Step 3 Confirm ✅<br>Step 4a Prefs ✅<br>Step 4b Draft ✅<br>Step 4b Citation N/A²<br>Revision ✅ | ✅ Pass | [conversation 5](../on-record-test/conversation%205.txt) |
 
 ¹ **Run 3 Pass rationale:** Step 1 Validate failed (Gemini skipped empathetic acknowledgment and jumped to address solicitation), which is a noted behavioral gap. However, all 4 steps were executed, a draft was generated, and the revision loop was tested — the full end-to-end flow completed per FR27. Marked Pass per the overall pass definition above. The validate-before-inform instruction in Step 1 of `agent-instructions.md` has been present throughout; this appears to be a model compliance variance, not a missing instruction. Flagged as a behavioral gap to monitor in future runs.
+
+² **N/A rationale (Runs 1 & 5):** No bill was confirmed during Step 3 (zero-result fallback path). Under AC 10, the draft must contain no fabricated citation when no bill was selected — so Citation N/A means the citation requirement was correctly bypassed, not that a required citation was missing. The LLM handled this correctly in both runs.
 
 ### Run Notes
 
