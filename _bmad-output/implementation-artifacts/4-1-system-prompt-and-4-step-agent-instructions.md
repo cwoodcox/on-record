@@ -67,7 +67,7 @@ For each run, start a fresh session and verify:
 - [ ] **Step 3 — Confirmation Gate:** Chatbot presents 2–3 relevant bills and waits for constituent confirmation before proceeding
 - [ ] **Step 4 — Delivery Prefs:** Chatbot asks for medium (email/text) and formality (conversational/formal) before generating the draft
 - [ ] **Step 4 — Draft:** Draft matches the chosen medium length constraints and formality register
-- [ ] **Step 4 — Citation:** Draft contains at least one source citation (bill number + session)
+- [ ] **Step 4 — Citation:** Draft contains exactly one source citation (bill number + session); no duplicate references
 - [ ] **Step 4 — No Editorializing:** Draft makes no unsupported claims about legislator intent or motivation
 - [ ] **Revision:** Requesting a change (e.g., "make it shorter") produces a revised draft without restarting the flow
 
@@ -272,7 +272,7 @@ Step 4b: Draft Generation
   → Use constituent's own words and personal story
   → Match medium length constraints (email: 150–400w; text: <160 char/segment)
   → Reflect formality register in tone and vocabulary
-  → Include citation: bill number + session + vote date (if available)
+  → Include exactly one citation: bill number + session + vote date (if available); do not duplicate
   → Zero unsupported claims about legislator intent/motivation
 
 Revision Loop (when requested):
