@@ -127,7 +127,13 @@ If testing reveals a behavioral gap (e.g., chatbot consistently skips emotional 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Run 5 manual test sessions using the personas and protocol above (AC: 1–10)
+- [ ] Task 1: Write expected test run outline in `system-prompt/testing-notes-4-2.md` (AC: 1–9 — reference for owner-executed runs)
+  - [ ] For each persona (A–D), write a step-by-step description of what a **passing** run looks like: what the chatbot should say, what tool calls should be made, and what signals confirm each AC is met
+  - [ ] Include explicit "PASS signal" and "FAIL signal" for each behavioral checkpoint so Corey can make a clear call during execution
+  - [ ] The outline must be specific enough to compare actual LLM output against expected output — not a general checklist, but a scripted walkthrough
+  - [ ] **NOTE: The dev agent does NOT run the sessions.** After Task 1 is complete, set story status to `review`. Corey executes the 5 manual runs using this outline and the protocol above.
+
+- [ ] Task 2: Run 5 manual test sessions (AC: 10 — owner-executed after Task 1)
   - [ ] Run 1: Persona A (Deb — specific concern, emotional)
   - [ ] Run 2: Persona B (Marcus — vague concern)
   - [ ] Run 3: Persona C (Alex — mentions bill by ID)
@@ -135,18 +141,17 @@ If testing reveals a behavioral gap (e.g., chatbot consistently skips emotional 
   - [ ] Run 5: Persona A or B (repeat for coverage; vary address or concern detail)
   - [ ] Record per-run behavioral checklist results as PASS / FAIL / N/A
 
-- [ ] Task 2: Document test results in `system-prompt/test-runs-4-2.md` (AC: 10)
+- [ ] Task 3: Document test results in `system-prompt/test-runs-4-2.md` (AC: 10 — owner-executed)
   - [ ] Create file with per-run behavioral checklist filled in
   - [ ] Note any behavioral anomalies (chatbot deviations from expected behavior)
   - [ ] Mark overall PASS or FAIL per run with brief rationale
 
-- [ ] Task 3: Update `system-prompt/agent-instructions.md` if gaps found (AC: 1–9)
+- [ ] Task 4: Update `system-prompt/agent-instructions.md` if gaps found (AC: 1–9)
   - [ ] For each FAIL, identify the relevant section of agent-instructions.md
   - [ ] Revise instruction text to close the gap
   - [ ] Re-run the failing scenario once after update; document result in test log
   - [ ] **NOTE:** If no failures found across 4+ of 5 runs, no changes to agent-instructions.md are required — document "no changes needed" in test log
 
-- [ ] Task 4: Set story status to `review` after Task 2 and Task 3 are complete
 
 ## Dev Notes
 
@@ -154,8 +159,9 @@ If testing reveals a behavioral gap (e.g., chatbot consistently skips emotional 
 
 Story 4.2 verifies and, if necessary, refines the concern capture and empathetic issue discovery behavior that was implemented in Story 4.1. The primary artifact is `system-prompt/agent-instructions.md` (already exists). The deliverable is:
 
-1. `system-prompt/test-runs-4-2.md` — manual test results for this sub-flow (new file)
-2. Potentially revised `system-prompt/agent-instructions.md` — only if testing exposes gaps
+1. `system-prompt/testing-notes-4-2.md` — step-by-step expected run outline for each persona (new file, created by dev agent before handing off to owner)
+2. `system-prompt/test-runs-4-2.md` — manual test results filled in by Corey during execution (new file)
+3. Potentially revised `system-prompt/agent-instructions.md` — only if testing exposes gaps
 
 **No TypeScript code is written. No npm packages. No CI changes. No Vitest tests.** This is a behavioral verification story for a non-deterministic LLM product artifact.
 
@@ -273,3 +279,7 @@ claude-sonnet-4-6
 ### Completion Notes List
 
 ### File List
+
+- `system-prompt/testing-notes-4-2.md` (new — expected run outline for concern capture + issue discovery sub-flow; monorepo root)
+- `system-prompt/test-runs-4-2.md` (new — manual test run log; monorepo root)
+- `system-prompt/agent-instructions.md` (possibly modified — only if testing reveals behavioral gaps)
