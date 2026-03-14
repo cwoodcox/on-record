@@ -5,6 +5,24 @@
 import type Database from 'better-sqlite3'
 
 export function initializeSchema(db: Database.Database): void {
+  // Migration: bills table originally had `id TEXT PRIMARY KEY` (single-column).
+  // During inter-session refresh both 2025GS and 2026GS bills are written in one
+  // writeBills() call; because bill numbers repeat across sessions (HB0001 exists
+  // in every session), INSERT OR REPLACE on a single-column PK silently overwrites
+  // the earlier session's row with the later session's row, leaving only one copy
+  // of each bill number in the cache. Fix: composite PRIMARY KEY (id, session).
+  // If the old single-column schema is detected, drop bills + bill_fts so the
+  // CREATE TABLE IF NOT EXISTS block below recreates them with the correct schema.
+  const billsInfo = db.pragma('table_info(bills)') as Array<{ name: string; pk: number }>
+  if (billsInfo.length > 0) {
+    const sessionCol = billsInfo.find((c) => c.name === 'session')
+    if (sessionCol && sessionCol.pk === 0) {
+      // Old schema: session is not part of the primary key — drop and recreate
+      db.exec('DROP TABLE IF EXISTS bill_fts')
+      db.exec('DROP TABLE IF EXISTS bills')
+    }
+  }
+
   db.transaction(() => {
     // --- legislators table ---
     // Stores cached legislator data. Populated by cache/legislators.ts (Story 2.3).
@@ -26,9 +44,11 @@ export function initializeSchema(db: Database.Database): void {
     // --- bills table ---
     // Stores cached bill data. Populated by cache/bills.ts (Story 3.2).
     // Refreshed hourly via node-cron (Story 3.2).
+    // Composite primary key (id, session): a bill number like "HB0001" repeats
+    // across sessions; the unique identity is the (bill_number, session) pair.
     db.exec(`
       CREATE TABLE IF NOT EXISTS bills (
-        id          TEXT    PRIMARY KEY,
+        id          TEXT    NOT NULL,
         session     TEXT    NOT NULL,
         title       TEXT    NOT NULL,
         summary     TEXT    NOT NULL,
@@ -36,7 +56,8 @@ export function initializeSchema(db: Database.Database): void {
         sponsor_id  TEXT    NOT NULL,
         vote_result TEXT,
         vote_date   TEXT,
-        cached_at   TEXT    NOT NULL
+        cached_at   TEXT    NOT NULL,
+        PRIMARY KEY (id, session)
       )
     `)
 
