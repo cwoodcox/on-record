@@ -143,41 +143,50 @@ describe('bills cache', () => {
       expect(rows).toHaveLength(0)
     })
 
-    it('clears prior bills for session before refresh — stale rows removed when upstream returns fewer bills', () => {
-      // Simulate first refresh: 3 bills
+    it('retains previously-cached bills not present in the new batch — partial refresh does not evict', () => {
+      // Simulate first (complete) refresh: 3 bills
       writeBills(testDb, [
         makeBill({ id: 'HB0001', session: '2026GS' }),
         makeBill({ id: 'HB0002', session: '2026GS' }),
         makeBill({ id: 'HB0003', session: '2026GS' }),
       ])
-      // Simulate second refresh: upstream returns only 1 bill (HB0001 and HB0003 dropped)
+      // Simulate second refresh where HB0001 and HB0003 fail to fetch (Promise.allSettled
+      // skips them); only HB0002 is in the batch.
+      // With upsert semantics, HB0001 and HB0003 must remain in cache — not evicted.
       writeBills(testDb, [makeBill({ id: 'HB0002', session: '2026GS' })])
 
-      const rows = testDb.prepare("SELECT id FROM bills WHERE session = '2026GS'").all()
-      expect(rows).toHaveLength(1)
-      expect((rows[0] as { id: string }).id).toBe('HB0002')
+      const rows = testDb.prepare("SELECT id FROM bills WHERE session = '2026GS' ORDER BY id").all()
+      expect(rows).toHaveLength(3)
+      const ids = (rows as { id: string }[]).map((r) => r.id)
+      expect(ids).toEqual(['HB0001', 'HB0002', 'HB0003'])
     })
 
-    it('clears stale rows for ALL sessions in a mixed-session payload', () => {
-      // Pre-populate both sessions with extra rows
+    it('second call updates (not duplicates) bills already in cache', () => {
+      // Pre-populate both sessions
       writeBills(testDb, [
-        makeBill({ id: 'HB0001', session: '2026GS' }),
+        makeBill({ id: 'HB0001', session: '2026GS', title: 'Original Title' }),
         makeBill({ id: 'HB0002', session: '2026GS' }),
         makeBill({ id: 'SB0001', session: '2025GS' }),
         makeBill({ id: 'SB0002', session: '2025GS' }),
       ])
-      // Refresh with a mixed payload: 1 bill per session (drops HB0002 and SB0002)
+      // Refresh with a mixed payload that includes HB0001 with an updated title, and adds
+      // HB0003; HB0002, SB0001, SB0002 are absent from this batch but must be retained.
       writeBills(testDb, [
-        makeBill({ id: 'HB0001', session: '2026GS' }),
-        makeBill({ id: 'SB0001', session: '2025GS' }),
+        makeBill({ id: 'HB0001', session: '2026GS', title: 'Updated Title' }),
+        makeBill({ id: 'HB0003', session: '2026GS' }),
       ])
 
-      const rows2026 = testDb.prepare("SELECT id FROM bills WHERE session = '2026GS'").all()
-      const rows2025 = testDb.prepare("SELECT id FROM bills WHERE session = '2025GS'").all()
-      expect(rows2026).toHaveLength(1)
-      expect((rows2026[0] as { id: string }).id).toBe('HB0001')
-      expect(rows2025).toHaveLength(1)
-      expect((rows2025[0] as { id: string }).id).toBe('SB0001')
+      const rows2026 = testDb.prepare("SELECT id, title FROM bills WHERE session = '2026GS' ORDER BY id").all() as { id: string; title: string }[]
+      const rows2025 = testDb.prepare("SELECT id FROM bills WHERE session = '2025GS' ORDER BY id").all() as { id: string }[]
+
+      // All 2026GS bills present (HB0001 updated, HB0002 retained, HB0003 new)
+      expect(rows2026).toHaveLength(3)
+      expect(rows2026.find((r) => r.id === 'HB0001')?.title).toBe('Updated Title')
+      expect(rows2026.map((r) => r.id)).toContain('HB0002')
+      expect(rows2026.map((r) => r.id)).toContain('HB0003')
+
+      // 2025GS bills retained (not touched by this 2026GS batch)
+      expect(rows2025).toHaveLength(2)
     })
 
     it('rebuilds FTS5 — after writeBills, FTS5 match query returns consistent results', () => {

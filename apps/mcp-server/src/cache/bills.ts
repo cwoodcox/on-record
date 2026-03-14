@@ -174,16 +174,18 @@ export function getActiveSessionId(): string {
  * cache/refresh.ts receives db from index.ts and passes it here.
  * This keeps writeBills testable with an in-memory db without mocking the singleton.
  *
+ * Design: pure upsert — no upfront DELETE. The provider uses Promise.allSettled to
+ * skip transient bill-detail fetch failures; a pre-session DELETE would permanently
+ * evict bills that failed to fetch this cycle, making the cache incomplete. Upsert
+ * semantics mean a bill that fails to fetch this run retains its previously-cached
+ * value until it successfully refreshes on the next hourly cycle.
+ *
  * @param db    - Injected SQLite database instance
  * @param bills - Array of Bill objects to persist
  */
 export function writeBills(db: Database.Database, bills: Bill[]): void {
   if (bills.length === 0) return
 
-  // Collect all unique sessions present in this batch (normally one, but handle mixed payloads).
-  const sessions = [...new Set(bills.map((b) => b.session))]
-
-  const deleteStmt = db.prepare<[string]>('DELETE FROM bills WHERE session = ?')
   const stmt = db.prepare<
     [string, string, string, string, string, string, string | null, string | null, string]
   >(`
@@ -196,11 +198,6 @@ export function writeBills(db: Database.Database, bills: Bill[]): void {
   const cachedAt = new Date().toISOString()
 
   db.transaction(() => {
-    // Delete all prior bills for every session in this batch so stale rows are removed when
-    // upstream returns fewer bills than the previous refresh (AC3 overwrite semantics).
-    for (const s of sessions) {
-      deleteStmt.run(s)
-    }
     for (const bill of bills) {
       stmt.run(
         bill.id,
@@ -214,6 +211,6 @@ export function writeBills(db: Database.Database, bills: Bill[]): void {
         cachedAt,
       )
     }
-    db.exec("INSERT INTO bill_fts(bill_fts) VALUES('rebuild')")
+    db.prepare("INSERT INTO bill_fts(bill_fts) VALUES('rebuild')").run()
   })()
 }
