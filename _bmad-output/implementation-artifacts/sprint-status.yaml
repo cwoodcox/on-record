@@ -91,8 +91,7 @@ development_status:
   4-4-voice-calibrated-draft-generation-with-source-citations: backlog
   4-5-draft-revision-loop: backlog
   4-6-progressstrip-and-draftcard-ui-components: backlog
-  # Note: token footprint optimization planned for after 4.2–4.5 are done
-  # Quick spec ready at: _bmad-output/implementation-artifacts/tech-spec-system-prompt-token-optimization.md
+  4-7-system-prompt-token-footprint-optimization: backlog
   epic-4-retrospective: optional
 
   # ─── Epic 5: Constituent Can Send Their Message in One Action ───────────────
