@@ -272,6 +272,24 @@ describe('UtahLegislatureProvider', () => {
       }
     })
 
+    it('skips individual bill detail failures and returns the successful bills', async () => {
+      fetchMock
+        .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockBillListResponse) })
+        // HB0001 detail fetch fails on all attempts
+        .mockResolvedValueOnce({ ok: false, status: 429, text: async () => 'rate limited' })
+        .mockResolvedValueOnce({ ok: false, status: 429, text: async () => 'rate limited' })
+        .mockResolvedValueOnce({ ok: false, status: 429, text: async () => 'rate limited' })
+        // HB0002 detail fetch succeeds
+        .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockBillDetail2Response) })
+
+      const promise = provider.getBillsBySession('2026GS')
+      await vi.runAllTimersAsync()
+      const result = await promise
+
+      expect(result).toHaveLength(1)
+      expect(result[0]?.id).toBe('HB0002')
+    })
+
     it('populates voteResult and voteDate when detail response includes them', async () => {
       fetchMock
         .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify([{ number: 'HB0001', trackingID: 'TUBFCRPIYI' }]) })
@@ -343,18 +361,20 @@ describe('UtahLegislatureProvider', () => {
       await rejectionPromise
     })
 
-    it('throws AppError with specific nature and action strings when bill detail fetch fails after retries', async () => {
+    it('logs error and returns empty array when all bill detail fetches fail after retries', async () => {
       fetchMock
         .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify([{ number: 'HB0001', trackingID: 'TUBFCRPIYI' }]) })
         .mockRejectedValue(new Error('Network error on detail'))
 
-      const rejectionPromise = expect(provider.getBillsBySession('2026GS')).rejects.toMatchObject({
-        source: 'legislature-api',
-        nature: 'Failed to fetch bill detail for HB0001 from Utah Legislature API',
-        action: 'Try again in a few seconds — the API may be temporarily unavailable',
-      })
+      const promise = provider.getBillsBySession('2026GS')
       await vi.runAllTimersAsync()
-      await rejectionPromise
+      const result = await promise
+
+      expect(result).toHaveLength(0)
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ source: 'legislature-api' }),
+        'getBillDetail failed for individual bill — skipping',
+      )
     })
 
     it('throws AppError when bill list API returns unexpected response shape (zod parse failure)', async () => {

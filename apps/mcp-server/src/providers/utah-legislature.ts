@@ -155,24 +155,41 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
       )
     }
 
-    // Hydrate each stub by calling getBillDetail (already implemented + tested).
-    // getBillDetail uses retryWithDelay internally — do NOT double-wrap here.
-    // Rate note: Promise.all sends ~500-1000 concurrent requests for a full session;
-    // this is acceptable for one-time cache warm-up (Story 3.2 schedules the refresh).
-    const details = await Promise.all(
-      parsed.data.map((stub) => this.getBillDetail(stub.number, session))
-    )
+    // Hydrate each stub by calling getBillDetail in concurrent batches.
+    // Batching avoids rate-limiting the API with 1000+ simultaneous requests.
+    // Promise.allSettled per batch: individual bill failures are logged and skipped
+    // rather than aborting the entire session refresh.
+    const BATCH_SIZE = 20
+    const bills: Bill[] = []
 
-    return details.map((detail) => ({
-      id: detail.id,
-      session: detail.session,
-      title: detail.title,
-      summary: detail.summary,
-      status: detail.status,
-      sponsorId: detail.sponsorId,
-      ...(detail.voteResult !== undefined && { voteResult: detail.voteResult }),
-      ...(detail.voteDate !== undefined && { voteDate: detail.voteDate }),
-    }))
+    for (let i = 0; i < parsed.data.length; i += BATCH_SIZE) {
+      const batch = parsed.data.slice(i, i + BATCH_SIZE)
+      const settled = await Promise.allSettled(
+        batch.map((stub) => this.getBillDetail(stub.number, session))
+      )
+      for (const result of settled) {
+        if (result.status === 'fulfilled') {
+          const detail = result.value
+          bills.push({
+            id: detail.id,
+            session: detail.session,
+            title: detail.title,
+            summary: detail.summary,
+            status: detail.status,
+            sponsorId: detail.sponsorId,
+            ...(detail.voteResult !== undefined && { voteResult: detail.voteResult }),
+            ...(detail.voteDate !== undefined && { voteDate: detail.voteDate }),
+          })
+        } else {
+          logger.error(
+            { source: 'legislature-api', err: result.reason },
+            'getBillDetail failed for individual bill — skipping',
+          )
+        }
+      }
+    }
+
+    return bills
   }
 
   async getBillDetail(billId: string, session: string): Promise<BillDetail> {
