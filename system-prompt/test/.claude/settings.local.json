@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__on-record__lookup_legislator",
+      "mcp__on-record__search_bills"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "on-record"
+  ]
+}
