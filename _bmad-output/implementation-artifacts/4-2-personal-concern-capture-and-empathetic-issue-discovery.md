@@ -1,6 +1,6 @@
 # Story 4.2: Personal Concern Capture and Empathetic Issue Discovery
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -146,18 +146,18 @@ If testing reveals a behavioral gap (e.g., chatbot consistently skips emotional 
   - [X] Note any behavioral anomalies (chatbot deviations from expected behavior)
   - [X] Mark overall PASS or FAIL per run with brief rationale
 
-- [ ] Task 4: Update `system-prompt/agent-instructions.md` if gaps found (AC: 1–9)
+- [x] Task 4: Update `system-prompt/agent-instructions.md` if gaps found (AC: 1–9)
   - [x] For each FAIL, identify the relevant section of agent-instructions.md
   - [x] Revise instruction text to close the gap
   - [x] Re-run the failing scenario once after update; document result in test log
-  - [ ] **NOTE:** If no failures found across 4+ of 5 runs, no changes to agent-instructions.md are required — document "no changes needed" in test log
+  - [x] **NOTE:** Changes applied per AI code review findings: AC 7 ambiguous confirmation gate, name solicitation UX, validate-before-inform anti-pattern.
 
 ### Review Follow-ups (AI)
 
-- [ ] [AI-Review][High] AC 7 Gap: Explicitly instruct the agent to seek clarifying confirmation for ambiguous responses (e.g., "I guess," "OK," "sure") before proceeding past the bill confirmation gate. [system-prompt/agent-instructions.md:164]
-- [ ] [AI-Review][Medium] Name Solicitation UX: Refine name solicitation instruction to encourage more natural integration into acknowledgment or address request. [system-prompt/agent-instructions.md:70]
-- [ ] [AI-Review][Medium] Unexplained File Deletion: Document the reason for deleting `_bmad-output/implementation-artifacts/tech-spec-wip.md`.
-- [ ] [AI-Review][Low] Instructional Detail (AC 2): Add an explicit "anti-pattern" example for the "awkward" name solicitation or the "ambiguous response" to strengthen the agent's behavior. [system-prompt/agent-instructions.md:65]
+- [x] [AI-Review][High] AC 7 Gap: Explicitly instruct the agent to seek clarifying confirmation for ambiguous responses (e.g., "I guess," "OK," "sure") before proceeding past the bill confirmation gate. [system-prompt/agent-instructions.md:164]
+- [x] [AI-Review][Medium] Name Solicitation UX: Refine name solicitation instruction to encourage more natural integration into acknowledgment or address request. [system-prompt/agent-instructions.md:70]
+- [x] [AI-Review][Medium] Unexplained File Deletion: Document the reason for deleting `_bmad-output/implementation-artifacts/tech-spec-wip.md`.
+- [x] [AI-Review][Low] Instructional Detail (AC 2): Add an explicit "anti-pattern" example for the "awkward" name solicitation or the "ambiguous response" to strengthen the agent's behavior. [system-prompt/agent-instructions.md:65]
 
 
 ## Dev Notes
@@ -294,5 +294,14 @@ _(none — no TypeScript code; no runtime errors)_
 ### File List
 
 - `system-prompt/testing-notes-4-2.md` (new — expected run outline for concern capture + issue discovery sub-flow; monorepo root)
-- `system-prompt/test-runs-4-2.md` (new — manual test run log; created by Corey during execution)
-- `system-prompt/agent-instructions.md` (possibly modified — only if testing reveals behavioral gaps; not modified by dev agent)
+- `system-prompt/test-runs-4-2.md` (new — manual test run log; 5/5 Pass)
+- `system-prompt/agent-instructions.md` (modified — 3 targeted improvements per AI code review)
+- `_bmad-output/implementation-artifacts/tech-spec-wip.md` (deleted — this was a disposable scratch file generated during sprint planning; superseded by the formal quick-spec artifact `tech-spec-system-prompt-token-optimization.md`)
+
+## Change Log
+
+- **2026-03-15** — Addressed code review findings — 4 items resolved:
+  - ✅ Resolved [High] AC 7 ambiguous confirmation: added explicit "If response is ambiguous, seek clear confirmation" rule + example to Step 3 confirmation gate
+  - ✅ Resolved [Medium] Name solicitation UX: rewrote item 3 to weave ask into concern acknowledgment, added "ask at most once" constraint, added isolated-ask anti-pattern
+  - ✅ Resolved [Medium] Unexplained file deletion: documented `tech-spec-wip.md` deletion in File List (scratch file superseded by formal quick-spec)
+  - ✅ Resolved [Low] AC 2 anti-pattern: added "one-word acknowledgment then immediate address pivot" as an explicit bad example in validate-before-inform rule
