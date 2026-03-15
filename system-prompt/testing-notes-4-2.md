@@ -33,7 +33,7 @@ Run each persona in a **fresh session** with no prior context. Load `system-prom
 ## Persona A — Deb (specific concern, emotional)
 
 **ACs exercised:** AC 1, 2, 3, 4, 5, 6, 7
-**Address:** `742 Evergreen Terrace, Salt Lake City`
+**Address:** `6856 W Windy Ridge Dr, Herriman UT 84096`
 
 ### Step A-1: Observe the chatbot opening (AC 1)
 
@@ -90,7 +90,7 @@ After the concern is acknowledged, the chatbot should ask for a name if Deb has 
 ### Step A-4: Provide address and complete Step 2
 
 Provide:
-> "My name is Deb. My address is 742 Evergreen Terrace, Salt Lake City."
+> "My name is Deb. My address is 6856 Windy Ridge in Herriman."
 
 Allow the chatbot to call `lookup_legislator` and present legislators. **Step 2 behavior is not the focus of Story 4.2** — proceed through it normally. Choose one legislator when prompted (say "the House representative" or pick by name).
 
@@ -166,7 +166,7 @@ Send:
 ## Persona B — Marcus (vague concern)
 
 **ACs exercised:** AC 1, 2, 3, 4, 5, 6
-**Address:** `8 Spruce Street, Provo`
+**Address:** `12997 Summerharvest Dr, Draper`
 
 ### Step B-1: Observe the chatbot opening (AC 1)
 
@@ -215,7 +215,7 @@ In response to the follow-up (or add this if the chatbot asks):
 
 ### Step B-4: Provide name and address
 
-> "I'm Marcus. My address is 8 Spruce Street, Provo."
+> "I'm Marcus. My address is 12997 Summerharvest Dr, Draper."
 
 Allow Step 2 to proceed normally. Choose a legislator.
 

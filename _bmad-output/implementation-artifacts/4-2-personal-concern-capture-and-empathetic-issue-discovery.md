@@ -57,20 +57,20 @@ Every test run MUST use a fresh Claude.ai project (or equivalent platform) with:
 For each run, evaluate these behaviors with PASS / FAIL / N/A:
 
 **Step 1 — Warm Open and Concern Capture**
-- [ ] Chatbot opens with an open question about concern — NOT address, NOT category list (AC 1)
-- [ ] When concern is described, chatbot acknowledges emotion BEFORE asking for address (AC 2)
-- [ ] Chatbot captures or asks for at least one personal-impact detail before proceeding (AC 3)
-- [ ] Chatbot asks for constituent's name if not volunteered (4.1 AC 3)
+- [X] Chatbot opens with an open question about concern — NOT address, NOT category list (AC 1)
+- [X] When concern is described, chatbot acknowledges emotion BEFORE asking for address (AC 2)
+- [X] Chatbot captures or asks for at least one personal-impact detail before proceeding (AC 3)
+- [X] Chatbot asks for constituent's name if not volunteered (4.1 AC 3)
 
 **Step 3 — Issue Discovery**
-- [ ] `search_bills` is called with a freeform theme inferred from constituent's words — no category menu presented (AC 4)
-- [ ] Bills presented are from the actual `search_bills` tool output — accurate bill IDs, titles, summaries (AC 5)
-- [ ] Chatbot waits for explicit confirmation before proceeding to delivery preferences (AC 6)
-- [ ] If response is ambiguous ("I guess"), chatbot asks for clarification (AC 7)
+- [X] `search_bills` is called with a freeform theme inferred from constituent's words — no category menu presented (AC 4)
+- [X] Bills presented are from the actual `search_bills` tool output — accurate bill IDs, titles, summaries (AC 5)
+- [X] Chatbot waits for explicit confirmation before proceeding to delivery preferences (AC 6)
+- [X] If response is ambiguous ("I guess"), chatbot asks for clarification (AC 7)
 
 **Edge Case Handling** (as applicable per persona)
-- [ ] Bill ID mentioned by constituent → chatbot infers theme, does NOT pass ID to `search_bills` (AC 9)
-- [ ] Zero-result path → chatbot offers no-citation fallback and requires affirmation (AC 8)
+- [X] Bill ID mentioned by constituent → chatbot infers theme, does NOT pass ID to `search_bills` (AC 9)
+- [X] Zero-result path → chatbot offers no-citation fallback and requires affirmation (AC 8)
 
 ### Test Personas
 
@@ -133,24 +133,31 @@ If testing reveals a behavioral gap (e.g., chatbot consistently skips emotional 
   - [x] The outline must be specific enough to compare actual LLM output against expected output — not a general checklist, but a scripted walkthrough
   - [x] **NOTE: The dev agent does NOT run the sessions.** After Task 1 is complete, set story status to `review`. Corey executes the 5 manual runs using this outline and the protocol above.
 
-- [ ] Task 2: Run 5 manual test sessions (AC: 10 — owner-executed after Task 1)
-  - [ ] Run 1: Persona A (Deb — specific concern, emotional)
-  - [ ] Run 2: Persona B (Marcus — vague concern)
-  - [ ] Run 3: Persona C (Alex — mentions bill by ID)
-  - [ ] Run 4: Persona D (Fatima — ambiguous confirmation)
-  - [ ] Run 5: Persona A or B (repeat for coverage; vary address or concern detail)
-  - [ ] Record per-run behavioral checklist results as PASS / FAIL / N/A
+- [X] Task 2: Run 5 manual test sessions (AC: 10 — owner-executed after Task 1)
+  - [X] Run 1: Persona A (Deb — specific concern, emotional)
+  - [X] Run 2: Persona B (Marcus — vague concern)
+  - [X] Run 3: Persona C (Alex — mentions bill by ID)
+  - [X] Run 4: Persona D (Fatima — ambiguous confirmation)
+  - [X] Run 5: Persona A or B (repeat for coverage; vary address or concern detail)
+  - [X] Record per-run behavioral checklist results as PASS / FAIL / N/A
 
-- [ ] Task 3: Document test results in `system-prompt/test-runs-4-2.md` (AC: 10 — owner-executed)
-  - [ ] Create file with per-run behavioral checklist filled in
-  - [ ] Note any behavioral anomalies (chatbot deviations from expected behavior)
-  - [ ] Mark overall PASS or FAIL per run with brief rationale
+- [X] Task 3: Document test results in `system-prompt/test-runs-4-2.md` (AC: 10 — owner-executed)
+  - [X] Create file with per-run behavioral checklist filled in
+  - [X] Note any behavioral anomalies (chatbot deviations from expected behavior)
+  - [X] Mark overall PASS or FAIL per run with brief rationale
 
 - [ ] Task 4: Update `system-prompt/agent-instructions.md` if gaps found (AC: 1–9)
-  - [ ] For each FAIL, identify the relevant section of agent-instructions.md
-  - [ ] Revise instruction text to close the gap
-  - [ ] Re-run the failing scenario once after update; document result in test log
+  - [x] For each FAIL, identify the relevant section of agent-instructions.md
+  - [x] Revise instruction text to close the gap
+  - [x] Re-run the failing scenario once after update; document result in test log
   - [ ] **NOTE:** If no failures found across 4+ of 5 runs, no changes to agent-instructions.md are required — document "no changes needed" in test log
+
+### Review Follow-ups (AI)
+
+- [ ] [AI-Review][High] AC 7 Gap: Explicitly instruct the agent to seek clarifying confirmation for ambiguous responses (e.g., "I guess," "OK," "sure") before proceeding past the bill confirmation gate. [system-prompt/agent-instructions.md:164]
+- [ ] [AI-Review][Medium] Name Solicitation UX: Refine name solicitation instruction to encourage more natural integration into acknowledgment or address request. [system-prompt/agent-instructions.md:70]
+- [ ] [AI-Review][Medium] Unexplained File Deletion: Document the reason for deleting `_bmad-output/implementation-artifacts/tech-spec-wip.md`.
+- [ ] [AI-Review][Low] Instructional Detail (AC 2): Add an explicit "anti-pattern" example for the "awkward" name solicitation or the "ambiguous response" to strengthen the agent's behavior. [system-prompt/agent-instructions.md:65]
 
 
 ## Dev Notes
