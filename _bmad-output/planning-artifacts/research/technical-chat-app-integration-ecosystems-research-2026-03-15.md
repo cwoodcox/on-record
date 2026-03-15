@@ -232,3 +232,41 @@ All four platforms converge on **OAuth 2.0/2.1** as the auth standard for produc
 
 Notable security gotcha: CVE-2025-6514 in `mcp-remote` npm package (versions 0.0.5–0.1.15) allowed arbitrary OS command execution via unsanitized OAuth URLs. Fixed in 0.1.16. Any On Record deployment must use a patched version.
 _Source: [Secure MCP OAuth 2.1 – Scalekit](https://www.scalekit.com/blog/implement-oauth-for-mcp-servers); [MCP OAuth 2.1 – MCP Spec](https://modelcontextprotocol.io/specification/draft/basic/authorization)_
+
+---
+
+## Strategic Notes: BYOLLM Architecture and Monetization Implications
+
+### Scope Decision: Gemini Deprioritized
+
+Gemini is excluded from further analysis in this research. The consumer Gemini app has no third-party plugin ecosystem — integrations are Google-curated only. Reaching Gemini users requires building a standalone Gemini-powered application, which directly contradicts On Record's BYOLLM architecture (users bring their own LLM subscription; On Record provides the MCP server layer). Gemini's pricing advantage (~$0.10/M tokens for Flash vs ~$3/M for Claude Sonnet) is irrelevant when On Record does not pay for inference. Revisit only if the BYOLLM model is abandoned.
+
+### BYOLLM + Enterprise Contracts: The B2B Opportunity
+
+On Record's architecture is unusually well-suited to enterprise buyers who already hold AI contracts. Legislative affairs teams at law firms, lobbying shops, newsrooms, and government relations departments are disproportionately likely to have M365 Copilot or Claude Enterprise seats as part of broader software agreements. For these buyers:
+
+- **Zero new procurement friction** — no new AI vendor evaluation, no new data processing agreements, no new LLM cost line item. On Record is just another tool on infrastructure they've already purchased.
+- **Marginal token cost is near-zero** — enterprise AI contracts are typically seat-based or include generous token allowances. Using On Record tools consumes tokens they've already paid for.
+- **BYOLLM enables a lower On Record access fee** — On Record's cost structure excludes inference, so it can price plugin access below a full-service SaaS that bundles LLM costs. This is a genuine competitive framing.
+
+**Important nuance:** "Cheaper for the buyer" only holds if On Record's access pricing visibly reflects the thinner cost structure. If plugin access is priced similarly to a full-service competitor, buyers lose the framing and the value prop collapses.
+
+### Revenue Mechanisms by Segment
+
+**Consumer (individual constituents, Claude Pro / ChatGPT Plus subscribers):**
+No automatic revenue flow from LLM provider to On Record. Users paying $20/month to Anthropic or OpenAI generate nothing for On Record when they use the MCP server. Viable models: direct subscription tier, donation/civic funding model, or grants (civic tech organizations frequently operate on foundation grants). BYOLLM is excellent UX for this segment but does not auto-monetize.
+
+**Professional / Enterprise (journalists, lobbyists, legislative staffers):**
+- **Direct subscription** — most straightforward; On Record charges a per-seat or org fee for MCP server access, independent of LLM provider.
+- **Microsoft AppSource paid plugin** — Copilot plugins can be sold through AppSource. Microsoft handles billing and takes ~15–20%. This is the most structured monetization path for the M365/Copilot segment and handles enterprise procurement workflows natively.
+- **No rev share from Anthropic or OpenAI** — neither provider currently shares revenue with MCP server developers or GPT Store creators. OpenAI's GPT Store pays developers nothing. Anthropic has no marketplace.
+
+### Platform Prioritization Summary
+
+| Platform | Segment | Timeline | Revenue Path |
+|---|---|---|---|
+| **Claude (MCP)** | Consumer + prosumer | MVP | Direct subscription or free |
+| **ChatGPT (GPT Store)** | Consumer | Near-term | Direct subscription or free |
+| **ChatGPT (Responses API)** | Developer-built apps | Near-term | N/A (developer path) |
+| **Microsoft Copilot** | Professional / enterprise | Long-term | AppSource paid plugin or direct enterprise contract |
+| **Gemini** | — | Deprioritized | — |
