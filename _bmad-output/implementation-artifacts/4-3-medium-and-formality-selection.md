@@ -1,6 +1,6 @@
 # Story 4.3: Medium and Formality Selection
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -129,12 +129,12 @@ If testing reveals a behavioral gap (e.g., chatbot skips the formality question,
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Write expected test run outline in `system-prompt/testing-notes-4-3.md` (AC: 1–7 — reference for owner-executed runs)
-  - [ ] For each persona (A–E), write a step-by-step description of what a **passing** run looks like: what the chatbot should say at each Step 4a decision point, what tone/length signals confirm each AC in the generated draft
-  - [ ] Include explicit "PASS signal" and "FAIL signal" for each behavioral checkpoint (especially: inference vs. ask-directly split, dual-preference capture, draft register compliance, length bounds)
-  - [ ] Include AC quick-reference table (AC number → checkpoint → persona coverage)
-  - [ ] The outline must be specific enough to compare actual LLM output against expected output — not a general checklist, but a scripted walkthrough
-  - [ ] **NOTE: The dev agent does NOT run the sessions.** After Task 1 is complete, set story status to `review`. Corey executes the 5 manual runs using this outline and the protocol above.
+- [x] Task 1: Write expected test run outline in `system-prompt/testing-notes-4-3.md` (AC: 1–7 — reference for owner-executed runs)
+  - [x] For each persona (A–E), write a step-by-step description of what a **passing** run looks like: what the chatbot should say at each Step 4a decision point, what tone/length signals confirm each AC in the generated draft
+  - [x] Include explicit "PASS signal" and "FAIL signal" for each behavioral checkpoint (especially: inference vs. ask-directly split, dual-preference capture, draft register compliance, length bounds)
+  - [x] Include AC quick-reference table (AC number → checkpoint → persona coverage)
+  - [x] The outline must be specific enough to compare actual LLM output against expected output — not a general checklist, but a scripted walkthrough
+  - [x] **NOTE: The dev agent does NOT run the sessions.** After Task 1 is complete, set story status to `review`. Corey executes the 5 manual runs using this outline and the protocol above.
 
 - [ ] Task 2: Run 5 manual test sessions (AC: 8 — owner-executed after Task 1)
   - [ ] Run 1: Persona A (Deb — email, conversational, single-message)
@@ -286,6 +286,18 @@ claude-sonnet-4-6
 
 ### Debug Log References
 
+None — no TypeScript code, no runtime errors.
+
 ### Completion Notes List
 
+- Created `system-prompt/testing-notes-4-3.md`: scripted walkthrough for all 5 personas (A–E), covering AC 1–7. Each persona section includes a step-by-step interaction script, explicit PASS/FAIL signals for every behavioral checkpoint (medium timing, formality inference paths, dual-capture, single-preference handling, draft register compliance, email/text length bounds), and an AC quick-reference table mapping AC numbers to checkpoints and persona coverage.
+- Created `system-prompt/test-runs-4-3.md`: empty test log template with per-run behavioral checklists, a summary table, and a changes log section — ready for Corey to fill in during manual test sessions.
+- Sprint status updated: `4-3-medium-and-formality-selection` → `review`.
+- Tasks 2, 3, and 4 are owner-executed (manual test runs). Dev agent scope ends at Task 1 per story specification.
+
 ### File List
+
+- `system-prompt/testing-notes-4-3.md` (new)
+- `system-prompt/test-runs-4-3.md` (new)
+- `_bmad-output/implementation-artifacts/4-3-medium-and-formality-selection.md` (modified — status, tasks, dev agent record)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified — status → review)
