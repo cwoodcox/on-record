@@ -270,3 +270,90 @@ No automatic revenue flow from LLM provider to On Record. Users paying $20/month
 | **ChatGPT (Responses API)** | Developer-built apps | Near-term | N/A (developer path) |
 | **Microsoft Copilot** | Professional / enterprise | Long-term | AppSource paid plugin or direct enterprise contract |
 | **Gemini** | — | Deprioritized | — |
+
+---
+
+## Architectural Patterns and Design
+
+### System Architecture: Stateless vs. Stateful MCP
+
+The MCP ecosystem is mid-transition on session architecture. The current Streamable HTTP spec (2025-03-26) supports both stateful sessions and stateless requests. The 2026 roadmap formalises **stateless-by-default** as the target — each request self-contained, with application-level statefulness layered on top via tokens/cookies, mirroring standard HTTP.
+
+**Implications for On Record's existing architecture:**
+
+On Record's MCP server runs on Railway (persistent containerized process), which is well-suited for the current stateful model. The 2026 shift toward stateless-by-default is directionally positive — it will make future horizontal scaling simpler — but is not a breaking change for existing deployments. The Railway deployment handles this correctly today and does not need to change until the stateless SEPs are finalised (tentatively June 2026).
+
+**Vercel** (where the web app lives) is the wrong host for the MCP server: its 10-second default timeout (60 seconds on Pro) is incompatible with MCP tool calls that chain UGRC geocoding → Utah Legislature API lookups. Railway's absence of hard request timeouts is a meaningful architectural advantage here.
+
+_Source: [MCP Transport Future – MCP Blog](http://blog.modelcontextprotocol.io/posts/2025-12-19-mcp-transport-future/); [MCP 2026 Roadmap](http://blog.modelcontextprotocol.io/posts/2026-mcp-roadmap/); [Building Efficient MCP Servers – Vercel](https://vercel.com/blog/building-efficient-mcp-servers)_
+
+### Request Execution Model Per Platform
+
+Understanding how each platform executes tool calls is critical for designing On Record's tool handlers.
+
+**Claude (MCP):** The Claude host calls `tools/list` once at session start to enumerate available tools, then issues `tools/call` for each invocation. Calls are sequential within a turn but Claude can chain multiple tool calls across turns. No platform-imposed timeout on individual tool calls beyond the user's session patience. Streaming responses supported.
+
+**ChatGPT (Responses API / MCP):** Runtime calls `mcp_list_tools` on first use, caches the result. Tool invocations (`mcp_tool_call`) can be batched in an agentic loop within a single API request. The `require_approval` setting controls whether the runtime pauses for user confirmation. No per-tool timeout documented, but the overall Responses API request has a maximum duration. `allowed_tools` parameter should be used to limit tool list size and reduce token overhead per call.
+_Source: [Remote MCP Tool – OpenAI Platform](https://platform.openai.com/docs/guides/tools-remote-mcp)_
+
+**Microsoft Copilot (Declarative Agent):** Static tool discovery — tool list is snapshotted at manifest build time, not fetched dynamically at runtime. Tools are called as REST-style actions via the plugin manifest. This means On Record tools need to be stable and well-named in the manifest; additions require a manifest update and resubmission.
+_Source: [Declarative Agents Overview – Microsoft Learn](https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/overview-declarative-agent)_
+
+### Deployment Architecture
+
+On Record's current split — MCP server on Railway, web app on Vercel — is well-aligned with each platform's strengths:
+
+```
+┌─────────────────────────────────────────────────────┐
+│                   Chat App Layer                    │
+│  Claude.ai  │  ChatGPT  │  M365 Copilot (future)   │
+└──────────────────────┬──────────────────────────────┘
+                       │ MCP / OpenAPI
+┌──────────────────────▼──────────────────────────────┐
+│          On Record MCP Server (Railway)             │
+│  Hono + @modelcontextprotocol/sdk                   │
+│  Streamable HTTP transport (upgrade from SSE)       │
+│  OAuth 2.1 + PKCE (to add)                         │
+│  Tools: find_legislators, lookup_district, etc.     │
+└───────────┬──────────────────────┬──────────────────┘
+            │                      │
+┌───────────▼──────┐   ┌───────────▼──────────────────┐
+│  Utah Legislature│   │  UGRC GIS API                │
+│  API             │   │  (geocoding + districts)      │
+└──────────────────┘   └──────────────────────────────┘
+
+┌─────────────────────────────────────────────────────┐
+│        On Record Web App (Vercel)                   │
+│  Next.js 16 — constituent-facing UI                 │
+│  Calls MCP server via NEXT_PUBLIC_MCP_SERVER_URL    │
+└─────────────────────────────────────────────────────┘
+```
+
+### Multi-Tenancy Considerations
+
+**MVP (individual constituents):** No multi-tenant complexity. Each user connects their own Claude/ChatGPT subscription. The MCP server handles requests statelessly per OAuth token — each token scoped to one user. No shared state between users.
+
+**Enterprise (future — professional firms):** Multi-tenant isolation requires: (1) tenant-scoped OAuth tokens with `tenant_id` claim, (2) per-tenant audit logging, (3) rate limiting per tenant to prevent one org from starving others. The key risk is **leaky context** — a shared session store without strong tenant filtering is a data incident. The layered pattern (IdP → gateway → MCP server → namespaced storage) is the proven blueprint.
+_Source: [Multi-User MCP Blueprint – Bix Tech](https://bix-tech.com/multi-user-ai-agents-with-an-mcp-server-a-practical-blueprint-for-secure-scalable-collaboration/)_
+
+### GPT Store vs. Responses API: Architectural Difference
+
+This distinction matters for how On Record exposes its interface to ChatGPT users:
+
+- **GPT Store (custom GPT + Actions):** OpenAI hosts the GPT; On Record hosts the Action endpoint. The GPT's system prompt, persona, and tool schema are configured in ChatGPT's builder UI and stored on OpenAI's platform. On Record's server only needs to handle the REST calls — it has no awareness of the conversation context.
+
+- **Responses API (MCP):** No GPT configuration needed. The calling application passes On Record's MCP server URL directly. On Record's tool descriptions (from `tools/list`) are what the model sees — so tool naming and descriptions in the MCP server are the primary UX surface, not a GPT system prompt.
+
+For consumer distribution via the GPT Store, both must exist: a custom GPT (OpenAI-hosted, minimal config) that points its Action at On Record's REST endpoints. For developer/API distribution, the MCP server alone is sufficient.
+
+### Performance Characteristics
+
+| Concern | Claude MCP | ChatGPT Responses API | Microsoft Copilot |
+|---|---|---|---|
+| **Tool list fetch** | Once per session (`tools/list`) | Once per session (`mcp_list_tools`) | Once at manifest build time (static) |
+| **Per-call latency overhead** | ~0ms protocol overhead | ~0ms protocol overhead | REST round-trip via plugin manifest |
+| **Timeout constraints** | None documented | None per-tool documented | REST action timeouts apply |
+| **Streaming support** | Yes (SSE within Streamable HTTP) | Yes | Limited |
+| **Approval UX** | OAuth prompt at connection | `require_approval` per tool | User confirms via Copilot chat |
+
+_Source: [GPT Actions Production – OpenAI](https://platform.openai.com/docs/actions/production); [MCP Architecture – modelcontextprotocol.io](https://modelcontextprotocol.io/docs/learn/architecture)_
