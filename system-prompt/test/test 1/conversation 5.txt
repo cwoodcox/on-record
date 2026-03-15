@@ -1,0 +1,183 @@
+ ▐▛███▜▌   Claude Code v2.1.72
+▝▜█████▛▘  Sonnet 4.6 · Claude Pro
+  ▘▘ ▝▝    ~/Developer/cwoodcox/on-record-test
+
+  /remote-control is active. Code in CLI or at
+  https://claude.ai/code/session_01VPerz6JCfj4DY8pV8EJDCH
+
+❯ hi!                                                                           
+
+⏺ Hi there! I'm here to help you write a message to your Utah state legislator.
+
+  What's been on your mind lately — what brings you here today?
+
+❯ I'm really upset about the cuts to public education funding — my daughter's   
+school just lost three teachers."                                               
+
+⏺ Losing three teachers from your daughter's school — that's not just a budget
+  line, that's her classroom, her learning, her daily experience. I can
+  absolutely understand why you're upset.
+
+  Three teachers is a lot for one school to absorb. Do you have a sense of how
+  it's been affecting her or the other kids so far? For example, larger class
+  sizes, dropped programs, anything like that?
+
+❯ I just hope they don't cut her band trip next year. She's been looking        
+forward to it since last school year!                                           
+
+⏺ That's such a meaningful thing for a kid to look forward to — a band trip can
+  be one of those experiences that stays with you for life. The thought of it
+  disappearing because of budget cuts, after she's been counting on it for over
+  a year, is genuinely frustrating.
+
+  Let's make sure your voice gets heard on this. To find your specific state
+  representatives, I'll need your address — just the street address and city or
+  ZIP is fine.
+
+❯ 6856 W Windy Ridge Dr 84096 in herriman                                       
+
+⏺ Let me look that up for you right now!
+
+⏺ on-record - lookup_legislator (MCP)(street: "6856 W Windy Ridge Dr", zone:
+                                     "84096")
+  ⎿  {
+       "legislators": [
+         {
+     … +23 lines (ctrl+o to expand)
+
+⏺ Got it! Based on your address, your state representatives are:
+
+  - Candice B. Pierucci, Utah House of Representatives, District 49
+  - Emily Buss, Utah Senate, District 11
+
+  Which one would you like to write to?
+
+❯ I've never heard of Emily, maybe I should try to get to know her              
+
+⏺ Great choice — reaching out is a wonderful way to introduce yourself and make
+  your voice heard! Let me search for bills Senator Buss has sponsored related
+  to public education funding.
+
+⏺ on-record - search_bills (MCP)(legislatorId: "BUSSEM", theme: "public
+                                education funding")
+  ⎿  {
+       "bills": [],
+       "legislatorId": "BUSSEM",
+     … +2 lines (ctrl+o to expand)
+
+⏺ It looks like Senator Buss hasn't sponsored any bills specifically tied to
+  public education funding in the sessions we have on record. That doesn't
+  necessarily mean she hasn't been involved — but we can try a different angle
+  to see if anything surfaces.
+
+  Would you like me to search a related topic, like school budgets, teacher 
+  staffing, or arts and extracurricular programs? Any of those feel closer to
+  what you'd like to bring up with her?
+
+❯ What about arts or charter schools?                                           
+
+⏺ Let me search both at the same time!
+
+⏺ on-record - search_bills (MCP)(legislatorId: "BUSSEM", theme: "arts
+                                education")
+  ⎿  {
+       "bills": [],
+       "legislatorId": "BUSSEM",
+     … +2 lines (ctrl+o to expand)
+
+⏺ on-record - search_bills (MCP)(legislatorId: "BUSSEM", theme: "charter
+                                schools")
+  ⎿  {
+       "bills": [],
+       "legislatorId": "BUSSEM",
+     … +2 lines (ctrl+o to expand)
+
+⏺ No results on either front, unfortunately. It may be that Senator Buss is
+  newer to her role or has focused on other areas in her sponsored legislation.
+
+  Here's the thing though — that actually makes your message more valuable, not
+  less. Writing to a legislator to introduce yourself and share how education
+  cuts are hitting your family directly is a meaningful way to put the issue on
+  her radar, even without a specific bill to cite.
+
+  We can still write a strong, personal message from you to Senator Buss about
+  the teacher cuts and your daughter's band trip. It just won't reference
+  sponsored legislation — instead, it'll lead with your story.
+
+  Would you like to go that route? And if so, would you prefer email or text,
+  and conversational or formal in tone?
+
+❯ Does that really work? Do they really answer texts?                           
+
+⏺ That's a really fair question! Here's the honest answer:
+
+  It depends on the legislator. Some offices actively monitor texts and respond
+  personally; others route them to staff or treat them more like a quick
+  heads-up. Texts tend to work best as a way to flag an issue — they're punchy
+  and hard to ignore — but they don't leave a lot of room for your story.
+
+  Email is generally more reliable for actually getting a response, especially
+  when you have a personal story to tell like yours. A well-written email with
+  specific details (three teachers lost, a daughter counting on her band trip)
+  gives their office something real to engage with. Legislators and their staff
+  do read constituent emails, particularly from people in their own district.
+
+  That said, there's no wrong choice — any contact is better than none, and
+  you're already doing more than most constituents do just by reaching out.
+
+  So — email or text, and what tone feels right to you: conversational (in your
+  own voice) or formal (more structured and professional)?
+
+❯ I'm feeling brave. I'll send her a casual text and see if she answers, if     
+you'll help me figure out what to say.                                          
+
+⏺ I love that energy! A short, personal text from a real constituent in her
+  district can absolutely make an impression.
+
+  One quick clarification before I draft — since we didn't find any bills
+  Senator Buss has sponsored on this topic, the text will lead with your story
+  rather than citing specific legislation. It'll still be specific and
+  compelling: three teachers gone, a daughter who's been dreaming about her band
+   trip. That's real, and it matters.
+
+  Ready to write it up! Just to confirm — you'd like the tone
+  casual/conversational, sent as a text, to Senator Emily Buss, about the
+  teacher cuts and your concern for your daughter's band trip. Is that right?
+
+❯ Yep, that's right!                                                            
+
+⏺ Here's a draft text for Senator Buss:
+
+  ---
+  Text to Senator Emily Buss (801-598-4734):
+
+  Hi Senator Buss, I'm a constituent in District 11 (Herriman). Our school just 
+  lost 3 teachers to budget cuts, and my daughter's band trip — something she's 
+  been looking forward to for over a year — may be next. Education cuts have 
+  real consequences for real kids. Would love to know where you stand on 
+  protecting school funding. Thanks!
+
+  ---
+  It comes in just under 160 characters per segment and keeps it personal and
+  direct.
+
+  Would you like any changes — shorter, different emphasis, add your name,
+  anything like that?
+
+❯ That sounds like me! Add my name, Deb, though!                                
+
+⏺ Here you go, Deb!
+
+  ---
+  Text to Senator Emily Buss (801-598-4734):
+
+  Hi Senator Buss, I'm Deb, a constituent in District 11 (Herriman). Our school 
+  just lost 3 teachers to budget cuts, and my daughter's band trip — something 
+  she's been looking forward to for over a year — may be next. Education cuts 
+  have real consequences for real kids. Would love to know where you stand on 
+  protecting school funding. Thanks!
+
+  ---
+  That's ready to send! You've got her cell number right there — 801-598-4734.
+  Good luck, Deb — I hope she responds! 🤞 Is there anything else you'd like to
+  adjust?

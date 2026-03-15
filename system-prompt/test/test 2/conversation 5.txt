@@ -1,0 +1,166 @@
+  ▝▜▄     Gemini CLI v0.33.1
+    ▝▜▄
+   ▗▟▀    Logged in with Google /auth
+  ▝▀      Gemini Code Assist for individuals /upgrade
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > hi!
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ Hello! What's been on your mind lately — what brings you here today?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > My son's school just found out they're losing their art and music programs because of budget cuts. I want to say something.
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ That’s heartbreaking to hear. Losing art and music isn't just a budget line—those programs are often where kids find their spark and a
+  reason to love school.
+
+
+  How is your son taking the news? Has he been involved in those programs for a while?
+
+
+  And what's your name? Just a first name is fine.
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > I'm deb, and art is his favorite thing. he'll still have a basic art class but he was in a specialized drawing and animation class
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ It sounds like that animation class was a real highlight for him, Deb. It’s tough to see those specialized programs go, especially when
+  they’re such a big part of why a student connects with school.
+
+
+  To find your specific representatives so we can get your message to the right place, I'll need your address—just the street address and
+  city or ZIP is fine.
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > we're in murray. 1847 oak st
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  lookup_legislator (on-record MCP Server) {"zone":"murray","street":"1847 oak st"}                                                │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "legislators": [                                                                                                                  │
+│     {                                                                                                                               │
+│       "id": "ARTHUJ",                                                                                                               │
+│       "chamber": "house",                                                                                                           │
+│       "district": 41,                                                                                                               │
+│       "name": "John Arthur",                                                                                                        │
+│       "email": "jarthur@le.utah.gov",                                                                                               │
+│       "phone": "801-518-3407",                                                                                                      │
+│       "session": "2026GS",                                                                                                          │
+│       "phoneLabel": "cell"                                                                                                          │
+│     },                                                                                                                              │
+│     {                                                                                                                               │
+│       "id": "PITCHS",                                                                                                               │
+│       "chamber": "senate",                                                                                                          │
+│       "district": 14,                                                                                                               │
+│       "name": "Stephanie Pitcher",                                                                                                  │
+│       "email": "spitcher@le.utah.gov",                                                                                              │
+│       "phone": "385-272-8032",                                                                                                      │
+│       "session": "2026GS",                                                                                                          │
+│       "phoneLabel": "cell"                                                                                                          │
+│     }                                                                                                                               │
+│   ],                                                                                                                                │
+│   "session": "2026GS",                                                                                                              │
+│   "resolvedAddress": "1847 OAK KNOLL DR, SALT LAKE CITY"                                                                            │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ Just to confirm, Deb — the address I found representatives for is 1847 Oak Knoll Dr, Salt Lake City. Does that match where you live, or
+  is your address different?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > oh yeah that's right
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ Got it. Based on your address, your state representatives are:
+
+
+   * John Arthur, House District 41
+   * Stephanie Pitcher, Senate District 14
+
+
+  Which one would you like to write to, Deb?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > oh I follow John on instagram!
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"theme":"education funding","legislatorId":"ARTHUJ"}                                        │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [                                                                                                                        │
+│     {                                                                                                                               │
+│       "id": "HB0497",                                                                                                               │
+│       "session": "2026GS",                                                                                                          │
+│       "title": "Public Education Funding Amendments",                                                                               │
+│       "summary": "This bill provides additional funding for the Minimum School Program in certain fiscal years with enrollment      │
+│ decline.",                                                                                                                          │
+│       "status": "House/ filed",                                                                                                     │
+│       "sponsorId": "ARTHUJ"                                                                                                         │
+│     }                                                                                                                               │
+│   ],                                                                                                                                │
+│   "legislatorId": "ARTHUJ",                                                                                                         │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"theme":"education","legislatorId":"ARTHUJ"}                                                │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [                                                                                                                        │
+│     {                                                                                                                               │
+│       "id": "HB0364",                                                                                                               │
+│       "session": "2026GS",                                                                                                          │
+│       "title": "Certified Teacher Librarian Amendments",                                                                            │
+│       "summary": "This bill requires a school district or regional education service agency to staff a full-time certified teacher  │
+│ librarian.",                                                                                                                        │
+│       "status": "House/ filed",                                                                                                     │
+│       "sponsorId": "ARTHUJ"                                                                                                         │
+│     },                                                                                                                              │
+│     {                                                                                                                               │
+│       "id": "HB0278",                                                                                                               │
+│       "session": "2026GS",                                                                                                          │
+│       "title": "School Board Election Amendments",                                                                                  │
+│       "summary": "This bill amends provisions relating to the State Board of Education.",                                           │
+│       "status": "House/ filed",                                                                                                     │
+│       "sponsorId": "ARTHUJ"                                                                                                         │
+│     },                                                                                                                              │
+│     {                                                                                                                               │
+│       "id": "HB0497",                                                                                                               │
+│       "session": "2026GS",                                                                                                          │
+│       "title": "Public Education Funding Amendments",                                                                               │
+│       "summary": "This bill provides additional funding for the Minimum School Program in certain fiscal years with enrollment      │
+│ decline.",                                                                                                                          │
+│       "status": "House/ filed",                                                                                                     │
+│       "sponsorId": "ARTHUJ"                                                                                                         │
+│     }                                                                                                                               │
+│   ],                                                                                                                                │
+│   "legislatorId": "ARTHUJ",                                                                                                         │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ It’s great that you’re already following Representative Arthur! Since you’re concerned about the budget cuts and losing programs like the
+  animation class, I searched for bills he’s sponsored that relate to education and funding.
+
+  Here are a couple that might connect with what you’re describing:
+
+
+   1. HB 497 — Public Education Funding Amendments — This bill aims to provide additional funding for schools experiencing enrollment
+      declines, helping to stabilize their budgets. It is currently filed in the House for the 2026 General Session.
+   2. HB 364 — Certified Teacher Librarian Amendments — This bill would require school districts to staff full-time certified librarians,
+      focusing on keeping specialized staff in our schools. It is also currently filed in the House for this year's session.
+
+
+  Do either of these connect to what you're concerned about, Deb, or would you like me to search for a different angle?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > i guess the first one?
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ That makes sense, Deb. Since HB 497 is about stabilizing school budgets during funding shifts, it's a good one to reference when talking
+  about the impact these cuts are having on your son's animation class.
+
+
+  Before I draft a message for you to send to Representative Arthur, I just need two more details:
+
+
+   1. Would you prefer to send this as an email or a text/SMS? Email gives you more room to tell your story, while text is short and
+      direct.
+   2. And would you like the tone to be conversational (personal, in your own voice) or formal (professional, structured)? Since you follow
+      him on Instagram, you might already have a feel for how you'd like to reach out!

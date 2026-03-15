@@ -1,0 +1,153 @@
+ ▐▛███▜▌   Claude Code v2.1.75
+▝▜█████▛▘  Sonnet 4.6 · Claude Pro
+  ▘▘ ▝▝    ~/Developer/cwoodcox/on-record-test
+
+  /remote-control is active. Code in CLI or at
+  https://claude.ai/code/session_01Wmvu7mMCzAXbYbyDnxysUN
+
+❯ hi!                                                                           
+
+⏺ Hi there! What's been on your mind lately — what brings you here today?
+
+❯ I want to say something about housing. I'm not sure what.                     
+
+⏺ That feeling that something needs to be said — it's worth paying attention to.
+   Housing touches so many parts of life.
+
+  Can you tell me a little more about what's going on? Is there something
+  specific you've been experiencing or seeing around you — maybe with rent,
+  finding a place to live, the cost of buying a home, something in your
+  neighborhood?
+
+❯ I've been looking for a place to rent for six months. Prices are just insane. 
+
+⏺ Six months of searching — that's exhausting. It's not just numbers on a
+  screen; that's six months of uncertainty, of not knowing where you'll land.
+  The rental market in Utah has been brutal for a lot of people, and it sounds
+  like you're living that firsthand.
+
+  Has this affected your day-to-day life — like having to stay somewhere
+  temporary, commute from further away, or put other things on hold?
+
+❯ I'm staying with my brother in SLC. His place is nice but it's so tiny, it's  
+brutal.                                                                         
+
+⏺ Cramped quarters with family — even when you love them, it wears on you. No
+  real privacy, no space to exhale. Six months of that is a long time.
+
+  It sounds like you've got a real, personal stake in this. That's exactly the
+  kind of story a legislator needs to hear — not just statistics, but a real
+  person dealing with real consequences.
+
+  And what's your name? Just a first name is fine.
+
+❯ I'm Fatima                                                                    
+
+⏺ Great to meet you, Fatima! Your story is exactly the kind of thing that can
+  make a message to a legislator feel real and human.
+
+  To find your specific representatives, I'll need your address — just the
+  street address and city or ZIP is fine. (Since you're staying with your
+  brother in SLC, that address works perfectly.)
+
+❯ he lives at 500 e 500 s                                                       
+
+⏺ on-record - lookup_legislator (MCP)(street: "500 E 500 S", zone: "Salt Lake
+                                     City")
+  ⎿  {
+       "legislators": [
+         {
+     … +23 lines (ctrl+o to expand)
+
+⏺ Got it, Fatima! Based on that address, your state representatives are:
+
+  - Grant Amjad Miller, House District 24
+  - Jen Plumb, Senate District 9
+
+  Which one would you like to write to?
+
+❯ i've heard grant's name around                                                
+
+⏺ Great, let's go with Rep. Grant Miller then!
+
+⏺ on-record - search_bills (MCP)(legislatorId: "MILLGR", theme: "rental housing
+                                affordability")
+  ⎿  {
+       "bills": [],
+       "legislatorId": "MILLGR",
+     … +2 lines (ctrl+o to expand)
+
+⏺ Hmm, I didn't find any bills Rep. Miller has sponsored specifically on rental
+  housing affordability. Let me try a different angle.
+
+⏺ on-record - search_bills (MCP)(legislatorId: "MILLGR", theme: "housing")
+  ⎿  {
+       "bills": [],
+       "legislatorId": "MILLGR",
+     … +2 lines (ctrl+o to expand)
+
+⏺ No results there either. Let me try one more angle — sometimes housing bills
+  show up under land use or zoning.
+
+⏺ on-record - search_bills (MCP)(legislatorId: "MILLGR", theme: "zoning land use
+                                 development")
+  ⎿  {
+       "bills": [],
+       "legislatorId": "MILLGR",
+     … +2 lines (ctrl+o to expand)
+
+⏺ Fatima, I've tried a few different searches and I'm not finding any bills Rep.
+   Miller has personally sponsored on housing-related topics. That doesn't mean
+  he hasn't engaged with the issue — it just means the data I have access to
+  doesn't show him sponsoring legislation in that area.
+
+  We have two options:
+
+  1. Keep searching — if you want, I can try a different angle (like "rent
+  control," "tenant rights," or "cost of living")
+  2. Write the message anyway — your story is powerful and worth sharing even
+  without citing a specific bill. You'd just be speaking directly to your
+  experience and asking him to act.
+
+  What would you prefer?
+
+❯ what about community?                                                         
+
+⏺ on-record - search_bills (MCP)(legislatorId: "MILLGR", theme: "community")
+  ⎿  {
+       "bills": [
+         {
+     … +12 lines (ctrl+o to expand)
+
+⏺ I found one bill, but I want to be upfront with you — it's not really about
+  housing. Here's what came up:
+
+  - HB 53 — Community Rehabilitation Program Amendments — This bill deals with
+  requirements around purchasing from community rehabilitation programs
+  (organizations that employ people with disabilities). It's currently on its
+  way to the Governor.
+
+  That's a meaningful bill, but it's not connected to your rental situation. I
+  don't want to stretch the connection if it isn't really there.
+
+  At this point, I'd suggest we just write a message from the heart — your six
+  months of searching, living cramped at your brother's place, the prices
+  feeling impossible. That's a compelling story on its own, and Rep. Miller
+  needs to hear it. Would you like to go that route?
+
+❯ fair enough, i just really like what he says about that stuff and think i     
+could reference it to show i'm paying attention                                 
+
+⏺ That's a great instinct, Fatima — showing you've been paying attention makes a
+   message land so much better than a generic complaint.
+
+  The only thing I'd flag: I don't have access to Rep. Miller's public
+  statements or speeches, so I can't pull a specific quote for you to reference.
+   But you can! If there's something he's said — at a town hall, on social
+  media, in a local news article — you could drop it in when we draft the
+  message and I'll weave it in naturally.
+
+  For now, let's move forward and you can add that detail if you want. Sound
+  good?
+
+  If so — would you prefer to send this as an email or a text/SMS?

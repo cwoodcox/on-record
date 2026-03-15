@@ -1,0 +1,143 @@
+
+  ▝▜▄     Gemini CLI v0.33.1
+    ▝▜▄
+   ▗▟▀    Logged in with Google /auth
+  ▝▀      Gemini Code Assist for individuals /upgrade
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > hi!
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ Hi there! What's been on your mind lately — what brings you here today?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > I'm really upset about the cuts to public education funding — my daughter's school just lost three teachers.
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ That sounds incredibly stressful. Losing three teachers isn't just a budget change—it's a huge disruption for your daughter and her
+  entire school community.
+
+
+  I'm here to help you share that experience with the people who make those funding decisions. What's your name? (Just a first name is
+  fine.)
+
+
+  Also, to find your specific representatives, I'll need your address—just the street address and city or ZIP is fine.
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > I'm corey. you need my address?
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ It's nice to meet you, Corey.
+
+
+  Yes, for me to find the specific state representatives who represent your neighborhood, I'll need your address—just the street address
+  and city or ZIP is fine. Once I have that, we can see exactly who you should be writing to about those school cuts.
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > My address is 6856 Windy Ridge in Herriman.
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  lookup_legislator (on-record MCP Server) {"street":"6856 Windy Ridge","zone":"Herriman"}                                         │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "legislators": [                                                                                                                  │
+│     {                                                                                                                               │
+│       "id": "PIERUC",                                                                                                               │
+│       "chamber": "house",                                                                                                           │
+│       "district": 49,                                                                                                               │
+│       "name": "Candice B. Pierucci",                                                                                                │
+│       "email": "cpierucci@le.utah.gov",                                                                                             │
+│       "phone": "385-414-1488",                                                                                                      │
+│       "session": "2026GS",                                                                                                          │
+│       "phoneLabel": "cell"                                                                                                          │
+│     },                                                                                                                              │
+│     {                                                                                                                               │
+│       "id": "BUSSEM",                                                                                                               │
+│       "chamber": "senate",                                                                                                          │
+│       "district": 11,                                                                                                               │
+│       "name": "Emily Buss",                                                                                                         │
+│       "email": "ebuss@le.utah.gov",                                                                                                 │
+│       "phone": "801-598-4734",                                                                                                      │
+│       "session": "2026GS",                                                                                                          │
+│       "phoneLabel": "cell"                                                                                                          │
+│     }                                                                                                                               │
+│   ],                                                                                                                                │
+│   "session": "2026GS",                                                                                                              │
+│   "resolvedAddress": "6856 WINDY RIDGE DR, SALT LAKE CITY"                                                                          │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ Got it. Just to confirm, Corey—the address I found representatives for is "6856 WINDY RIDGE DR, SALT LAKE CITY". Does that match where
+  you live?
+
+
+  If so, your state representatives are:
+   - Candice B. Pierucci, house District 49
+   - Emily Buss, senate District 11
+
+
+  Which one would you like to write to?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > that's weird that it says salt lake city, but i recognize candice's name from a neighbor's campaign sign so it makes sense
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"theme":"public education funding","legislatorId":"PIERUC"}                                 │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [],                                                                                                                      │
+│   "legislatorId": "PIERUC",                                                                                                         │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"theme":"education","legislatorId":"PIERUC"}                                                │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [                                                                                                                        │
+│     {                                                                                                                               │
+│       "id": "HB0568",                                                                                                               │
+│       "session": "2025GS",                                                                                                          │
+│       "title": "Half-day Kindergarten Amendments",                                                                                  │
+│       "summary": "This bill requires local education agencies (LEAs) to provide a half-day kindergarten class in each school.",     │
+│       "status": "House/ filed",                                                                                                     │
+│       "sponsorId": "PIERUC"                                                                                                         │
+│     },                                                                                                                              │
+│     {                                                                                                                               │
+│       "id": "HB0280",                                                                                                               │
+│       "session": "2025GS",                                                                                                          │
+│       "title": "School District Administrator Authority",                                                                           │
+│       "summary": "This bill amends the definition of an employee.",                                                                 │
+│       "status": "House/ filed",                                                                                                     │
+│       "sponsorId": "PIERUC"                                                                                                         │
+│     }                                                                                                                               │
+│   ],                                                                                                                                │
+│   "legislatorId": "PIERUC",                                                                                                         │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ I searched for bills Rep. Pierucci has sponsored about public education funding, Corey, but I didn't find any that directly matched that
+  specific topic.
+
+  However, here are two bills she sponsored in last year's session that relate to schools:
+
+
+   1. HB 568 — Half-day Kindergarten Amendments — This bill required local education agencies to provide a half-day kindergarten class in
+      each school. It was filed in the 2025 General Session.
+   2. HB 280 — School District Administrator Authority — This bill changed the definition of an employee in relation to school district
+      administrators. It was filed in the 2025 General Session.
+
+
+  Do either of these connect to what you're concerned about, or would you like me to search for a different angle—perhaps something broader
+  like "state budget"?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > yeah, i remember the half-day kindergarten, i really liked that! maybe if i tell her that and then tell her i'm disappointed in the
+   recent funding cuts she'll remember me
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ That's a great idea, Corey. It's often more effective to start by acknowledging something they did that you supported—it builds a bridge
+  before you share your concern.
+
+
+  Let's get this ready. Would you prefer to send this as an email or a text/SMS? Email gives you more room to tell your story; text is
+  short and direct.
+
+
+  And would you like the tone to be conversational (personal, in your own voice) or formal (professional, structured)?

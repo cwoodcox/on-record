@@ -1,0 +1,344 @@
+
+ ███            █████████  ██████████ ██████   ██████ █████ ██████   █████ █████
+░░░███         ███░░░░░███░░███░░░░░█░░██████ ██████ ░░███ ░░██████ ░░███ ░░███
+  ░░░███      ███     ░░░  ░███  █ ░  ░███░█████░███  ░███  ░███░███ ░███  ░███
+    ░░░███   ░███          ░██████    ░███░░███ ░███  ░███  ░███░░███░███  ░███
+     ███░    ░███    █████ ░███░░█    ░███ ░░░  ░███  ░███  ░███ ░░██████  ░███
+   ███░      ░░███  ░░███  ░███ ░   █ ░███      ░███  ░███  ░███  ░░█████  ░███
+ ███░         ░░█████████  ██████████ █████     █████ █████ █████  ░░█████ █████
+░░░            ░░░░░░░░░  ░░░░░░░░░░ ░░░░░     ░░░░░ ░░░░░ ░░░░░    ░░░░░ ░░░░░
+
+
+Logged in with Google: corey.woodcox@gmail.com /auth
+Plan: Gemini Code Assist for individuals
+Tips for getting started:
+1. Ask questions, edit files, or run commands.
+2. Be specific for the best results.
+3. Create GEMINI.md files to customize your interactions with Gemini.
+4. /help for more information.
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > hi!
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ Hi there! What's been on your mind lately—what brings you here today?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > Things just feel wrong lately. Like my neighbors are struggling and I don't know why.
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ That feeling that something's off—it's worth paying attention to. It can be unsettling to see people in your own community struggling
+  like that.
+
+
+  Has this affected you or someone close to you directly? For instance, have you noticed specific things like rising costs or changes in
+  local services that your neighbors are talking about?
+
+
+ℹ Gemini CLI update available! 0.32.1 → 0.33.0
+  Installed via Homebrew. Please update with "brew upgrade gemini-cli".
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > well, like i know my neighbors are feeling the squeeze. i've never made more money in my life but somehow i feel poorer than i've ever
+   been. and it's not like i'm living extravagantly either!
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ That feeling of running faster just to stay in the same place—or even falling behind—is incredibly frustrating, especially when you're
+  working hard and earning more than before. It’s a common struggle right now, and it's exactly the kind of thing your state legislators
+  should hear about.
+
+
+  To find your specific representatives and see what bills they've sponsored related to the cost of living, I'll need your address—just the
+  street address and city or ZIP is fine.
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > 12997 Summerharvest Dr in draper
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  lookup_legislator (on-record MCP Server) {"street":"12997 Summerharvest Dr","zone":"draper"}                                     │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "legislators": [                                                                                                                  │
+│     {                                                                                                                               │
+│       "id": "ROBERC",                                                                                                               │
+│       "chamber": "house",                                                                                                           │
+│       "district": 46,                                                                                                               │
+│       "name": "Calvin Roberts",                                                                                                     │
+│       "email": "croberts@le.utah.gov",                                                                                              │
+│       "phone": "",                                                                                                                  │
+│       "session": "2026GS",                                                                                                          │
+│       "phoneTypeUnknown": true                                                                                                      │
+│     },                                                                                                                              │
+│     {                                                                                                                               │
+│       "id": "CULLIKA",                                                                                                              │
+│       "chamber": "senate",                                                                                                          │
+│       "district": 19,                                                                                                               │
+│       "name": "Kirk A. Cullimore",                                                                                                  │
+│       "email": "kcullimore@le.utah.gov",                                                                                            │
+│       "phone": "385-867-9474",                                                                                                      │
+│       "session": "2026GS",                                                                                                          │
+│       "phoneLabel": "cell"                                                                                                          │
+│     }                                                                                                                               │
+│   ],                                                                                                                                │
+│   "session": "2026GS",                                                                                                              │
+│   "resolvedAddress": "12997 SUMMERHARVEST DR, SALT LAKE CITY"                                                                       │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ Got it. Based on your address, your state representatives are:
+
+   - Calvin Roberts, House District 46
+   - Kirk A. Cullimore, Senate District 19
+
+
+  Which one would you like to write to?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > oh i know i've heard senator cullimore's name lately
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"legislatorId":"CULLIKA","theme":"cost of living"}                                          │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [],                                                                                                                      │
+│   "legislatorId": "CULLIKA",                                                                                                        │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"legislatorId":"CULLIKA","theme":"taxes"}                                                   │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [],                                                                                                                      │
+│   "legislatorId": "CULLIKA",                                                                                                        │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"legislatorId":"CULLIKA","theme":"housing"}                                                 │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [],                                                                                                                      │
+│   "legislatorId": "CULLIKA",                                                                                                        │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"theme":"property","legislatorId":"CULLIKA"}                                                │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [],                                                                                                                      │
+│   "legislatorId": "CULLIKA",                                                                                                        │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"legislatorId":"CULLIKA","theme":"economic"}                                                │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [                                                                                                                        │
+│     {                                                                                                                               │
+│       "id": "SB0337",                                                                                                               │
+│       "session": "2025GS",                                                                                                          │
+│       "title": "Land Use and Development Amendments",                                                                               │
+│       "summary": "This bill creates the Beehive Development Agency and authorizes the commissioner of the Governor's Office of      │
+│ Economic Opportunity to propose significant community impact project plans and associated project areas to the Beehive Development  │
+│ Agency.",                                                                                                                           │
+│       "status": "Senate/ filed",                                                                                                    │
+│       "sponsorId": "CULLIKA"                                                                                                        │
+│     }                                                                                                                               │
+│   ],                                                                                                                                │
+│   "legislatorId": "CULLIKA",                                                                                                        │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"legislatorId":"CULLIKA","theme":"land use"}                                                │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [                                                                                                                        │
+│     {                                                                                                                               │
+│       "id": "SB0337",                                                                                                               │
+│       "session": "2025GS",                                                                                                          │
+│       "title": "Land Use and Development Amendments",                                                                               │
+│       "summary": "This bill creates the Beehive Development Agency and authorizes the commissioner of the Governor's Office of      │
+│ Economic Opportunity to propose significant community impact project plans and associated project areas to the Beehive Development  │
+│ Agency.",                                                                                                                           │
+│       "status": "Senate/ filed",                                                                                                    │
+│       "sponsorId": "CULLIKA"                                                                                                        │
+│     }                                                                                                                               │
+│   ],                                                                                                                                │
+│   "legislatorId": "CULLIKA",                                                                                                        │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"theme":"growth","legislatorId":"CULLIKA"}                                                  │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [],                                                                                                                      │
+│   "legislatorId": "CULLIKA",                                                                                                        │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"theme":"rent","legislatorId":"CULLIKA"}                                                    │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [],                                                                                                                      │
+│   "legislatorId": "CULLIKA",                                                                                                        │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"legislatorId":"CULLIKA","theme":"landlord"}                                                │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [],                                                                                                                      │
+│   "legislatorId": "CULLIKA",                                                                                                        │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"theme":"community","legislatorId":"CULLIKA"}                                               │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [                                                                                                                        │
+│     {                                                                                                                               │
+│       "id": "SB0250",                                                                                                               │
+│       "session": "2025GS",                                                                                                          │
+│       "title": "Community Development Modifications",                                                                               │
+│       "summary": "This bill deals with the use of certain funding to promote home ownership and provisions related to community     │
+│ reinvestment agencies.  ",                                                                                                          │
+│       "status": "Governor Signed",                                                                                                  │
+│       "sponsorId": "CULLIKA"                                                                                                        │
+│     },                                                                                                                              │
+│     {                                                                                                                               │
+│       "id": "SB0337",                                                                                                               │
+│       "session": "2025GS",                                                                                                          │
+│       "title": "Land Use and Development Amendments",                                                                               │
+│       "summary": "This bill creates the Beehive Development Agency and authorizes the commissioner of the Governor's Office of      │
+│ Economic Opportunity to propose significant community impact project plans and associated project areas to the Beehive Development  │
+│ Agency.",                                                                                                                           │
+│       "status": "Senate/ filed",                                                                                                    │
+│       "sponsorId": "CULLIKA"                                                                                                        │
+│     }                                                                                                                               │
+│   ],                                                                                                                                │
+│   "legislatorId": "CULLIKA",                                                                                                        │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ Based on what you've described—feeling the "squeeze" and seeing your neighbors struggle—I found a couple of bills Senator Cullimore has
+  sponsored that deal with local development and housing support.
+
+
+  Here are a few that might connect to what you're seeing in Draper:
+
+
+   1. SB 250 — Community Development Modifications — This bill changed how certain funds can be used to promote home ownership and updated
+      rules for community reinvestment agencies. It was signed into law during the 2025 General Session.
+   2. SB 337 — Land Use and Development Amendments — This bill proposed creating a "Beehive Development Agency" to plan and manage
+      significant community impact projects. It was filed during the 2025 General Session.
+
+
+  Do either of these—promoting home ownership or managing large-scale community development—connect to the struggle you're seeing, or would
+  you like me to try searching from a different angle?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > I'd love to have a conversation with him about how SB250 works and how i can get involved
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✕ MCP ERROR (on-record)
+
+✦ That makes a lot of sense—SB 250 is directly about how the state and local agencies work together to support home ownership, so it's a
+  great starting point for a conversation about the "squeeze" you and your neighbors are feeling.
+
+  Before I draft a message for you, I'll need two things:
+
+
+   1. Would you prefer to send this as an email or a text/SMS? Email gives you more room to tell your story; text is short and direct.
+   2. And would you like the tone to be conversational (personal, in your own voice) or formal (professional, structured)?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > i want to chat with him so i'll try text first
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ Great, I'll draft a text for you.
+
+
+  Would you like the tone to be conversational (personal, in your own voice) or formal (professional, structured)? Since you're looking to
+  start a chat, conversational often works well for text, but the choice is yours!
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > conversational definitely
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ Here is a draft text for Senator Cullimore. I’ve broken it into segments that are short and direct, perfect for SMS:
+
+
+  Segment 1
+  Hi Senator Cullimore, I'm a constituent in Draper. I've been feeling a real squeeze lately—like I'm working harder but still falling
+  behind.
+
+
+  Segment 2
+  I'm interested in SB 250, 2025 General Session (Governor Signed) and how it helps with home ownership. How can I get more involved?
+
+  Segment 3
+  My neighbors are struggling too and I'd love to chat about this. What's the best way to connect?
+
+
+  How does that look to you? I can make any changes you’d like—for example, if you’d like to add how long you’ve lived in Draper or adjust
+  the wording.
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > can we just refer to it as "last year" and let's include the title
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ That’s a great edit—it makes it feel much more like a real text message. Here is the revised draft:
+
+
+  Segment 1
+  Hi Senator Cullimore, I'm a constituent in Draper. I've been feeling a real squeeze lately—like I'm working harder but still falling
+  behind.
+
+
+  Segment 2
+  I'm interested in SB 250 (Community Development Modifications) from last year, 2025 General Session (Governor Signed). How can I get more
+  involved?
+
+  Segment 3
+  My neighbors are struggling too and I'd love to chat about this. What's the best way to connect?
+
+
+  Is this ready for you to send, or would you like to tweak anything else?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > take out the 2025 general session entirely
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ Got it—I've removed the session details to keep the text quick and conversational. Here is the revised draft:
+
+  Segment 1
+  Hi Senator Cullimore, I'm a constituent in Draper. I've been feeling a real squeeze lately—like I'm working harder but still falling
+  behind.
+
+
+  Segment 2
+  I'm interested in SB 250 (Community Development Modifications) from last year. How can I get more involved?
+
+  Segment 3
+  My neighbors are struggling too and I'd love to chat about this. What's the best way to connect?
+
+  ---
+
+
+  Citation for your reference:
+  SB 250, 2025 General Session, Governor Signed
+
+
+  How does this look? If you're happy with it, you're all set to send those segments to Senator Cullimore!
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > Looks great! how do i send it?
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ Since you chose to send this as a text, you can send these segments directly to Senator Cullimore's cell phone: 385-867-9474.
+
+  The best way to send them is one by one, so it reads like a natural conversation:
+
+
+   1. Copy and send Segment 1.
+   2. Wait a moment, then copy and send Segment 2.
+   3. Finish with Segment 3.
+
+
+  If you’d rather send it as one single message, just combine them into one text. Let me know if you need anything else!

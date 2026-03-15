@@ -1,0 +1,253 @@
+
+  ▝▜▄     Gemini CLI v0.33.1
+    ▝▜▄
+   ▗▟▀    Logged in with Google /auth
+  ▝▀      Gemini Code Assist for individuals /upgrade
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > hi!
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ Hi there! What's been on your mind lately — what brings you here today?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > Things just feel wrong lately. Like my neighbors are struggling and I don't know why.
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ That feeling that something's off—it's worth paying attention to, even when it's hard to put a finger on exactly why.
+
+
+  Has this sense of struggle affected you or someone close to you directly? And by the way, what's your name? Just a first name is fine.
+
+
+ℹ MCP issues detected. Run /mcp list for status.
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > I'm marcus. Yeah — my neighbor lost her job at the distribution center. She's got kids. I just feel like no one's doing anything.
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ It's really hard to see people you care about, like your neighbor and her kids, going through that kind of uncertainty, Marcus. That's a
+  heavy thing to witness.
+
+
+  To find out who is representing you and your neighbors in the state legislature, I'll need your address—just the street address and city
+  or ZIP is fine. That way, we can see exactly who should be hearing about what’s happening in your community.
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > 12997 Summerharvest Dr, Draper is my address
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  lookup_legislator (on-record MCP Server) {"zone":"Draper","street":"12997 Summerharvest Dr"}                                     │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "legislators": [                                                                                                                  │
+│     {                                                                                                                               │
+│       "id": "ROBERC",                                                                                                               │
+│       "chamber": "house",                                                                                                           │
+│       "district": 46,                                                                                                               │
+│       "name": "Calvin Roberts",                                                                                                     │
+│       "email": "croberts@le.utah.gov",                                                                                              │
+│       "phone": "",                                                                                                                  │
+│       "session": "2026GS",                                                                                                          │
+│       "phoneTypeUnknown": true                                                                                                      │
+│     },                                                                                                                              │
+│     {                                                                                                                               │
+│       "id": "CULLIKA",                                                                                                              │
+│       "chamber": "senate",                                                                                                          │
+│       "district": 19,                                                                                                               │
+│       "name": "Kirk A. Cullimore",                                                                                                  │
+│       "email": "kcullimore@le.utah.gov",                                                                                            │
+│       "phone": "385-867-9474",                                                                                                      │
+│       "session": "2026GS",                                                                                                          │
+│       "phoneLabel": "cell"                                                                                                          │
+│     }                                                                                                                               │
+│   ],                                                                                                                                │
+│   "session": "2026GS",                                                                                                              │
+│   "resolvedAddress": "12997 SUMMERHARVEST DR, SALT LAKE CITY"                                                                       │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ Got it, Marcus. Based on your address, your state representatives are:
+
+
+   - Calvin Roberts, House District 46
+   - Kirk A. Cullimore, Senate District 19
+
+  (Just to confirm, the address I found these for is "12997 SUMMERHARVEST DR, SALT LAKE CITY" — does that match where you live?)
+
+
+  Which one would you like to write to?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > oh yeah i should chat with cal about this i think
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"theme":"economic hardship","legislatorId":"ROBERC"}                                        │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [],                                                                                                                      │
+│   "legislatorId": "ROBERC",                                                                                                         │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"theme":"employment","legislatorId":"ROBERC"}                                               │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [],                                                                                                                      │
+│   "legislatorId": "ROBERC",                                                                                                         │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"theme":"cost of living","legislatorId":"ROBERC"}                                           │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [],                                                                                                                      │
+│   "legislatorId": "ROBERC",                                                                                                         │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ I searched for "economic hardship," "employment," and "cost of living," but I didn't find any bills Rep. Calvin Roberts has sponsored on
+  those topics.
+
+
+  Would you like me to try a different angle, Marcus? Or, if you'd like, we can go ahead and write a message expressing your concern
+  without referencing a specific bill. Your concern is still worth communicating even without a direct bill match. Which would you prefer?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > what about for senator cullimore?
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"theme":"economic hardship","legislatorId":"CULLIKA"}                                       │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [],                                                                                                                      │
+│   "legislatorId": "CULLIKA",                                                                                                        │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"theme":"cost of living","legislatorId":"CULLIKA"}                                          │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [],                                                                                                                      │
+│   "legislatorId": "CULLIKA",                                                                                                        │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"theme":"housing","legislatorId":"CULLIKA"}                                                 │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [],                                                                                                                      │
+│   "legislatorId": "CULLIKA",                                                                                                        │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ I searched for Senator Cullimore's records on "economic hardship," "cost of living," and "housing," but I didn't find any bills he's
+  sponsored on those topics either, Marcus.
+
+
+  I'm sorry I wasn't able to find a directly matching bill for either representative. We can still write a message expressing your concern
+  — it just won't reference a specific sponsored bill. Your concern is still worth communicating, even if it's not tied to a bill they've
+  personally introduced.
+
+
+  Would you like to do that, or keep searching for a different topic?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > can we search for something to do with housing from cal?
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"legislatorId":"ROBERC","theme":"housing"}                                                  │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [                                                                                                                        │
+│     {                                                                                                                               │
+│       "id": "HB0492",                                                                                                               │
+│       "session": "2026GS",                                                                                                          │
+│       "title": "Transportation, Infrastructure, and Housing Amendments",                                                            │
+│       "summary": "This bill modifies transportation, infrastructure, and housing provisions.",                                      │
+│       "status": "House/ enrolled bill to Printing",                                                                                 │
+│       "sponsorId": "ROBERC"                                                                                                         │
+│     },                                                                                                                              │
+│     {                                                                                                                               │
+│       "id": "HB0068",                                                                                                               │
+│       "session": "2026GS",                                                                                                          │
+│       "title": "Housing and Community Development Amendments",                                                                      │
+│       "summary": "This bill creates the Division of Housing and Community Development within the Governor's Office of Economic      │
+│ Opportunity.",                                                                                                                      │
+│       "status": "House/ to Governor",                                                                                               │
+│       "sponsorId": "ROBERC"                                                                                                         │
+│     }                                                                                                                               │
+│   ],                                                                                                                                │
+│   "legislatorId": "ROBERC",                                                                                                         │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ I found two bills Rep. Calvin Roberts has sponsored this year related to housing, Marcus:
+
+
+   1. HB 492 — Transportation, Infrastructure, and Housing Amendments — This bill makes changes to several transportation, infrastructure,
+      and housing rules. It passed both the House and Senate and is currently being prepared for the final signing process in this year's
+      General Session.
+   2. HB 68 — Housing and Community Development Amendments — This bill creates a new Division of Housing and Community Development within
+      the Governor's Office of Economic Opportunity. This bill has passed and has been sent to the Governor for a signature during this
+      year's General Session.
+
+
+  Do either of these connect to what you’re concerned about, or would you like me to search a different angle?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > yeah i remember hearing about 68
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ Okay, let's focus on HB 68 then. Before we write the draft, Marcus, would you prefer to send this as an email or a text/SMS? Email gives
+  you more room to tell your story; text is short and direct.
+
+
+  And would you like the tone to be conversational (personal, in your own voice) or formal (professional, structured)? Since you mentioned
+  your neighbor's situation, a conversational tone might feel more like what you've been sharing. Does that sound right?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > yeah let's text him about it,
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ Here is a conversational text for you, Marcus:
+
+
+  "Marcus from Draper here. Seeing my neighbor struggle after losing her job has been really hard. I'm following HB 68 from this session
+  and hope we can keep supporting families like hers. — Marcus"
+
+
+  How does that look to you? I can make it shorter or change the wording if you'd like.
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > i'd like to ask him _how_ the changes will support her, and i don't need to sign my name
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ How does this revised text look?
+
+
+  "A Draper constituent here. My neighbor lost her job and has kids—it's been hard to watch. How will HB 68 from this session support
+  families like hers?"
+
+
+  I've removed your name and added the specific question about how the bill will help your neighbor. Is that ready to send, or would you
+  like any other changes?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > I can start the text with my name i just don't think i need to repeat it
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ Got it, Marcus. Here’s that revised version for you:
+
+  "Marcus from Draper here. My neighbor lost her job and has kids—it's been hard to watch. How will HB 68 from this session support
+  families like hers?"
+
+
+  How does that look to you? Ready to send, or any other adjustments?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > perfect
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ Great, Marcus. You can send that message to Rep. Calvin Roberts.
+
+
+  I don't have a public mobile number listed for him to receive texts, but you can send that same short, direct message to his official
+  email at croberts@le.utah.gov.
+
+
+  Is there anything else I can help you with today?

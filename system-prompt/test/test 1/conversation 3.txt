@@ -1,0 +1,371 @@
+
+ ███            █████████  ██████████ ██████   ██████ █████ ██████   █████ █████
+░░░███         ███░░░░░███░░███░░░░░█░░██████ ██████ ░░███ ░░██████ ░░███ ░░███
+  ░░░███      ███     ░░░  ░███  █ ░  ░███░█████░███  ░███  ░███░███ ░███  ░███
+    ░░░███   ░███          ░██████    ░███░░███ ░███  ░███  ░███░░███░███  ░███
+     ███░    ░███    █████ ░███░░█    ░███ ░░░  ░███  ░███  ░███ ░░██████  ░███
+   ███░      ░░███  ░░███  ░███ ░   █ ░███      ░███  ░███  ░███  ░░█████  ░███
+ ███░         ░░█████████  ██████████ █████     █████ █████ █████  ░░█████ █████
+░░░            ░░░░░░░░░  ░░░░░░░░░░ ░░░░░     ░░░░░ ░░░░░ ░░░░░    ░░░░░ ░░░░░
+
+
+Logged in with Google: corey.woodcox@gmail.com /auth
+Plan: Gemini Code Assist for individuals
+Tips for getting started:
+1. Ask questions, edit files, or run commands.
+2. Be specific for the best results.
+3. Create GEMINI.md files to customize your interactions with Gemini.
+4. /help for more information.
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > hi!
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ What's been on your mind lately — what brings you here today?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > I'm really upset about the cuts to public education funding — my daughter's school just lost three teachers.
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ Losing teachers from your daughter's school—that's not just a budget line, that's your family's daily life. It sounds incredibly
+  stressful to see that kind of impact firsthand.
+
+  To find your specific representatives so we can address this, I'll need your address—just the street address and city or ZIP is fine.
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > 6856 W Windy Ridge Dr 84096
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  lookup_legislator (on-record MCP Server) {"street":"6856 W Windy Ridge Dr","zone":"84096"}                                       │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "legislators": [                                                                                                                  │
+│     {                                                                                                                               │
+│       "id": "PIERUC",                                                                                                               │
+│       "chamber": "house",                                                                                                           │
+│       "district": 49,                                                                                                               │
+│       "name": "Candice B. Pierucci",                                                                                                │
+│       "email": "cpierucci@le.utah.gov",                                                                                             │
+│       "phone": "385-414-1488",                                                                                                      │
+│       "session": "2026GS",                                                                                                          │
+│       "phoneLabel": "cell"                                                                                                          │
+│     },                                                                                                                              │
+│     {                                                                                                                               │
+│       "id": "BUSSEM",                                                                                                               │
+│       "chamber": "senate",                                                                                                          │
+│       "district": 11,                                                                                                               │
+│       "name": "Emily Buss",                                                                                                         │
+│       "email": "ebuss@le.utah.gov",                                                                                                 │
+│       "phone": "801-598-4734",                                                                                                      │
+│       "session": "2026GS",                                                                                                          │
+│       "phoneLabel": "cell"                                                                                                          │
+│     }                                                                                                                               │
+│   ],                                                                                                                                │
+│   "session": "2026GS",                                                                                                              │
+│   "resolvedAddress": "6856 W WINDY RIDGE DR, SALT LAKE CITY"                                                                        │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ Got it. Based on your address, your state representatives are:
+
+
+   - Candice B. Pierucci, House District 49
+   - Emily Buss, Senate District 11
+
+
+  Which one would you like to write to?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > oh yeah i've heard of candice, she talks a lot about charter schools
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"legislatorId":"PIERUC","theme":"public education funding"}                                 │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [],                                                                                                                      │
+│   "legislatorId": "PIERUC",                                                                                                         │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"legislatorId":"PIERUC","theme":"education"}                                                │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [                                                                                                                        │
+│     {                                                                                                                               │
+│       "id": "HB0568",                                                                                                               │
+│       "session": "2025GS",                                                                                                          │
+│       "title": "Half-day Kindergarten Amendments",                                                                                  │
+│       "summary": "This bill requires local education agencies (LEAs) to provide a half-day kindergarten class in each school.",     │
+│       "status": "House/ filed",                                                                                                     │
+│       "sponsorId": "PIERUC"                                                                                                         │
+│     },                                                                                                                              │
+│     {                                                                                                                               │
+│       "id": "HB0280",                                                                                                               │
+│       "session": "2025GS",                                                                                                          │
+│       "title": "School District Administrator Authority",                                                                           │
+│       "summary": "This bill amends the definition of an employee.",                                                                 │
+│       "status": "House/ filed",                                                                                                     │
+│       "sponsorId": "PIERUC"                                                                                                         │
+│     }                                                                                                                               │
+│   ],                                                                                                                                │
+│   "legislatorId": "PIERUC",                                                                                                         │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ I see you're familiar with Rep. Pierucci.
+
+
+  I searched for bills she's sponsored related to your concern about public education funding and teacher staffing. Here are a couple of
+  recent ones:
+
+
+   1. HB 568 — Half-day Kindergarten Amendments — This bill would require local education agencies to provide a half-day kindergarten class
+      in each school. It was filed for the 2025 General Session.
+   2. HB 280 — School District Administrator Authority — This bill changes some definitions of who counts as an employee within a school
+      district. It was also filed for the 2025 General Session.
+
+
+  Do either of these relate to the changes you're seeing at your daughter's school, or would you like me to try a different angle for our
+  search?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > what about charter schools? it seems like they are always giving them more money
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"theme":"charter schools","legislatorId":"PIERUC"}                                          │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [],                                                                                                                      │
+│   "legislatorId": "PIERUC",                                                                                                         │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"legislatorId":"PIERUC","theme":"school funding"}                                           │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [],                                                                                                                      │
+│   "legislatorId": "PIERUC",                                                                                                         │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ I searched for bills Rep. Pierucci has sponsored specifically related to charter schools and broader school funding, but no sponsored
+  bills matching those themes came up in the results.
+
+
+  It's possible she has supported or voted for legislation on those topics that she didn't personally sponsor. As a reminder, I can only
+  see the bills she's introduced or co-sponsored herself.
+
+
+  Would you like me to try searching for bills from Sen. Emily Buss on those topics instead? Or we could stick with Rep. Pierucci and write
+  to her about the general impact these cuts are having on your daughter's school and the loss of those three teachers. Which would you
+  prefer?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > search candice's bills for just charter
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"legislatorId":"PIERUC","theme":"charter"}                                                  │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [],                                                                                                                      │
+│   "legislatorId": "PIERUC",                                                                                                         │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ I searched Rep. Pierucci's sponsored bills specifically for "charter," but no bills were returned.
+
+
+  It's common for legislators to support or vote on bills they didn't personally sponsor, which my search wouldn't show. Given that your
+  daughter's school has already lost three teachers, we could focus our message to Rep. Pierucci on that direct personal impact.
+
+
+  Alternatively, we could check if Sen. Emily Buss has sponsored anything related to school or charter funding. What sounds like the best
+  next step to you?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > i know she sponsored hb241
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"theme":"HB 241","legislatorId":"PIERUC"}                                                   │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [],                                                                                                                      │
+│   "legislatorId": "PIERUC",                                                                                                         │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"legislatorId":"PIERUC","theme":"HB0241"}                                                   │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [],                                                                                                                      │
+│   "legislatorId": "PIERUC",                                                                                                         │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"legislatorId":"BUSSEM","theme":"public education funding"}                                 │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [],                                                                                                                      │
+│   "legislatorId": "BUSSEM",                                                                                                         │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"theme":"school funding","legislatorId":"BUSSEM"}                                           │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [],                                                                                                                      │
+│   "legislatorId": "BUSSEM",                                                                                                         │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"legislatorId":"BUSSEM","theme":"charter schools"}                                          │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [],                                                                                                                      │
+│   "legislatorId": "BUSSEM",                                                                                                         │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"theme":"education","legislatorId":"BUSSEM"}                                                │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [],                                                                                                                      │
+│   "legislatorId": "BUSSEM",                                                                                                         │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"legislatorId":"PIERUC","theme":"school"}                                                   │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [                                                                                                                        │
+│     {                                                                                                                               │
+│       "id": "HB0568",                                                                                                               │
+│       "session": "2025GS",                                                                                                          │
+│       "title": "Half-day Kindergarten Amendments",                                                                                  │
+│       "summary": "This bill requires local education agencies (LEAs) to provide a half-day kindergarten class in each school.",     │
+│       "status": "House/ filed",                                                                                                     │
+│       "sponsorId": "PIERUC"                                                                                                         │
+│     },                                                                                                                              │
+│     {                                                                                                                               │
+│       "id": "HB0280",                                                                                                               │
+│       "session": "2025GS",                                                                                                          │
+│       "title": "School District Administrator Authority",                                                                           │
+│       "summary": "This bill amends the definition of an employee.",                                                                 │
+│       "status": "House/ filed",                                                                                                     │
+│       "sponsorId": "PIERUC"                                                                                                         │
+│     }                                                                                                                               │
+│   ],                                                                                                                                │
+│   "legislatorId": "PIERUC",                                                                                                         │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"theme":"241","legislatorId":"PIERUC"}                                                      │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [],                                                                                                                      │
+│   "legislatorId": "PIERUC",                                                                                                         │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ✓  search_bills (on-record MCP Server) {"theme":"public","legislatorId":"PIERUC"}                                                   │
+│                                                                                                                                     │
+│ {                                                                                                                                   │
+│   "bills": [],                                                                                                                      │
+│   "legislatorId": "PIERUC",                                                                                                         │
+│   "session": "2026GS"                                                                                                               │
+│ }                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✦ I searched again for "HB 241" and other "charter school" bills sponsored by Rep. Pierucci, but they aren't showing up in the current list
+  of her sponsored legislation.
+
+
+  It's possible she's a co-sponsor on a bill someone else introduced, or that she's a strong supporter of it even if she didn't sponsor it
+  herself. My search is limited to bills where she is the primary sponsor.
+
+
+  Since you've seen the direct impact of these funding changes with your daughter's school losing three teachers, we could focus our
+  message on that experience. Would you like to write to Rep. Candice Pierucci or Sen. Emily Buss about this? And would you like to send
+  this as an email or a text/SMS? (Email gives you more room to tell your story; text is short and direct.)
+
+
+  Also, would you like the tone to be conversational (personal, in your own voice) or formal (professional, structured)?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > let's go formal, to candice
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ Would you prefer to send this as an email or a text/SMS? Email gives you more room to tell your story; text is short and direct. Once I
+  have that, I can draft your message to Rep. Pierucci.
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > let's do a text
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ To keep this direct for a text message, I've focused on the impact at your daughter's school and referenced the teacher staffing issue.
+  Since my search did not return a specific "HB 241" or "charter school" bill with Rep. Pierucci as the primary sponsor, I've included a
+  citation for her 2025 bill regarding school district administrator authority, as it relates to how school staff are defined.
+
+
+  Here is a draft for your text to Rep. Pierucci:
+
+
+  Segment 1
+  Rep. Pierucci, I am a constituent in your district and I am writing because my daughter’s school recently lost three teachers due to
+  funding cuts.
+
+  Segment 2
+  These budget decisions have a direct, negative impact on our local classrooms and our children’s education. I ask that you prioritize
+  classroom-level funding.
+
+
+  Segment 3
+  Reference: HB 280, 2025 General Session (House/filed).
+
+
+  Does this capture what you'd like to say, or would you like to make any changes?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > can we say *public* classroom-level funding?
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ I've updated the draft to emphasize public classroom-level funding. Here is the revised text:
+
+
+  Segment 1
+  Rep. Pierucci, I am a constituent in your district and I am writing because my daughter’s school recently lost three teachers due to
+  funding cuts.
+
+  Segment 2
+  These budget decisions have a direct, negative impact on our local classrooms and our children’s education. I ask that you prioritize
+  public classroom-level funding.
+
+
+  Segment 3
+  Reference: HB 280, 2025 General Session (House/filed).
+
+
+  Does this look ready to send, or would you like any further changes?
+
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+ > that looks great!
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+✦ I'm glad to hear it! Here is the final version of your text to Rep. Candice Pierucci. You can send it to her at 385-414-1488.
+
+
+  Segment 1
+  Rep. Pierucci, I am a constituent in your district and I am writing because my daughter’s school recently lost three teachers due to
+  funding cuts.
+
+  Segment 2
+  These budget decisions have a direct, negative impact on our local classrooms and our children’s education. I ask that you prioritize
+  public classroom-level funding.
+
+
+  Segment 3
+  Reference: HB 280, 2025 General Session (House/filed).
+
+
+  Is there anything else I can help you with today? We could also send a message to your state senator, Emily Buss, if you’d like.

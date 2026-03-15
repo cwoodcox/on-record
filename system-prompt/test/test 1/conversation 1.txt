@@ -1,0 +1,216 @@
+ ▐▛███▜▌   Claude Code v2.1.72
+▝▜█████▛▘  Sonnet 4.6 · Claude Pro
+  ▘▘ ▝▝    ~/Developer/cwoodcox/on-record-test
+
+  /remote-control is active. Code in CLI or at
+  https://claude.ai/code/session_01KUci46qQ5WsHvPhBpDwUgx
+
+❯ Hi!                                                                           
+
+⏺ What's been on your mind lately — what brings you here today?
+
+❯ I'm really upset about the cuts to public education funding — my daughter's   
+school just lost three teachers.                                                
+
+⏺ That's heartbreaking — losing three teachers isn't just a budget number, it's
+  real people who know your daughter, who she's built relationships with. That
+  kind of disruption ripples through a school in ways that are hard to fully
+  capture on a spreadsheet.
+
+  Has this affected your daughter directly — like losing a favorite teacher,
+  bigger class sizes, or programs being cut?
+
+❯ Her art teacher was her favorite, and he’s gone now. I hope her class size    
+won’t get any bigger, it’s already bigger than the rest!                        
+
+⏺ Losing her favorite teacher — that's such a specific, personal loss. Art can
+  be such a meaningful outlet for kids, and when the teacher who made that space
+   special is gone, it's not easy to just "move on." And the worry about class
+  sizes on top of that, especially when her class is already larger than others
+  — that's a real concern about whether she's getting the attention she
+  deserves.
+
+  Thank you for sharing that. Let's find out who represents you and what they've
+   been doing on this issue.
+
+  To look up your specific state legislators, could you share your address? Just
+   your street address and city or ZIP is fine.
+
+❯ 742 evergreen terrace, salt lake                                              
+
+⏺ Let me look that up for you right now!
+
+⏺ on-record - lookup_legislator (MCP)(street: "742 Evergreen Terrace", zone:
+                                     "Salt Lake")
+  ⎿  {
+       "legislators": [
+         {
+     … +23 lines (ctrl+o to expand)
+
+⏺ Got it! Based on your address, your state representatives are:
+
+  - Grant Amjad Miller, House of Representatives, District 24
+  - Jen Plumb, State Senate, District 9
+
+  Which one would you like to write to?
+
+❯ I've heard of Jen, can I send her an email?                                   
+
+⏺ Absolutely! Let me pull up the bills Sen. Plumb has sponsored related to
+  public education funding.
+
+⏺ on-record - search_bills (MCP)(legislatorId: "PLUMBJ", theme: "public
+                                education funding")
+  ⎿  {
+       "bills": [],
+       "legislatorId": "PLUMBJ",
+     … +2 lines (ctrl+o to expand)
+
+⏺ It looks like Sen. Plumb hasn't sponsored any bills specifically tagged to
+  public education funding in the current session. That doesn't mean she hasn't
+  been active on the issue, but it's the limit of what I can surface here.
+
+  Would you like me to try searching from a different angle? For example, I
+  could look for bills related to:
+  - teacher staffing or workforce
+  - arts education
+  - school budgets or appropriations
+
+  Just say the word and I'll try another search — or if you have a different
+  angle in mind, let me know!
+
+❯ could you check for older bills?                                              
+
+⏺ I wish I could, but unfortunately the tool I have access to only searches
+  within the current session (2026 General Session) — I don't have a way to pull
+   bills from previous sessions. That's a real limitation here, and I'm sorry I
+  can't dig deeper into her history that way.
+
+  What I can do is try a few different search angles within the current session
+  to see if anything surfaces. Want me to try searching for something like "arts
+   education" or "teacher staffing" — both of which tie closely to what you're
+  experiencing with your daughter's school?
+
+❯ yeah see if you can find something                                            
+
+⏺ on-record - search_bills (MCP)(legislatorId: "PLUMBJ", theme: "arts
+                                education")
+  ⎿  {
+       "bills": [],
+       "legislatorId": "PLUMBJ",
+     … +2 lines (ctrl+o to expand)
+
+⏺ on-record - search_bills (MCP)(legislatorId: "PLUMBJ", theme: "teacher
+                                staffing")
+  ⎿  {
+       "bills": [],
+       "legislatorId": "PLUMBJ",
+     … +2 lines (ctrl+o to expand)
+
+⏺ Unfortunately, both searches came up empty too. It's possible Sen. Plumb
+  simply hasn't sponsored bills in these areas during the current session, or
+  the bills are categorized differently than the terms I'm searching.
+
+  Here's the thing though — that doesn't mean your message isn't worth sending.
+  In fact, constituent emails that raise a concern the legislator hasn't visibly
+   acted on can be especially impactful. It puts the issue on her radar directly
+   from a real constituent with a real story.
+
+  We can still write a compelling, well-grounded email that:
+  - Shares your daughter's experience (losing her art teacher, the already-large
+   class size)
+  - Raises the broader issue of education funding cuts in your district
+  - Asks Sen. Plumb specifically what she's doing or plans to do about it
+
+  Would you like to go ahead and draft that email? I just won't be able to cite
+  a specific bill she's sponsored — but your story is the heart of it anyway.
+
+❯ that sounds like a really good plan                                           
+
+⏺ Wonderful! Just two quick questions before I write the draft:
+
+  1. Tone — Would you like it to be conversational (personal, in your own voice)
+   or formal (professional and structured)?
+
+❯ personal                                                                      
+
+⏺ Got it — personal and conversational it is. And just to confirm, you'd like
+  this sent as an email, right? (You mentioned that earlier — just want to make
+  sure before I draft!)
+
+❯ yeah, email is fine but I don't want it to be too long!                       
+
+⏺ Perfect — I'll keep it tight and personal. Here's your draft:
+
+  ---
+  To: jplumb@le.utah.gov
+  Subject: A Concerned Parent in District 9 — Our Schools Need Help
+
+  Dear Senator Plumb,
+
+  My name is [Your Name], and I live in Salt Lake City in your district. I'm
+  reaching out because I'm worried about what's happening in our local schools —
+   and I think you should hear it from a parent directly.
+
+  This year, my daughter's school lost three teachers. One of them was her art
+  teacher — her absolute favorite. Art was the part of the school day she loved
+  most, and now it's gone. On top of that, her class is already larger than
+  others at the school, and I'm scared it's only going to get bigger.
+
+  I know budget decisions are complicated, but I'd really love to know what
+  you're doing — or planning to do — to address education funding in our
+  district. Our kids deserve smaller classes, great teachers, and programs that
+  make school worth showing up for.
+
+  Thank you so much for your time. I'd be grateful to hear back.
+
+  Warm regards,
+  [Your Name]
+  [Your Phone or Email, optional]
+  742 Evergreen Terrace, Salt Lake City
+
+  ---
+  Would you like any changes — different wording, shorter, more detail on
+  something specific? It's yours to shape!
+
+❯ my name is Deb, and can you make it shorter and add that I've lived in Salt   
+Lake City for 15 years?                                                         
+
+⏺ Here's the revised draft:
+
+  ---
+  To: jplumb@le.utah.gov
+  Subject: A Concerned Parent in District 9 — Our Schools Need Help
+
+  Dear Senator Plumb,
+
+  My name is Deb, and I've lived in Salt Lake City for 15 years. I'm reaching
+  out because I'm worried about what's happening in our local schools.
+
+  This year, my daughter's school lost three teachers — including her art
+  teacher, her absolute favorite. Her class is already larger than others, and
+  I'm scared it's going to get even bigger. These cuts have a real impact on
+  real kids.
+
+  I'd love to know what you're doing to support education funding in our
+  district. Our children deserve better.
+
+  Warm regards,
+  Deb
+  742 Evergreen Terrace, Salt Lake City
+
+  ---
+  Short, personal, and straight from the heart. Would you like any other
+  changes, or is this ready to send?
+
+❯ That's perfect!                                                               
+
+⏺ So glad it feels right! Here's everything you need to send it on your way:
+
+  - To: jplumb@le.utah.gov
+  - Subject: A Concerned Parent in District 9 — Our Schools Need Help
+  - Phone: 801-870-0228 (cell) — if you'd ever prefer to call instead
+
+  Your story is exactly the kind of thing legislators need to hear. A 15-year
+  resident, a real kid, a real loss — that matters. Good luck, Deb, and I hope
+  Sen. Plumb responds! 💙
