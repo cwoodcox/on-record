@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3]
+stepsCompleted: [1, 2, 3, 4, 5]
 inputDocuments: []
 workflowType: 'research'
 lastStep: 2
@@ -357,3 +357,117 @@ For consumer distribution via the GPT Store, both must exist: a custom GPT (Open
 | **Approval UX** | OAuth prompt at connection | `require_approval` per tool | User confirms via Copilot chat |
 
 _Source: [GPT Actions Production – OpenAI](https://platform.openai.com/docs/actions/production); [MCP Architecture – modelcontextprotocol.io](https://modelcontextprotocol.io/docs/learn/architecture)_
+
+---
+
+## Implementation Approaches and Technology Adoption
+
+### Technology Adoption Strategies
+
+**MCP as the convergence standard:** MCP is no longer experimental. OpenAI added support in March 2025, Google DeepMind in April 2025, and by late 2025 the protocol moved to the Linux Foundation with backing from AWS, Microsoft, and Cloudflare. The TypeScript SDK sees millions of weekly downloads. The strategic adoption path for On Record is clear: invest in one well-deployed remote MCP server; all other platform integrations (ChatGPT Responses API, Microsoft Copilot) derive from the same endpoint.
+_Source: [The Ultimate Guide to MCP Servers – Treblle](https://treblle.com/blog/mcp-servers-guide)_
+
+**Additive migration pattern (Node.js → Cloudflare Workers):** `better-sqlite3` is a native Node.js module and cannot run in Cloudflare Workers' V8 isolate model. The migration is additive — the existing `@hono/node-server` entrypoint stays intact for local dev; a separate Workers entrypoint exports `{ fetch, scheduled }` using the same Hono `app` instance. D1's `prepare` API mirrors SQLite semantics, so query logic is mechanically portable (sync → async). See `technical-cloudflare-workers-deployment-2026-03-16.md` for full migration analysis.
+_Source: [Build a Remote MCP server – Cloudflare Agents docs](https://developers.cloudflare.com/agents/guides/remote-mcp-server/); [D1 Overview – Cloudflare](https://developers.cloudflare.com/d1/)_
+
+### Development Workflows and Tooling
+
+**Scaffolding:** `npm create cloudflare@latest` bootstraps an MCP server template with Wrangler configured. For On Record, this generates the Workers entrypoint to layer on top of the existing Hono app.
+
+**Local development:** Two parallel dev paths:
+- `pnpm dev` (existing) — `@hono/node-server` with `better-sqlite3`, hot reload, full Node.js environment
+- `wrangler dev` — Workers runtime emulation, D1 local SQLite proxy, validates Workers-specific constraints
+
+**Secret management:** Wrangler CLI manages production secrets (`npx wrangler secret put UTAH_LEGISLATURE_API_KEY`). GitHub Secrets store `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` for CI/CD. Never commit secrets to the repository.
+
+**MCP Inspector:** `npx @modelcontextprotocol/inspector@latest` provides a visual `tools/list` + `tools/call` debugger against the live server URL. Essential for validating tool schemas and raw JSON-RPC traffic without a full Claude/ChatGPT session.
+_Source: [MCP Inspector – GitHub](https://github.com/modelcontextprotocol/inspector)_
+
+### Testing and Quality Assurance
+
+**Current stack (Vitest) carries forward:** On Record already uses Vitest with mocks at the `LegislatureDataProvider` boundary. This pattern is the community standard for MCP server unit testing — tools are tested by calling `server.callTool(name, args)` directly without a transport layer.
+
+**Integration testing gap to fill:** No current tests exercise the full MCP wire protocol (`tools/list` → `tools/call` round-trip). MCP Inspector covers this manually; automating it with a `createTestClient` helper (as documented in the MCPcat guide) would close the gap and catch schema regressions before deployment.
+
+**Protocol compliance:** The `@modelcontextprotocol/inspector` proxy can be used in CI to run a smoke test: spin up the server, call `tools/list`, assert the expected tool names are present. This guards against accidental tool registration regressions.
+_Source: [Unit Testing MCP Servers – MCPcat](https://mcpcat.io/guides/writing-unit-tests-mcp-servers/)_
+
+### Deployment and Operations Practices
+
+**CI/CD with Wrangler + GitHub Actions:** The official `cloudflare/wrangler-action` handles Workers deployment from GitHub Actions. Add a deploy job to the existing `.github/workflows/` pipeline: on merge to `main`, run `wrangler deploy` with `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` from GitHub Secrets.
+
+```yaml
+- name: Deploy to Cloudflare Workers
+  uses: cloudflare/wrangler-action@v3
+  with:
+    apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+```
+
+**Observability:** Workers emits structured logs via `console.error` (already enforced by ESLint in On Record). Cloudflare's dashboard surfaces these alongside request metrics. No separate log aggregation needed at MVP scale.
+
+**Cron Triggers:** Replace `node-cron` scheduler with `wrangler.toml` Cron Triggers. The `scheduled()` Worker handler calls `warmUpLegislatorsCache` and `warmUpBillsCache` unchanged — the cache interface is unaffected.
+_Source: [GitHub Actions – Cloudflare Workers docs](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/); [Wrangler Action – GitHub Marketplace](https://github.com/marketplace/actions/deploy-to-cloudflare-workers-with-wrangler)_
+
+### Team Organization and Skills
+
+On Record is a solo-developer project. The skill additions needed for the Workers + MCP production deployment:
+
+| Skill | Current State | Gap |
+|---|---|---|
+| TypeScript MCP SDK | Implemented (Stories 2.4, 3.5) | None |
+| Hono framework | Implemented | None |
+| OAuth 2.1 + PKCE | Not yet implemented | Needed for remote MCP |
+| Cloudflare Workers / Wrangler | Not yet used | New — well-documented |
+| D1 async API | Not yet used | New — mechanical SQLite port |
+| `/.well-known/oauth-protected-resource` (RFC 9728) | Not yet implemented | Needed for MCP auth spec |
+
+The OAuth 2.1 layer is the highest-skill-investment item. Cloudflare's `workers-oauth-provider` library handles the spec compliance (PKCE, RFC 9728, RFC 7591 DCR) so the implementation surface is reduced to wiring an IdP (GitHub OAuth or similar) rather than implementing OAuth primitives from scratch.
+_Source: [Authorization – Cloudflare Agents docs](https://developers.cloudflare.com/agents/model-context-protocol/authorization/); [workers-oauth-provider – GitHub](https://github.com/cloudflare/workers-oauth-provider)_
+
+### Cost Optimization and Resource Management
+
+At MVP/PAC-meeting scale, the full stack is free:
+
+| Service | Free tier | On Record usage estimate |
+|---|---|---|
+| Cloudflare Workers | 100K req/day | <1K req/day |
+| Cloudflare D1 | 5M rows read/day, 100K writes/day, 5GB | ~10K reads/day, ~500 writes/day |
+| Vercel (Next.js) | 100GB bandwidth, 100K function invocations | Well within |
+
+Graduated cost at scale: Workers Paid ($5/month) includes 10M requests and 25B D1 row reads — sufficient for significant growth. No egress fees on D1. This compares favorably to Railway Hobby ($5/month) with no global distribution and Node.js cold start overhead.
+_Source: [D1 Pricing – Cloudflare](https://developers.cloudflare.com/d1/platform/pricing/); [Railway vs Cloudflare – Railway Blog](https://blog.railway.com/p/railway-vs-cloudflare-how-their-architectures-differ-and-when-to-use-each)_
+
+### Risk Assessment and Mitigation
+
+| Risk | Likelihood | Mitigation |
+|---|---|---|
+| `better-sqlite3` FTS5 queries break on D1 | Low | D1 supports FTS5; JOIN query pattern already used |
+| OAuth 2.1 implementation complexity | Medium | Use `workers-oauth-provider` library; defer to a dedicated story |
+| Workers request timeout on chained API calls | Low | Workers has no hard CPU timeout; external fetch calls have their own timeout |
+| `mcp-remote` CVE-2025-6514 (OAuth URL injection) | Low for server-side | On Record is the server, not the client; ensure any client-side tooling uses ≥0.1.16 |
+| D1 free tier exhaustion | Very low at MVP | 5M row reads/day; On Record cache is read-heavy but tiny |
+
+## Technical Research Recommendations
+
+### Implementation Roadmap
+
+1. **Now (Epic 4–7):** Continue on current Node.js stack. No migration needed during active feature development.
+2. **Pre-launch (Epic 6 or 7):** Add Workers entrypoint + `wrangler.toml` as a parallel deployment target. Node.js path stays for local dev.
+3. **Post-launch:** Migrate cache layer to D1 async API. Add OAuth 2.1 layer using `workers-oauth-provider`.
+4. **Post-MVP:** OpenAPI spec layer for GPT Store custom GPT. Microsoft Copilot plugin manifest.
+
+### Technology Stack Recommendations
+
+- **OAuth:** `cloudflare/workers-oauth-provider` + GitHub OAuth (or Stytch for enterprise SSO) — avoids implementing OAuth primitives
+- **Workers testing:** Add `createTestClient` integration test for `tools/list` + `tools/call` wire protocol validation
+- **CI/CD:** `cloudflare/wrangler-action@v3` — official, well-maintained, minimal config
+
+### Success Metrics and KPIs
+
+| Metric | Target |
+|---|---|
+| MCP server p95 response time | <2s (chained GIS + Legislature API calls) |
+| Workers cold start | <50ms (edge, no container spin-up) |
+| D1 query latency | <10ms (co-located with Worker) |
+| Monthly infrastructure cost at MVP | $0 |
+| Monthly infrastructure cost at 10K active users | $5 |
