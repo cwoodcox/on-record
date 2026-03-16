@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3]
+stepsCompleted: [1, 2, 3, 4]
 inputDocuments: []
 workflowType: 'research'
 lastStep: 2
@@ -244,3 +244,94 @@ _API key management: Each LLM provider API key is stored as a GitHub Actions sec
 _Judge model isolation: The LLM judge model should be a different provider from the model under test when possible — reduces bias from self-evaluation ("preference leakage" contamination identified in 2025 research where judge and test model share training data)._
 _Prompt injection in test cases: Red-team test cases (adversarial inputs) are a core eval category in promptfoo. Testing chatbot resistance to prompt injection is an integration security requirement for production systems._
 _Source: [github.com/promptfoo/promptfoo-action](https://github.com/promptfoo/promptfoo-action), [braintrust.dev/articles/best-ai-evals-tools-cicd-2025](https://www.braintrust.dev/articles/best-ai-evals-tools-cicd-2025)_
+
+---
+
+## Architectural Patterns and Design
+
+### System Architecture Patterns
+
+The dominant production architecture for LLM evaluation pipelines in 2025–2026 is a **closed-loop, four-stage feedback system**:
+
+1. **Curate** — build and maintain a golden dataset from real production logs, failure cases, and representative user personas
+2. **Run** — execute deterministic + LLM-as-judge evaluators against every golden case on each code/prompt change
+3. **Gate** — fail CI builds when quality scores drop below configured thresholds, preventing "silent degradation"
+4. **Monitor → Feed back** — sample production traffic, detect drift, and promote new failure cases to the golden dataset
+
+The chatbot application itself follows a **layered architecture** where each layer is independently testable: (1) Conversation Layer (routing, session management), (2) NLP/Intent Layer (system prompt + function definitions — the primary target for eval testing), (3) Logic Layer (business rules), (4) Data Layer (retrieval, memory), (5) Infrastructure Layer (hosting, API routing). The system prompt lives in layer 2, which is why prompt regression testing is a discrete, automatable concern.
+
+_Silent degradation: The primary architectural risk in LLM systems — a small, well-intentioned prompt tweak (e.g., for conciseness) can silently degrade factual accuracy. The closed-loop eval pipeline is the architectural answer to this risk._
+_Source: [blog.promptlayer.com/llm-eval-framework](https://blog.promptlayer.com/llm-eval-framework/), [getmaxim.ai/articles/a-comprehensive-guide-to-testing-and-evaluating-ai-agents-in-production](https://www.getmaxim.ai/articles/a-comprehensive-guide-to-testing-and-evaluating-ai-agents-in-production/)_
+
+### Design Principles and Best Practices
+
+**Version control as single source of truth.** Golden datasets, system prompt files, and eval configs are all committed to git and travel together. A prompt change is a PR; the eval pipeline runs on that PR; the result is a GitHub Check. This makes prompt changes as reviewable and auditable as code changes.
+
+**Layered evaluator architecture (deterministic → statistical → LLM-as-judge).** Evaluation is not a single monolithic step — it's a filter cascade:
+- Tier 1 (deterministic): exact match, regex, JSON schema validation — free and instant
+- Tier 2 (statistical): BLEU/ROUGE, cosine similarity — cheap, useful as first-pass filters
+- Tier 3 (LLM-as-judge): semantic scoring, rubric-based assessment — expensive; only applied after cheaper filters pass
+
+This cascade reduces cost dramatically: run the expensive judge only on cases that pass the cheaper tiers.
+
+**Callback-based harness pattern.** Frameworks decouple the test harness from the chatbot implementation by wrapping the chatbot as a callable function (`model_callback` in DeepEval; `provider` function in promptfoo). The harness calls `callback(turn)` and receives a response — it never cares about internal chatbot implementation. This enables testing any chatbot (MCP server, REST API, SDK client) without harness changes.
+
+**Matrix testing pattern (promptfoo).** Test coverage is defined as `prompts × providers × test cases`. A matrix of 2 prompt variants × 3 providers × 10 test cases generates 60 eval runs automatically from a single YAML config. This combinatorial approach maximizes coverage from minimal test specification.
+
+_Source: [promptfoo.dev/docs/configuration/parameters](https://www.promptfoo.dev/docs/configuration/parameters/), [deepeval.com/docs/conversation-simulator](https://deepeval.com/docs/conversation-simulator), [confident-ai.com/blog/llm-chatbot-evaluation-explained](https://www.confident-ai.com/blog/llm-chatbot-evaluation-explained-top-chatbot-evaluation-metrics-and-testing-techniques)_
+
+### Scalability and Performance Patterns
+
+**Parallel test execution** is the primary scalability mechanism. Promptfoo runs all `provider × test case` combinations concurrently. DeepEval runs metrics concurrently using async Python. Parallelization means a 60-case eval suite takes roughly the same wall-clock time as a single case (bounded by API rate limits, not compute).
+
+**Content-hash response caching** is the primary cost control mechanism. Eval runs are cached by `hash(prompt + model + test case)`. On repeated CI runs (e.g., a re-run after a flaky non-eval step), cached responses are returned instantly at zero API cost. The promptfoo GitHub Action requires `actions/cache@v4` for this (mandatory since February 2025).
+
+**Tiered judge model selection** controls cost at scale:
+- Use `gpt-4o-mini` or `claude-haiku` as the primary judge for routine CI runs (~$0.02/50 examples)
+- Reserve `gpt-4o` or `claude-sonnet` for ambiguous cases flagged by the primary judge
+- Reserve `claude-opus` / `gpt-4o` for high-stakes pre-release evaluations
+At 10,000 monthly evaluations, tiered selection yields ~10× cost reduction vs. using the top-tier model for everything.
+
+**Streaming evaluation architecture** (Meta research, 2025): for production-traffic monitoring, streaming evaluators achieve sub-second latency while matching batch evaluation accuracy — enabling real-time quality dashboards alongside CI/CD gates.
+
+_Source: [medium.com/@robi.tomar72/ai-performance-engineering-2025-2026](https://medium.com/@robi.tomar72/ai-performance-engineering-2025-2026-edition-latency-throughput-cost-optimization-142eec0daece), [research.aimultiple.com/chatbot-testing-frameworks](https://research.aimultiple.com/chatbot-testing-frameworks/)_
+
+### Integration and Communication Patterns
+
+**Multi-turn conversation architecture (DeepEval).** A `ConversationalTestCase` encapsulates a full conversation as a list of `Turn` objects (role + content, matching OpenAI API format). Each turn optionally includes `retrieval_context` and `tools_called` for RAG/agent evaluation. The `ConversationSimulator` automatically generates realistic turn sequences from a `scenario` + `expected_outcome` + `user_description` spec, eliminating manual test case authoring for multi-turn flows.
+
+**ConversationalGolden → ConversationalTestCase pipeline.** Golden cases are defined as `ConversationalGolden` (scenario intent, expected outcome) and converted to `ConversationalTestCase` objects at evaluation time — the simulator fills in the dynamic turns by calling the chatbot. This cleanly separates intent specification (human-authored) from conversation execution (automated).
+
+**Multidimensional success criteria pattern.** Effective multi-turn chatbot eval requires simultaneously checking: (1) end-state outcome (was the task completed?), (2) transcript constraint (did it finish in ≤ N turns?), (3) LLM rubric (was tone/accuracy appropriate?). The τ-Bench and τ2-Bench benchmarks formalize this three-axis evaluation model for conversational agents.
+
+_Source: [deepeval.com/tutorials/medical-chatbot/evaluation](https://deepeval.com/tutorials/medical-chatbot/evaluation), [anthropic.com/engineering/demystifying-evals-for-ai-agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)_
+
+### Security Architecture Patterns
+
+**Adversarial test case architecture.** Red-team and adversarial test cases are a first-class architectural concern in promptfoo — not an afterthought. The standard eval suite includes: (1) happy-path golden cases, (2) edge case / boundary cases, (3) adversarial cases (prompt injection attempts, jailbreak attempts, out-of-scope queries). Promptfoo has a dedicated red-teaming mode (`promptfoo redteam`) that auto-generates adversarial cases.
+
+**Dataset decontamination requirement.** The golden dataset must not overlap with any training data used by the models under test — overlap produces inflated scores that don't reflect real-world performance. For teams using fine-tuned models, this requires explicit decontamination checks before adding cases to the golden dataset.
+
+**Observability separation.** The eval infrastructure (judge model credentials, dataset store, scoring service) operates in a separate security context from the chatbot application under test. Judge model API keys are not accessible to the chatbot; chatbot API keys are not accessible to the judge — preventing score manipulation via prompt injection from the application.
+
+_Source: [getmaxim.ai/articles/building-a-golden-dataset-for-ai-evaluation-a-step-by-step-guide](https://www.getmaxim.ai/articles/building-a-golden-dataset-for-ai-evaluation-a-step-by-step-guide/), [github.com/promptfoo/promptfoo](https://github.com/promptfoo/promptfoo)_
+
+### Data Architecture Patterns
+
+**Golden dataset as a living document.** The dataset is never "done." Start with 10–20 hand-curated cases covering core happy paths, edge cases, and known failure modes. Grow to 200–500 for production-grade confidence. Every production failure becomes a new golden case (production-to-golden pipeline). Dataset size recommendations: ~100 cases for RAG/chatbot use cases; larger for safety-critical applications.
+
+**Versioned dataset schema.** Each golden case stores: `input` (user message or conversation scenario), `expected_output` (or `expected_outcome` for multi-turn), `context` (retrieval context if RAG), `metadata` (category, severity, source). Cases are versioned in git as JSONL alongside prompt files.
+
+**Automated dataset generation.** Teams use a second LLM (different from the model under test) to generate candidate golden cases from documentation, user personas, and failure logs — then human-review to promote accepted cases. DeepEval's Synthesizer implements Evol-Instruct (iterative complexity evolution); Microsoft's PromptFlow resource hub provides copilot golden dataset creation guidance.
+
+_Source: [getmaxim.ai/articles/building-a-golden-dataset-for-ai-evaluation-a-step-by-step-guide](https://www.getmaxim.ai/articles/building-a-golden-dataset-for-ai-evaluation-a-step-by-step-guide/), [github.com/microsoft/promptflow-resource-hub](https://github.com/microsoft/promptflow-resource-hub/blob/main/sample_gallery/golden_dataset/copilot-golden-dataset-creation-guidance.md), [deepeval.com/docs/evaluation-datasets](https://deepeval.com/docs/evaluation-datasets)_
+
+### Deployment and Operations Architecture
+
+**CI/CD quality gate pattern.** The canonical deployment architecture: every prompt/code change → PR → GitHub Actions trigger → eval pipeline runs → score posted as GitHub Check → merge blocked if score < threshold. Threshold is configurable per metric (e.g., conversation completeness ≥ 0.80, turn relevancy ≥ 0.85, hallucination rate ≤ 0.05).
+
+**Production monitoring loop.** Parallel to the CI gate, a production monitoring pipeline samples live traffic, runs the same evaluators on sampled responses, and feeds regressions back to the golden dataset. Platforms: Langfuse (open-source, self-hostable), Maxim AI, Arize, Galileo. This closes the loop between development evaluation and production reality.
+
+**Eval pipeline as code.** Eval config (`promptfooconfig.yaml`, pytest fixtures, metric thresholds) is stored in the same repository as the application under test, versioned, code-reviewed, and change-logged. This prevents "eval drift" where the pipeline diverges from what the team actually cares about measuring.
+
+_Source: [evidentlyai.com/blog/llm-unit-testing-ci-cd-github-actions](https://www.evidentlyai.com/blog/llm-unit-testing-ci-cd-github-actions), [langfuse.com](https://langfuse.com/), [getmaxim.ai/articles/a-comprehensive-guide-to-testing-and-evaluating-ai-agents-in-production](https://www.getmaxim.ai/articles/a-comprehensive-guide-to-testing-and-evaluating-ai-agents-in-production/)_
