@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3, 4, 5]
+stepsCompleted: [1, 2, 3, 4, 5, 6]
 workflowType: 'research'
 research_type: 'technical'
 research_topic: 'Cloudflare Workers deployment platform for mcp-server'
@@ -14,6 +14,49 @@ source_verification: true
 
 **Date:** 2026-03-16
 **Research Type:** Technical
+
+---
+
+## Executive Summary
+
+Cloudflare Workers is a production-ready deployment target for `apps/mcp-server`. This research validates the migration approach end-to-end and confirms that the required changes are modest, low-risk, and contained to well-isolated layers of the existing codebase.
+
+**The migration is additive, not a rewrite.** Hono 4.12 — the project's HTTP framework — is Workers-native and requires zero changes. The MCP protocol layer, all tool handlers, and all SQL queries are unchanged. The surface area of change is limited to three components: (1) the process entrypoint, which gains a `{ fetch, scheduled }` dual-export alongside the existing Node.js path; (2) the `cache/` layer, which replaces synchronous `better-sqlite3` calls with async D1 binding calls using a mechanical `await env.DB.prepare(...).bind(...).all()` pattern; and (3) the scheduler, where `node-cron` is replaced by a Cloudflare Cron Trigger and a `scheduled` export.
+
+**Cost is not a concern.** On-record's workload (~60K rows written/month, ~150K rows read/month, ~4 MB storage) fits comfortably within Cloudflare's permanent free tier — no credit card required at MVP scale. All identified risks (FTS5 compatibility, int64 precision, CPU limits, cold starts) are low-likelihood with documented mitigations. The migration is estimated at 7 developer-days.
+
+**Key Technical Findings:**
+
+- Hono 4.12 is officially recommended by Cloudflare and requires no changes for Workers deployment
+- D1 is full SQLite 3.x — FTS5 virtual tables, composite primary keys, and all existing SQL work unchanged
+- `better-sqlite3` cannot run in Workers (native C++ addon); the `cache/` boundary (Boundary 4 per CLAUDE.md) cleanly contains all changes
+- `@cloudflare/vitest-pool-workers` integrates with the existing Vitest setup; all CLAUDE.md test conventions are preserved
+- Free D1 tier (5M rows/day read, 100K rows/day write, 5 GB storage) is sufficient indefinitely
+- Workers cold starts average <5ms vs up to 5 seconds on AWS Lambda
+
+**Technical Recommendations:**
+
+1. Proceed with the migration using the 7-day strangler-fig sequence documented in the Implementation section
+2. Implement as 5 sequential stories (scaffold → cache layer → scheduler → rate limiting → CI/CD) per the story scope in the Deferred Decisions section
+3. Use `wrangler types` (not `@cloudflare/workers-types`) to generate the `Env` interface from `wrangler.toml`
+4. Keep the Node.js entrypoint (`index.ts`) intact alongside the Workers entrypoint (`worker.ts`) — this preserves local `ts-node` development during transition
+5. Apply D1 migrations with `wrangler d1 migrations apply --remote` in CI before `wrangler deploy`
+
+---
+
+## Table of Contents
+
+1. [Technical Research Scope Confirmation](#technical-research-scope-confirmation)
+2. [Technology Stack Analysis](#technology-stack-analysis)
+3. [Integration Patterns](#integration-patterns)
+4. [Architectural Patterns and Design](#architectural-patterns-and-design)
+5. [Implementation Approaches and Technology Adoption](#implementation-approaches-and-technology-adoption)
+6. [Technical Research Recommendations](#technical-research-recommendations)
+7. [Summary and Migration Analysis](#summary)
+8. [FTS5 Compatibility Note](#fts5-compatibility-note)
+9. [Deferred Decisions](#deferred-decisions)
+10. [Recommended Story Scope](#recommended-story-scope-when-ready)
+11. [Research Conclusion](#research-conclusion)
 
 ---
 
@@ -604,3 +647,42 @@ D1 supports FTS5 — the `bill_fts` virtual table and the JOIN query pattern use
 3. Replace `node-cron` with `scheduled()` handler + Cron Triggers
 4. Replace `hono-rate-limiter` with Cloudflare Rate Limiting binding
 5. CI/CD: add `wrangler deploy` to GitHub Actions workflow
+
+---
+
+## Research Conclusion
+
+### Summary of Key Technical Findings
+
+This research validates that migrating `apps/mcp-server` from Node.js to Cloudflare Workers is **technically sound, low-risk, and well-scoped**. The four most important findings:
+
+1. **Framework compatibility confirmed.** Hono 4.12 is Workers-native — the entire HTTP and MCP routing layer is unchanged. This eliminates the largest potential migration risk.
+
+2. **Database compatibility confirmed.** D1 is full SQLite 3.x with FTS5 support. Every query in `cache/bills.ts` runs identically; only the calling convention changes from synchronous to async. The `cache/` boundary in CLAUDE.md provides clean isolation — no tool, provider, or handler file outside `cache/` requires modification.
+
+3. **Free tier is sufficient.** On-record's legislative data workload (~2,000 bills, daily refresh, ~100 MCP requests/day) produces roughly 60K rows written and 150K rows read per month — well under the free D1 limits of 3M rows written and 150M rows read per month. No infrastructure cost at MVP scale.
+
+4. **Tooling ecosystem is mature.** The Workers + D1 + Vitest + Wrangler stack is production-grade and officially recommended by Cloudflare. The `@cloudflare/vitest-pool-workers` package runs tests inside the real `workerd` runtime, giving higher-fidelity test coverage than the current Node.js Vitest setup.
+
+### Strategic Technical Impact
+
+The migration eliminates the operational burden of running a long-lived Node.js server (process management, uptime monitoring, restart logic). Replacing it with a stateless Workers deployment reduces infrastructure surface area to zero — Cloudflare manages the global distribution, TLS, DDoS protection, and auto-scaling with no configuration. The Cron Trigger replaces `node-cron` without any cron daemon to maintain.
+
+The MCP server becomes globally distributed across 330+ Cloudflare PoPs, delivering sub-50ms response times to users regardless of geography — a meaningful improvement for an AI assistant tool where perceived latency directly affects usability.
+
+### Next Steps
+
+1. Create Story 3.1: Workers scaffold (`wrangler.toml`, `worker.ts` entrypoint, `wrangler types`)
+2. Create Story 3.2: D1 cache layer migration (`cache/*.ts` sync → async)
+3. Create Story 3.3: Cron Trigger scheduler migration
+4. Create Story 3.4: Rate limiting migration to Cloudflare Rate Limiting binding
+5. Create Story 3.5: CI/CD `wrangler deploy` integration
+
+Each story is independently releasable. Stories 3.1–3.3 are the critical path; 3.4–3.5 are polish.
+
+---
+
+**Research Completion Date:** 2026-03-16
+**Research Period:** Comprehensive current analysis, all facts web-verified against Cloudflare official documentation
+**Source Verification:** All technical claims cited with URLs to Cloudflare, Hono, and Vitest official docs
+**Technical Confidence Level:** High — based on official documentation, release notes, and Cloudflare engineering blog posts
