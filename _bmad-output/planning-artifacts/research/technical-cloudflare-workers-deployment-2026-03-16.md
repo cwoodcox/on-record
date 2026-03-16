@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1]
+stepsCompleted: [1, 2]
 workflowType: 'research'
 research_type: 'technical'
 research_topic: 'Cloudflare Workers deployment platform for mcp-server'
@@ -111,6 +111,105 @@ As of early 2026, the Hono + Cloudflare Workers + D1 stack has reached productio
 The on-record migration targets the established, well-documented path — not a bleeding-edge bet.
 
 _Source: [Cloudflare Workers complete platform overview](https://medium.com/@ltwolfpup/cloudflare-workers-the-complete-serverless-edge-computing-platform-40a113164ab6)_
+
+---
+
+## Integration Patterns Analysis
+
+### MCP Transport — Streamable HTTP on Workers
+
+The MCP specification switched from SSE to **Streamable HTTP** as its standard remote transport in **March 2025**. This is the transport the on-record mcp-server must implement.
+
+Cloudflare has first-class support for both transports. Two implementation paths exist:
+
+| Path | When to Use |
+|---|---|
+| `McpAgent` (Agents SDK) — Durable Object per session | Need per-session state, OAuth provider, or built-in SSE fallback |
+| `createMcpHandler` + `@modelcontextprotocol/sdk` | Full control, stateless handlers, existing Hono app |
+
+For on-record, the existing `@modelcontextprotocol/sdk` (already in the project) can be used directly with the `fetch(req, env)` entrypoint on Workers. The MCP handler becomes a route on the Hono app — no separate server process needed.
+
+Testing: use `mcp-remote` adapter to connect Claude Desktop to the deployed Worker during development.
+
+_Source: [Cloudflare Agents MCP Transport](https://developers.cloudflare.com/agents/model-context-protocol/transport/), [Streamable HTTP blog post](https://blog.cloudflare.com/streamable-http-mcp-servers-python/), [Build a Remote MCP Server](https://developers.cloudflare.com/agents/guides/remote-mcp-server/)_
+
+### Environment Bindings and Secrets
+
+`process.env` is **not available** in Workers by default (though it is enabled automatically for compatibility dates ≥ 2025-04-01 when `nodejs_compat_populate_process_env` is set). The correct pattern is `c.env.MY_VAR` accessed via Hono's typed `Bindings` generic:
+
+```ts
+type Bindings = {
+  DB: D1Database
+  UGRC_API_KEY: string
+  RATE_LIMITER: RateLimitBinding
+}
+const app = new Hono<{ Bindings: Bindings }>()
+```
+
+- **Secrets** (API keys, tokens) → `wrangler secret put KEY_NAME` — encrypted at rest, never visible in dashboard after creation
+- **Local dev** → `.dev.vars` file (gitignored), same key/value format as production
+- **D1 binding** → declared in `wrangler.toml` `[[d1_databases]]`, accessed as `env.DB`
+
+The existing project pattern of passing dependencies through constructor injection at the `cache/` boundary maps cleanly onto the `env` bindings pattern — `env.DB` replaces the `better-sqlite3` Database instance.
+
+_Source: [Bindings (env) docs](https://developers.cloudflare.com/workers/runtime-apis/bindings/), [Secrets docs](https://developers.cloudflare.com/workers/configuration/secrets/), [Hono Cloudflare Workers guide](https://hono.dev/docs/getting-started/cloudflare-workers)_
+
+### Rate Limiting Integration
+
+The project already uses `hono-rate-limiter 0.4.2`. On Workers, it can be replaced with Cloudflare's **native Rate Limiting API** (zero-latency, backed by local counters):
+
+```toml
+# wrangler.toml
+[[ratelimits]]
+binding = "RATE_LIMITER"
+namespace_id = "1001"
+simple = { limit = 100, period = 60 }
+```
+
+The `@elithrar/workers-hono-rate-limit` package wraps this binding as Hono middleware. Key point from docs: **do not rate limit by IP address** (shared NATs cause false positives) — rate limit by `Authorization` header or MCP session token instead.
+
+_Source: [Rate Limiting API](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/), [workers-hono-rate-limit](https://github.com/elithrar/workers-hono-rate-limit)_
+
+### Scheduled Tasks / Cron Triggers
+
+The project uses `node-cron 4.2.1` for cache refresh. On Workers, this is replaced by **Cron Triggers** — no library needed:
+
+```toml
+# wrangler.toml
+[triggers]
+crons = ["0 */6 * * *"]  # Every 6 hours UTC
+```
+
+```ts
+export default {
+  async fetch(req: Request, env: Env): Promise<Response> { ... },
+  async scheduled(controller: ScheduledController, env: Env): Promise<void> {
+    // cache refresh logic
+  }
+}
+```
+
+- UTC timezone only — document the offset vs `node-cron` if the existing schedule is timezone-sensitive
+- Multiple crons: use `controller.cron` string to branch logic
+- Local testing: `wrangler dev --test-scheduled` exposes `/__scheduled` route
+- Logs: 100 most recent invocations stored; Workers Logs for extended retention
+
+_Source: [Cron Triggers](https://developers.cloudflare.com/workers/configuration/cron-triggers/), [Scheduled Handler API](https://developers.cloudflare.com/workers/runtime-apis/handlers/scheduled/)_
+
+### Communication Protocols and Data Formats
+
+No changes required to the MCP wire format — the SDK handles JSON-RPC 2.0 serialization. Streamable HTTP uses standard `Content-Type: application/json` for requests and `text/event-stream` for streaming responses; Workers supports both natively via the `Response` and `ReadableStream` APIs.
+
+_Source: [MCP spec transport](https://developers.cloudflare.com/agents/model-context-protocol/transport/)_
+
+### Integration Security
+
+- **API keys** → stored as Workers secrets (`wrangler secret put`), accessed via `c.env`
+- **MCP auth** → OAuth 2.1 via Workers OAuth Provider library if needed; for internal/trusted use, a shared secret in the `Authorization` header is sufficient
+- **UGRC GIS API key** → moves from env var to Workers secret — no code change, only deployment change
+- **HTTPS everywhere** → Workers only serve over TLS; no HTTP-to-HTTPS redirect logic needed
+
+_Source: [Secrets docs](https://developers.cloudflare.com/workers/configuration/secrets/)_
 
 ---
 
