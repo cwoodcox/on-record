@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2]
+stepsCompleted: [1, 2, 3]
 inputDocuments: []
 workflowType: 'research'
 lastStep: 2
@@ -182,3 +182,65 @@ _Legacy Technology: BLEU/ROUGE alone (still useful as first-pass filters but ins
 ---
 
 <!-- Content will be appended sequentially through research workflow steps -->
+
+---
+
+## Integration Patterns Analysis
+
+### API Design Patterns
+
+The LLM evaluation ecosystem has converged on **REST + JSON** as the universal transport, with the **OpenAI Chat Completions API format** emerging as the de facto standard that third-party tools and providers implement or proxy. Evaluation frameworks exploit this via unified gateway layers.
+
+_RESTful APIs: Every major LLM provider (OpenAI, Anthropic, Google, Cohere) exposes a REST endpoint with `POST /chat/completions` or equivalent; promptfoo and LiteLLM exploit this by normalizing all requests to the OpenAI schema and translating per-provider._
+_LLM Gateway / OpenRouter patterns: Single-integration routing layers (LiteLLM, OpenRouter, LLM Gateway) let evaluation pipelines target 25–100+ providers by changing only a model-name string — no provider-specific SDK code required. LiteLLM maps errors to OpenAI exception types for consistent error handling._
+_Model Context Protocol (MCP): Anthropic introduced MCP in November 2024 as an open standard for AI ↔ tool/data-source integration; OpenAI formally adopted it in March 2025; donated to the Linux Foundation (AAIF) in December 2025. MCP is becoming the standard adapter interface between evaluation harnesses and external tool mocks. DeepEval added `MCPUseMetric` and `MultiTurnMCPUseMetric` in 2025._
+_Webhook / callback patterns: Platforms like LangSmith use async webhook callbacks to post eval scores back to PR checks without blocking the pipeline worker._
+_Source: [github.com/BerriAI/litellm](https://github.com/BerriAI/litellm), [en.wikipedia.org/wiki/Model_Context_Protocol](https://en.wikipedia.org/wiki/Model_Context_Protocol), [deepeval.com/changelog/changelog-2025](https://deepeval.com/changelog/changelog-2025)_
+
+### Communication Protocols
+
+_HTTP/HTTPS: Universal baseline for all provider API calls and eval framework webhooks. TLS is required by all hosted providers._
+_WebSocket: Used by platforms like Cekura for real-time chatbot evaluation — the test harness connects via WebSocket, sends turns, and streams responses for latency measurement and live scoring._
+_Streaming (SSE / chunked): OpenAI and Anthropic support server-sent events for streaming responses; evaluation frameworks handle this by collecting the full stream before scoring, or by measuring time-to-first-token as a latency metric._
+_gRPC: Not widely adopted in the LLM eval space as of 2025–2026 — REST+JSON dominates; gRPC/Protocol Buffers used internally by some providers but not exposed to eval clients._
+_Source: [research.aimultiple.com/chatbot-testing-frameworks](https://research.aimultiple.com/chatbot-testing-frameworks/), [cekura.ai/blogs/complete-chatbot-testing-guide-ai-agents](https://www.cekura.ai/blogs/complete-chatbot-testing-guide-ai-agents)_
+
+### Data Formats and Standards
+
+_JSON (RFC 8259): The universal payload format for LLM API requests, responses, and evaluation results. LLM output JSON is validated using JSON Schema in contract-testing pipelines; `JSONLint` integration in CI prevents malformed schema changes from deploying._
+_JSONL (Newline-Delimited JSON): Used for golden datasets, streaming large evaluation exports, and logging. Each line is an independent JSON object — enables line-wise streaming without loading entire datasets into memory._
+_YAML: The primary config format for promptfoo (`promptfooconfig.yaml`). Enables non-engineers to add test cases without Python/Node expertise; version-controlled alongside prompt files._
+_Structured JSON output (function calling): When LLMs are used as judges, they are constrained to return structured JSON (e.g., `{"score": 0.85, "reasoning": "..."}`) via function-calling or JSON mode — ensuring parseable, deterministic results from the judge model._
+_Source: [promptfoo.dev/docs/configuration/guide](https://www.promptfoo.dev/docs/configuration/guide/), [messengerbot.app/chatbot-json-how-json-powers-ai-chatbots](https://messengerbot.app/chatbot-json-how-json-powers-ai-chatbots-best-apis-opening-json-chat-files-and-why-developers-use-it/)_
+
+### System Interoperability Approaches
+
+The core interoperability challenge is that each LLM provider has different authentication, request schemas, and error formats. Three patterns solve this in the evaluation context:
+
+_Unified API Gateway (LiteLLM pattern): A proxy/SDK layer normalizes all provider calls to a single interface. LiteLLM calls 100+ providers in OpenAI format with cost tracking, load balancing, and integrated observability (Langfuse, MLflow, Helicone). This is the recommended approach for multi-LLM evaluation pipelines — swap providers by changing a model string, not code._
+_Hosted routing services (OpenRouter, LLM Gateway): SaaS API routers that handle authentication, billing, and format normalization for 25+ providers. Appropriate for teams that don't want to self-host a gateway._
+_Promptfoo's native multi-provider: promptfoo's YAML config natively targets multiple providers in a `providers:` list — it runs every test case against every listed provider concurrently and produces a side-by-side comparison table. No separate gateway required for evaluation workflows._
+_Source: [llmgateway.io](https://llmgateway.io/), [github.com/promptfoo/promptfoo](https://github.com/promptfoo/promptfoo), [docs.litellm.ai](https://docs.litellm.ai/)_
+
+### Microservices Integration Patterns
+
+In the evaluation pipeline context, microservices patterns apply to the decomposition of eval infrastructure components:
+
+_Evaluation runner as a service: The eval runner (promptfoo CLI, DeepEval pytest, Evidently) is a stateless worker that pulls test cases from a dataset store, calls provider APIs, scores with a judge, and pushes results to an observability platform — cleanly separable from the application under test._
+_Circuit breaker for provider calls: When a provider API is rate-limited or unavailable during a CI run, evaluation tools implement retry logic with exponential backoff. LiteLLM handles this transparently. DeepEval adds `--retry` flags. promptfoo respects `rateLimit` config per provider._
+_Service discovery via config: Providers are specified declaratively in YAML/JSON config — no hardcoded endpoints. Switching from GPT-4o to Claude 3.7 Sonnet as the judge model is a one-line config change._
+_Source: [promptfoo.dev/docs/integrations/ci-cd](https://www.promptfoo.dev/docs/integrations/ci-cd/), [deepeval.com/docs/getting-started](https://deepeval.com/docs/getting-started)_
+
+### Event-Driven Integration
+
+_GitHub PR webhook → eval pipeline: The standard event-driven pattern for LLM CI. A PR opened/updated event triggers a GitHub Actions workflow that runs the evaluation suite, posts scores as GitHub Check results, and blocks merge if thresholds aren't met. Tools: `promptfoo/promptfoo-action@v1`, Evidently GitHub Action, DeepEval pytest runner._
+_LangSmith async eval: When a PR is opened, LangSmith runs the chain against a dataset asynchronously, scores outputs (0.0–1.0 per case), and reports the aggregate back to the PR check. Threshold-gated merge (e.g., require ≥ 0.85)._
+_Caching to avoid redundant calls: Since February 1, 2025, `promptfoo-action` requires `actions/cache@v4`. Caching by content hash (prompt + model + test case) means identical calls in repeated CI runs return cached results instantly — cutting eval time dramatically and avoiding unnecessary API spend._
+_Source: [evidentlyai.com/blog/llm-unit-testing-ci-cd-github-actions](https://www.evidentlyai.com/blog/llm-unit-testing-ci-cd-github-actions), [github.com/marketplace/actions/test-llm-outputs](https://github.com/marketplace/actions/test-llm-outputs), [markaicode.com/langsmith-cicd-automated-regression-testing](https://markaicode.com/langsmith-cicd-automated-regression-testing/)_
+
+### Integration Security Patterns
+
+_API key management: Each LLM provider API key is stored as a GitHub Actions secret (or CI/CD platform equivalent) and injected as environment variables at runtime — never committed to the repository alongside eval configs._
+_Judge model isolation: The LLM judge model should be a different provider from the model under test when possible — reduces bias from self-evaluation ("preference leakage" contamination identified in 2025 research where judge and test model share training data)._
+_Prompt injection in test cases: Red-team test cases (adversarial inputs) are a core eval category in promptfoo. Testing chatbot resistance to prompt injection is an integration security requirement for production systems._
+_Source: [github.com/promptfoo/promptfoo-action](https://github.com/promptfoo/promptfoo-action), [braintrust.dev/articles/best-ai-evals-tools-cicd-2025](https://www.braintrust.dev/articles/best-ai-evals-tools-cicd-2025)_
