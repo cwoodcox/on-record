@@ -281,9 +281,9 @@ The MCP ecosystem is mid-transition on session architecture. The current Streama
 
 **Implications for On Record's existing architecture:**
 
-On Record's MCP server runs on Railway (persistent containerized process), which is well-suited for the current stateful model. The 2026 shift toward stateless-by-default is directionally positive — it will make future horizontal scaling simpler — but is not a breaking change for existing deployments. The Railway deployment handles this correctly today and does not need to change until the stateless SEPs are finalised (tentatively June 2026).
+On Record's MCP server is planned for **Cloudflare Workers** (stateless, edge-deployed), which is well-aligned with the 2026 stateless-by-default direction. Workers has no persistent in-process state between requests, matching the target model cleanly. The 2026 shift is directionally positive and removes any concern about stateful session management at the infrastructure layer.
 
-**Vercel** (where the web app lives) is the wrong host for the MCP server: its 10-second default timeout (60 seconds on Pro) is incompatible with MCP tool calls that chain UGRC geocoding → Utah Legislature API lookups. Railway's absence of hard request timeouts is a meaningful architectural advantage here.
+**Vercel** (where the web app lives) is the wrong host for the MCP server: its 10-second default timeout (60 seconds on Pro) is incompatible with MCP tool calls that chain UGRC geocoding → Utah Legislature API lookups. Cloudflare Workers has no hard per-request timeout for CPU-bound work and handles the chained external API calls correctly.
 
 _Source: [MCP Transport Future – MCP Blog](http://blog.modelcontextprotocol.io/posts/2025-12-19-mcp-transport-future/); [MCP 2026 Roadmap](http://blog.modelcontextprotocol.io/posts/2026-mcp-roadmap/); [Building Efficient MCP Servers – Vercel](https://vercel.com/blog/building-efficient-mcp-servers)_
 
@@ -301,7 +301,7 @@ _Source: [Declarative Agents Overview – Microsoft Learn](https://learn.microso
 
 ### Deployment Architecture
 
-On Record's current split — MCP server on Railway, web app on Vercel — is well-aligned with each platform's strengths:
+On Record's planned split — MCP server on Cloudflare Workers, web app on Vercel — is well-aligned with each platform's strengths:
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -310,7 +310,7 @@ On Record's current split — MCP server on Railway, web app on Vercel — is we
 └──────────────────────┬──────────────────────────────┘
                        │ MCP / OpenAPI
 ┌──────────────────────▼──────────────────────────────┐
-│          On Record MCP Server (Railway)             │
+│       On Record MCP Server (Cloudflare Workers)     │
 │  Hono + @modelcontextprotocol/sdk                   │
 │  Streamable HTTP transport (upgrade from SSE)       │
 │  OAuth 2.1 + PKCE (to add)                         │
