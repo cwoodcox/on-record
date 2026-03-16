@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2]
+stepsCompleted: [1, 2, 3]
 workflowType: 'research'
 research_type: 'technical'
 research_topic: 'Cloudflare Workers deployment platform for mcp-server'
@@ -210,6 +210,121 @@ _Source: [MCP spec transport](https://developers.cloudflare.com/agents/model-con
 - **HTTPS everywhere** → Workers only serve over TLS; no HTTP-to-HTTPS redirect logic needed
 
 _Source: [Secrets docs](https://developers.cloudflare.com/workers/configuration/secrets/)_
+
+---
+
+## Architectural Patterns and Design
+
+### System Architecture Patterns
+
+The migration from Node.js/better-sqlite3 to Cloudflare Workers/D1 follows a well-understood pattern: **serverless edge function with managed relational database binding**. The key architectural shift is:
+
+- **Before:** Long-running Node.js process, synchronous SQLite via `better-sqlite3`, `node-cron` daemon
+- **After:** Stateless isolate per request, async D1 binding, Cron Trigger for scheduled work
+
+The `fetch` + `scheduled` dual-export pattern is the Workers equivalent of Express's `app.listen()` + cron:
+
+```ts
+export default {
+  async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    return app.fetch(req, env, ctx)  // existing Hono app, unchanged
+  },
+  async scheduled(controller: ScheduledController, env: Env): Promise<void> {
+    await refreshCache(env.DB)       // replaces node-cron handler
+  }
+}
+```
+
+Critical Workers-specific rule: **never store mutable state in module-level variables** — isolates are reused across requests, causing cross-request data leaks. All state flows through `env` bindings or function arguments.
+
+_Source: [Workers Best Practices (Feb 2026)](https://developers.cloudflare.com/changelog/post/2026-02-15-workers-best-practices/)_
+
+### Design Principles and Best Practices
+
+**Generated types, never hand-written:** Run `wrangler types` after every `wrangler.toml` change to regenerate `worker-configuration.d.ts`. The project's existing `Boundary 4` rule (better-sqlite3 confined to `cache/`) maps directly onto the D1 binding pattern — the boundary stays, only the implementation changes.
+
+**Bindings over REST:** D1, rate limiting, and secrets are all accessed as in-process bindings (`env.DB`, `env.RATE_LIMITER`, `env.UGRC_API_KEY`) with zero network hop and no auth overhead. This is architecturally cleaner than the current approach of injecting a `Database` instance.
+
+**`nodejs_compat` flag required:** `better-sqlite3` is a native C++ addon — it cannot run in Workers even with Node.js compatibility enabled. The flag is needed for other Node.js APIs the project may use, but it does not rescue `better-sqlite3`. The `cache/` layer must be rewritten against D1's async API.
+
+_Source: [Workers Best Practices](https://developers.cloudflare.com/workers/best-practices/workers-best-practices/), [Node.js in Workers 2025](https://blog.cloudflare.com/nodejs-workers-2025/)_
+
+### Data Architecture Patterns — better-sqlite3 → D1 Migration
+
+The synchronous → async API shift is the most significant mechanical change. Every `cache/` method changes from:
+
+```ts
+// Before (better-sqlite3, synchronous)
+const row = db.prepare('SELECT * FROM bills WHERE id = ?').get(id)
+```
+to:
+```ts
+// After (D1, async)
+const row = await env.DB.prepare('SELECT * FROM bills WHERE id = ?').bind(id).first()
+```
+
+**FTS5 preservation:** D1 is full SQLite, so the existing `bill_fts` virtual table and the JOIN query pattern documented in `CLAUDE.md` work without modification. The SQL is identical; only the calling convention changes.
+
+**Schema migration strategy:**
+1. Export the existing SQLite schema (no data — it's a cache, repopulated on first run)
+2. Create `migrations/001-initial-schema.sql` in `apps/mcp-server/`
+3. Apply locally: `wrangler d1 execute on-record-cache --local --file=./migrations/001-initial-schema.sql`
+4. Apply remotely: `wrangler d1 execute on-record-cache --remote --file=./migrations/001-initial-schema.sql`
+5. All future schema changes: sequential numbered migration files
+
+**Sessions API for consistency:** After writes (cache refresh), use `env.DB.withSession("first-primary")` if subsequent reads in the same handler must see the write. Not needed for the read path (MCP tool calls).
+
+_Source: [D1 Migrations](https://developers.cloudflare.com/d1/reference/migrations/), [D1 Import/Export](https://developers.cloudflare.com/d1/best-practices/import-export-data/)_
+
+### Monorepo Architecture
+
+The existing pnpm workspaces structure is compatible with Cloudflare Workers deployment with one important caveat: **Cloudflare's automatic builder installs all workspace dependencies**, not just the Worker's. For a CI/CD-driven deploy (GitHub Actions), this is a non-issue — `wrangler deploy` runs directly from `apps/mcp-server/`.
+
+Recommended monorepo placement:
+```
+apps/mcp-server/
+├── src/
+│   └── index.ts          # export default { fetch, scheduled }
+├── wrangler.toml          # bindings, cron triggers, compatibility flags
+├── worker-configuration.d.ts  # generated by `wrangler types`
+├── migrations/
+│   └── 001-initial-schema.sql
+└── package.json
+```
+
+Wrangler should be installed at the **monorepo root** `package.json`, not per-workspace, to avoid permission issues. The `apps/mcp-server/package.json` script becomes `"deploy": "wrangler deploy"`.
+
+_Source: [Advanced setups — Workers CI/CD](https://developers.cloudflare.com/workers/ci-cd/builds/advanced-setups/)_
+
+### Scalability and Performance Patterns
+
+Workers' isolate model provides automatic global scale with zero configuration. For on-record's workload:
+
+- **Read path (MCP tool calls):** Stateless, sub-10ms D1 reads — handled entirely by Workers autoscaling
+- **Write path (cache refresh):** Single Cron Trigger → single Worker invocation → D1 batch writes
+- **D1 latency improvement:** 40–60% request latency decrease in 2025 (per Cloudflare release notes)
+- **Smart Placement:** If D1 read latency is a concern, enable `[placement] mode = "smart"` in `wrangler.toml` — Workers will colocate with the D1 primary
+
+_Source: [D1 Overview](https://developers.cloudflare.com/d1/)_
+
+### Deployment and Operations Architecture
+
+```
+GitHub Actions CI:
+  pnpm install (root)
+  pnpm test (apps/mcp-server)
+  wrangler d1 migrations apply --remote  (schema only if changed)
+  wrangler deploy                        (from apps/mcp-server/)
+
+Local development:
+  wrangler dev                           (local D1 sim, hot reload)
+  wrangler dev --test-scheduled          (test cron handler via /__scheduled)
+  wrangler d1 execute --local --file=... (apply schema locally)
+```
+
+Secrets set once via `wrangler secret put UGRC_API_KEY` — not in `wrangler.toml`, not in git.
+
+_Source: [Wrangler Configuration](https://developers.cloudflare.com/workers/wrangler/configuration/), [Cron Triggers](https://developers.cloudflare.com/workers/configuration/cron-triggers/)_
 
 ---
 
