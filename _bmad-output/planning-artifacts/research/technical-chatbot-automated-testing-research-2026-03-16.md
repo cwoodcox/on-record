@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3, 4]
+stepsCompleted: [1, 2, 3, 4, 5]
 inputDocuments: []
 workflowType: 'research'
 lastStep: 2
@@ -335,3 +335,183 @@ _Source: [getmaxim.ai/articles/building-a-golden-dataset-for-ai-evaluation-a-ste
 **Eval pipeline as code.** Eval config (`promptfooconfig.yaml`, pytest fixtures, metric thresholds) is stored in the same repository as the application under test, versioned, code-reviewed, and change-logged. This prevents "eval drift" where the pipeline diverges from what the team actually cares about measuring.
 
 _Source: [evidentlyai.com/blog/llm-unit-testing-ci-cd-github-actions](https://www.evidentlyai.com/blog/llm-unit-testing-ci-cd-github-actions), [langfuse.com](https://langfuse.com/), [getmaxim.ai/articles/a-comprehensive-guide-to-testing-and-evaluating-ai-agents-in-production](https://www.getmaxim.ai/articles/a-comprehensive-guide-to-testing-and-evaluating-ai-agents-in-production/)_
+
+---
+
+## Implementation Approaches and Technology Adoption
+
+### Technology Adoption Strategies
+
+**Gradual adoption is the consensus-recommended approach.** Start with a small, high-value golden dataset (10–20 cases covering the chatbot's core happy paths and known failure modes), wire it into CI as a non-blocking check first, establish baseline scores, then tighten thresholds and expand coverage over 4–8 weeks. Big-bang adoption (hundreds of test cases on day one) leads to noisy pipelines, unclear thresholds, and abandonment.
+
+**Promptfoo first for multi-LLM comparison teams.** Zero cloud setup, zero SDK dependencies — the only prerequisite is Node.js. Bootstrap:
+```
+npx promptfoo@latest init
+# edit promptfooconfig.yaml
+npx promptfoo eval
+npx promptfoo view   # opens HTML report
+```
+The YAML config means non-engineers (product managers, technical writers) can add test cases without touching code. This reduces the eval authoring bottleneck.
+
+**DeepEval first for Python-native teams needing deep conversational metrics.** Install via pip, write pytest-style test files, run with standard `pytest` commands. The `ConversationSimulator` is the most mature OSS solution for automated multi-turn conversation testing — no manual conversation scripting required.
+
+**Mix methods:** Automated deterministic checks catch regressions fast and free. LLM-as-judge provides semantic quality assessment. Human review (spot-check 5–10% of outputs weekly) catches blind spots in the automated pipeline. All three together provide more comprehensive coverage than any single method.
+
+_Source: [promptfoo.dev/docs/getting-started](https://www.promptfoo.dev/docs/getting-started/), [blog.promptlayer.com/llm-eval-framework](https://blog.promptlayer.com/llm-eval-framework/), [newsletter.pragmaticengineer.com/p/evals](https://newsletter.pragmaticengineer.com/p/evals)_
+
+### Development Workflows and Tooling
+
+**Standard promptfoo development loop:**
+1. Edit system prompt or chatbot instructions
+2. Run `npx promptfoo eval` locally — takes 30–90 seconds for a 20-case suite
+3. Review HTML report (`promptfoo view`) — side-by-side scores per provider
+4. Commit prompt file + updated golden cases together as a PR
+5. GitHub Actions runs the same eval; score posted as Check; reviewer sees the delta
+
+**Standard DeepEval development loop:**
+1. Edit chatbot instructions or implement a code change
+2. Run `deepeval test run test_chatbot.py -v` locally
+3. Review per-metric scores and reasoning from the judge
+4. Commit test file + implementation change together as a PR
+5. CI runs `deepeval test run` via pytest; fails build on threshold breach
+
+**Prompt versioning as code.** System prompts are plain text files (`.txt` or `.md`) committed to git — not hardcoded in application code, not stored in a database. Prompt changes are PRs, code-reviewed like any other change. The eval pipeline runs against the PR branch's prompt file, not the deployed version. This is the single most important workflow practice — it makes every prompt change auditable.
+
+**WebSocket-based testing** (promptfoo advanced pattern): promptfoo can connect to a live chatbot server via WebSocket, mirroring actual client-server communication. Useful for testing the full stack (auth, session management, streaming) rather than just the LLM layer.
+
+_Source: [promptfoo.dev/docs/configuration/guide](https://www.promptfoo.dev/docs/configuration/guide/), [kpavlov.me/blog/llm-evaluation-testing-with-promptfoo-a-practical-guide](https://kpavlov.me/blog/llm-evaluation-testing-with-promptfoo-a-practical-guide/), [deepeval.com/docs/getting-started](https://deepeval.com/docs/getting-started)_
+
+### Testing and Quality Assurance
+
+**Test case taxonomy for chatbot instructions.** A complete eval suite covers four categories:
+
+| Category | Description | Tool | Volume |
+|---|---|---|---|
+| Happy path | Representative correct-answer cases | promptfoo / DeepEval | 40–50% of suite |
+| Edge cases | Boundary inputs, ambiguous phrasing | promptfoo / DeepEval | 30–40% |
+| Out-of-scope | Questions the chatbot should decline | promptfoo `not-contains` | 10–15% |
+| Adversarial | Prompt injection, jailbreak attempts | `promptfoo redteam` | 10–15% |
+
+**Chatbot-specific metric stack (DeepEval conversational metrics):**
+- `TurnRelevancyMetric` — each assistant turn is relevant to the user's message
+- `ConversationCompletenessMetric` — the chatbot satisfies the user's overall goal by end of conversation
+- `KnowledgeRetentionMetric` — the chatbot correctly retains facts mentioned earlier in the conversation
+- `ConversationalGEval` — custom rubric evaluation for domain-specific quality criteria (e.g., "response cites only information from the district database")
+- `HallucinationMetric` — response does not assert facts not in retrieval context
+
+**Threshold recommendations for initial deployment:**
+- Turn relevancy: ≥ 0.85 (block below)
+- Conversation completeness: ≥ 0.80 (block below)
+- Hallucination rate: ≤ 0.05 (block above)
+- Knowledge retention: ≥ 0.80 (warn below 0.85, block below 0.80)
+
+Start thresholds conservatively (accept more variability) and tighten as the golden dataset grows and baseline is established.
+
+_Source: [deepeval.com/docs/evaluation-multiturn-test-cases](https://deepeval.com/docs/evaluation-multiturn-test-cases), [braintrust.dev/articles/best-ai-evals-tools-cicd-2025](https://www.braintrust.dev/articles/best-ai-evals-tools-cicd-2025)_
+
+### Deployment and Operations Practices
+
+**Zero-to-CI in one day (promptfoo path):**
+1. `npx promptfoo@latest init` — generates starter `promptfooconfig.yaml`
+2. Add 10 test cases covering core chatbot behaviors
+3. Add `.github/workflows/eval.yml` using `promptfoo/promptfoo-action@v1` with `actions/cache@v4`
+4. Set `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` as repository secrets
+5. Open a PR — eval runs automatically, results appear in Checks tab
+
+**GitHub Actions eval workflow pattern:**
+```yaml
+- uses: actions/cache@v4
+  with:
+    path: ~/.promptfoo/cache
+    key: promptfoo-${{ hashFiles('promptfooconfig.yaml') }}
+- uses: promptfoo/promptfoo-action@v1
+  with:
+    config: promptfooconfig.yaml
+    share: false   # don't share to cloud; results in logs only
+```
+
+**Failure triage process.** When an eval fails CI: (1) review the HTML report for which specific cases regressed, (2) check if the prompt change was intentional for those cases (update golden expected values), or (3) revert the prompt change. This is the "eval as documentation" benefit — failures make regressions explicit and localizable.
+
+_Source: [github.com/promptfoo/promptfoo-action](https://github.com/promptfoo/promptfoo-action), [promptfoo.dev/docs/integrations/ci-cd](https://www.promptfoo.dev/docs/integrations/ci-cd/)_
+
+### Team Organization and Skills
+
+**Skill requirements are lower than teams expect.** Promptfoo YAML config requires no coding — product managers and QA analysts can own test case authoring. The CI wiring requires basic GitHub Actions familiarity (one YAML file). DeepEval requires Python familiarity but no ML expertise. LLM-as-judge rubric writing requires clear thinking about what "good" means for the chatbot — a product/domain skill, not an engineering skill.
+
+**Recommended roles:**
+- *Eval owner* (1 person, any seniority): maintains `promptfooconfig.yaml`, reviews eval results on PRs, promotes production failures to golden dataset, tunes thresholds over time
+- *Chatbot developer*: writes prompt changes as PRs; reads eval results as part of code review
+- *Product reviewer*: spot-checks LLM-as-judge outputs weekly; flags cases where the judge disagrees with product intent
+
+**Production-failure-to-golden pipeline.** When a user reports a bad chatbot response: (1) retrieve the conversation from logs, (2) create a new `ConversationalGolden` or promptfoo test case capturing the input, (3) add the correct expected outcome, (4) open a PR with the new test case + the prompt fix. The test serves as the regression guard for that specific failure pattern forever.
+
+_Source: [newsletter.pragmaticengineer.com/p/evals](https://newsletter.pragmaticengineer.com/p/evals), [humanloop.com/blog/best-llm-evaluation-tools](https://humanloop.com/blog/best-llm-evaluation-tools)_
+
+### Cost Optimization and Resource Management
+
+**Cross-provider judge routing.** Route chatbot generation to one provider (e.g., Claude Sonnet for production) while routing evaluation to a different provider (e.g., GPT-4o-mini as judge). This prevents the "grading your own test" problem — a model fails to catch its own systematic errors because it shares the same blind spots. This is the most impactful cost+quality optimization available.
+
+**Response caching eliminates redundant spend.** Cache eval API responses by `hash(prompt + model + test case content)`. On re-runs (flaky CI, reruns after unrelated failures), all cached cases return instantly at $0. For a 50-case suite with caching, only net-new or changed cases incur API cost. Promptfoo implements this via `actions/cache@v4`; DeepEval has a `cache=True` flag.
+
+**Cost at scale benchmarks (2025):**
+- 50 test cases, gpt-4o-mini as judge: ~$0.02/run
+- 200 test cases, gpt-4o-mini as judge: ~$0.08/run
+- 1,000 test cases, claude-haiku as judge: ~$0.30/run
+- 10,000 monthly eval runs (200 cases each): ~$800/month without caching → ~$80/month with aggressive caching (90% cache hit rate)
+
+**Lazy dependency loading.** Eval tooling should only load heavy ML dependencies (transformers, torch, sentence-transformers) when the specific metrics that need them are actually invoked. DeepEval 2025 improved lazy imports significantly — embedding-based metrics no longer load torch on import.
+
+_Source: [zenml.io/blog/what-1200-production-deployments-reveal-about-llmops-in-2025](https://www.zenml.io/blog/what-1200-production-deployments-reveal-about-llmops-in-2025), [orq.ai/blog/llm-evaluation-tools](https://orq.ai/blog/llm-evaluation-tools)_
+
+### Risk Assessment and Mitigation
+
+| Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|
+| Flaky evals (LLM non-determinism) | High | Medium | Set `temperature=0` for judge model; use deterministic metrics as primary gate; treat LLM-judge as advisory for borderline cases |
+| Eval cost creep | Medium | Medium | Aggressive caching; tiered judge models; limit red-team runs to weekly rather than per-PR |
+| Judge model bias / preference leakage | Medium | High | Use different provider for judge vs. system under test; calibrate against 30+ human-labeled examples |
+| Golden dataset contamination | Low | High | Never copy production LLM outputs directly to "expected" values; human-verify all expected outcomes |
+| Threshold gaming (prompt tuned to pass tests, not real users) | Low-Medium | High | Keep 15–20% of golden cases undisclosed to prompt developers; rotate cases from production regularly |
+| CI pipeline latency | Medium | Low | Caching; parallel execution; cap suite at 50–100 cases for PR checks, run full suite nightly |
+
+_Source: [deepchecks.com/llm-evaluation/framework](https://www.deepchecks.com/llm-evaluation/framework/), [braintrust.dev/articles/best-ai-evals-tools-cicd-2025](https://www.braintrust.dev/articles/best-ai-evals-tools-cicd-2025)_
+
+## Technical Research Recommendations
+
+### Implementation Roadmap
+
+**Phase 1 — Foundation (Week 1–2):**
+- Install promptfoo; author 15–20 golden test cases covering core chatbot behaviors
+- Run locally; establish baseline scores across Claude Sonnet + GPT-4o
+- Commit `promptfooconfig.yaml` + golden dataset to the repo
+- Wire GitHub Actions eval workflow (non-blocking check initially)
+
+**Phase 2 — Coverage Expansion (Week 3–6):**
+- Add DeepEval for conversational metrics (multi-turn simulation)
+- Run `ConversationSimulator` to auto-generate multi-turn test cases from scenario specs
+- Add adversarial cases via `promptfoo redteam`
+- Set CI gate thresholds; make the check blocking on core metrics
+
+**Phase 3 — Production Loop (Week 7–12):**
+- Integrate Langfuse (self-hosted) for production traffic sampling and observability
+- Establish production-failure-to-golden-case workflow
+- Add third LLM provider (e.g., Gemini Flash) to comparison matrix
+- Grow golden dataset to 100+ cases; conduct first quarterly threshold review
+
+### Technology Stack Recommendations
+
+**Primary evaluation framework:** promptfoo (YAML-first, multi-LLM, native CI — lowest time-to-value)
+**Conversational metrics:** DeepEval (ConversationSimulator, conversational metric suite)
+**Multi-provider gateway:** LiteLLM (if adding >3 providers or needing cost tracking)
+**Observability:** Langfuse (open-source, self-hostable, TypeScript-native — fits the project stack)
+**Judge model:** GPT-4o-mini (cost) or Claude Haiku (cost) for routine CI; Claude Sonnet for pre-release
+**Dataset format:** JSONL versioned in git; YAML for promptfoo test cases
+
+### Success Metrics and KPIs
+
+- **Time-to-detect regression:** target < 15 minutes from prompt commit to failed CI check
+- **Manual conversation testing time:** target reduction from N hours/sprint to < 30 minutes/sprint (human spot-check only)
+- **Eval suite coverage:** 50 cases at Phase 1 end; 200 cases at Phase 3 end
+- **CI eval cost:** target < $5/month at 200 cases/run, 50 runs/month with caching
+- **Golden dataset growth rate:** ≥ 2 new cases/week from production failures or new features
+- **False positive rate (eval failures on valid prompts):** target < 5% — track and tune thresholds to reduce
