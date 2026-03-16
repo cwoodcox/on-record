@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3, 4, 5]
+stepsCompleted: [1, 2, 3, 4, 5, 6]
 inputDocuments: []
 workflowType: 'research'
 lastStep: 2
@@ -22,7 +22,13 @@ source_verification: true
 
 ## Research Overview
 
-[Research overview and methodology will be appended here]
+This report examines the technical architecture, integration patterns, and developer ecosystems of the four major AI chat app extension platforms — ChatGPT (GPT Store / Responses API), Claude (MCP), Gemini Extensions, and Microsoft Copilot (Declarative Agents) — as they stand in March 2026. The research was conducted using current web sources, multi-source verification, and On Record's specific architectural constraints as an evaluation lens.
+
+The central finding is that MCP has emerged as the cross-platform convergence standard, now governed by the Agentic AI Foundation (Linux Foundation) with backing from Anthropic, OpenAI, Google, Microsoft, AWS, and Cloudflare. A single well-deployed remote MCP server — using Streamable HTTP transport and OAuth 2.1 — simultaneously satisfies Claude's native integration requirements and ChatGPT's Responses API. Microsoft Copilot's MCP plugin path adds a manifest layer on top of the same server. Gemini has no open third-party consumer store and is deprioritized for On Record.
+
+The research covers technology stack analysis, platform-by-platform integration patterns (including architectural diagrams), deployment architecture trade-offs (Cloudflare Workers vs Vercel vs Railway), implementation tooling, security requirements, team skill gaps, cost modeling, and a phased implementation roadmap. See the Executive Summary in the Research Synthesis section for the full strategic distillation.
+
+**Research Methodology:** Current web data (verified against live sources), multi-source validation for all technical claims, confidence framework for uncertain information, On Record architectural constraints (Hono + MCP SDK, pnpm monorepo, Vitest) used as evaluation filter throughout.
 
 ---
 
@@ -471,3 +477,61 @@ _Source: [D1 Pricing – Cloudflare](https://developers.cloudflare.com/d1/platfo
 | D1 query latency | <10ms (co-located with Worker) |
 | Monthly infrastructure cost at MVP | $0 |
 | Monthly infrastructure cost at 10K active users | $5 |
+
+---
+
+## Research Synthesis
+
+### Table of Contents
+
+1. [Technical Research Scope Confirmation](#technical-research-scope-confirmation)
+2. [Technology Stack Analysis](#technology-stack-analysis) — languages, SDKs, transport protocols, auth, tooling, adoption trends
+3. [Integration Patterns Analysis](#integration-patterns-analysis) — platform-by-platform paths, complexity comparison, security patterns, BYOLLM architecture, monetization
+4. [Architectural Patterns and Design](#architectural-patterns-and-design) — stateless vs stateful, request execution model per platform, deployment architecture, multi-tenancy, performance
+5. [Implementation Approaches and Technology Adoption](#implementation-approaches-and-technology-adoption) — adoption strategy, dev workflows, testing, CI/CD, team skills, cost, risk
+6. [Technical Research Recommendations](#technical-research-recommendations) — implementation roadmap, stack recommendations, success metrics
+
+### Executive Summary
+
+**The MCP-first bet is the right call for On Record, and it's now lower-risk than it was twelve months ago.** Anthropic donated MCP to the Linux Foundation's Agentic AI Foundation in early 2026 — co-founded with OpenAI, backed by Google, Microsoft, AWS, and Cloudflare. With 97 million monthly SDK downloads, 10,000+ active servers, and first-class client support in Claude, ChatGPT, Microsoft Copilot, and VS Code, MCP is no longer an Anthropic-proprietary bet. It is the cross-industry protocol for AI-to-tool communication.
+
+**One server, three platforms.** On Record's existing Hono + `@modelcontextprotocol/sdk` server is structurally correct for all three viable platform targets. Claude uses it natively over Streamable HTTP. ChatGPT's Responses API consumes it directly as a `type: "mcp"` tool — no OpenAPI wrapper required. Microsoft Copilot's M365 Agents Toolkit generates a plugin manifest from the same MCP server URL. The only required additions are: (1) migrate SSE transport → Streamable HTTP, (2) add OAuth 2.1 + PKCE with `/.well-known/oauth-protected-resource` discovery. These are two focused engineering stories, not architectural pivots.
+
+**Deployment platform is Cloudflare Workers.** Vercel's per-request timeout (10–60s) is incompatible with On Record's chained GIS + Legislature API tool calls. Railway works but adds cold start overhead and lacks global edge distribution. Cloudflare Workers is stateless-by-default (matching the MCP 2026 spec direction), has no hard CPU timeout on external fetch calls, runs at edge, and is $0 at MVP scale. The migration from `better-sqlite3` to D1 is mechanical — same FTS5 SQL, sync → async API. This is a pre-launch story, not a now story.
+
+**Gemini is deprioritized.** Consumer Gemini Extensions are Google-curated — no third-party store exists. Integrating with Gemini requires building a standalone Gemini-powered application, which directly contradicts On Record's BYOLLM architecture. Deprioritized indefinitely unless the BYOLLM model changes.
+
+**Key Technical Findings:**
+- MCP (Streamable HTTP) + OAuth 2.1 is the single implementation that serves Claude, ChatGPT Responses API, and Microsoft Copilot from one server
+- `workers-oauth-provider` (Cloudflare) handles OAuth 2.1 spec compliance — reduces OAuth implementation to IdP wiring
+- `@hono/mcp` (JSR) enables the Streamable HTTP transport upgrade with minimal code changes
+- `mcp-remote` CVE-2025-6514 is a client-side vulnerability; On Record as server is not directly affected, but client tooling must use ≥0.1.16
+- Cloudflare Workers + D1 is $0 at MVP, $5/month at scale — lowest-cost production deployment with global edge distribution
+- Microsoft AppSource is the only platform with a paid plugin monetization path (15–20% take rate); Claude and ChatGPT do not revenue-share with server developers
+
+**Recommended Prioritization:**
+1. **Now:** Continue feature development on Node.js. No migration during active sprint work.
+2. **Pre-launch story:** Streamable HTTP transport upgrade (`@hono/mcp` or `streamable-mcp-server-template`).
+3. **Pre-launch story:** OAuth 2.1 + PKCE layer using `workers-oauth-provider` + GitHub OAuth.
+4. **Pre-launch story:** Cloudflare Workers entrypoint + `wrangler.toml` (additive — Node.js path stays for local dev).
+5. **Post-launch:** D1 migration (cache layer only; query logic is mechanically portable).
+6. **Post-MVP:** OpenAPI spec layer → GPT Store custom GPT. Microsoft Copilot plugin manifest + AppSource submission.
+
+### Research Conclusion
+
+The landscape has clarified significantly since the research question was posed. There is no longer a meaningful "which platform should On Record integrate with?" decision to make — MCP has converged the answer. The correct architecture is a single remote MCP server that is agnostic of client, deployed on Cloudflare Workers at the edge, protected by OAuth 2.1, and exposing On Record's existing tool surface unchanged.
+
+The research surfaces two strategic insights beyond the technical implementation:
+
+**The BYOLLM model is a genuine competitive moat at the enterprise tier.** Journalists, legislative staffers, and lobbyists are disproportionately likely to have M365 Copilot or Claude Enterprise seats. On Record entering via their existing AI infrastructure — zero new procurement friction, zero new LLM cost line item — is a faster enterprise sales motion than any SaaS competitor that bundles inference costs.
+
+**No platform currently pays MCP server developers.** Neither Anthropic nor OpenAI revenue-shares with server developers. The GPT Store pays nothing to creators. The only structured paid path is Microsoft AppSource for Copilot plugins (15–20% take rate, available to M365 org buyers). On Record's monetization must be direct — subscription access to the MCP server endpoint — and should be priced to reflect the BYOLLM cost advantage versus full-service competitors.
+
+---
+
+**Research Completion Date:** 2026-03-16
+**Research Period:** Current analysis as of March 2026
+**Source Verification:** All technical facts cited with current sources
+**Confidence Level:** High — based on multiple authoritative sources; Microsoft Copilot plugin path marked as Public Preview (not GA) as of March 2026
+
+_This document serves as the authoritative technical reference for On Record's chat app integration strategy and should be reviewed before any story work on remote MCP deployment, OAuth implementation, or platform-specific integrations._
