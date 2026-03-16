@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3]
+stepsCompleted: [1, 2, 3, 4, 5]
 workflowType: 'research'
 research_type: 'technical'
 research_topic: 'Cloudflare Workers deployment platform for mcp-server'
@@ -325,6 +325,180 @@ Local development:
 Secrets set once via `wrangler secret put UGRC_API_KEY` — not in `wrangler.toml`, not in git.
 
 _Source: [Wrangler Configuration](https://developers.cloudflare.com/workers/wrangler/configuration/), [Cron Triggers](https://developers.cloudflare.com/workers/configuration/cron-triggers/)_
+
+---
+
+## Implementation Approaches and Technology Adoption
+
+### Technology Adoption Strategy — Strangler Fig, Not Big Bang
+
+The recommended migration path is a **parallel-run strangler fig**: keep the existing Node.js MCP server operational while building the Workers version alongside it. The Workers version is functionally identical at the MCP protocol layer — only the runtime, database driver, and scheduler change.
+
+**Concrete migration sequence:**
+
+1. **Create D1 database** — `wrangler d1 create on-record-cache`
+2. **Add binding to `wrangler.toml`** — `[[d1_databases]]` stanza with `binding = "DB"`
+3. **Rewrite `cache/` layer** — replace `better-sqlite3` synchronous calls with D1 async equivalents; this is the bulk of the work
+4. **Swap scheduler** — replace `node-cron` handler with `scheduled` export in `src/index.ts`
+5. **Run `wrangler types`** — regenerate `worker-configuration.d.ts` from updated `wrangler.toml`
+6. **Test locally** — `wrangler dev` with local D1 simulation
+7. **Deploy** — `wrangler deploy`; decommission Node.js server
+
+**Import path for existing data:** D1 can import directly from a SQLite dump:
+```sh
+sqlite3 existing-cache.db .dump > schema-and-data.sql
+wrangler d1 execute on-record-cache --remote --file=schema-and-data.sql
+```
+Since the cache is ephemeral (repopulated by the refresh job), a clean schema-only migration is simpler and safer — no data import needed.
+
+_Source: [D1 Import/Export](https://developers.cloudflare.com/d1/best-practices/import-export-data/), [D1 Migrations](https://developers.cloudflare.com/d1/reference/migrations/)_
+
+### Development Workflows and Tooling
+
+**Local development loop (wrangler dev):**
+- `wrangler dev` uses Miniflare v3 under the hood — startup is ~10× faster than old remote dev mode
+- Local D1 database lives in `.wrangler/state/` — persistent between runs, deleteable to reset
+- Test the scheduled handler: `curl "http://localhost:8787/__scheduled?cron=*+*+*+*+*"` (with `wrangler dev --test-scheduled`)
+- Hot reload on file save, sub-second iteration cycle
+
+**Remote bindings (2025 beta):** `wrangler dev --x-remote-bindings` lets local Worker code query the real deployed D1 database. Useful for integration testing against production data without deploying.
+
+**Schema migration workflow:**
+```sh
+# Create a new migration
+wrangler d1 migrations create on-record-cache add-index-to-bills
+
+# Apply locally (development)
+wrangler d1 migrations apply on-record-cache --local
+
+# Apply remotely (production)
+wrangler d1 migrations apply on-record-cache --remote
+```
+
+The `d1_migrations` table in each database tracks which migrations have run, preventing double-application.
+
+_Source: [Development & testing](https://developers.cloudflare.com/workers/development-testing/), [Improved local development with Wrangler v3](https://blog.cloudflare.com/wrangler3/)_
+
+### Testing and Quality Assurance
+
+The project's existing Vitest test suite integrates with Workers via `@cloudflare/vitest-pool-workers`:
+
+```sh
+pnpm add -D @cloudflare/vitest-pool-workers
+```
+
+Update `apps/mcp-server/vitest.config.ts`:
+```ts
+import { defineWorkersConfig } from '@cloudflare/vitest-pool-workers/config'
+
+export default defineWorkersConfig({
+  test: {
+    poolOptions: {
+      workers: {
+        wrangler: { configPath: './wrangler.toml' },
+      },
+    },
+  },
+})
+```
+
+**Key behavioural difference from current setup:** Tests now run inside the actual Workers runtime (`workerd`), not Node.js. This means:
+- `nodejs_compat` must be in `wrangler.toml` if the code uses Node.js built-ins
+- D1 bindings available as `env.DB` in test context — no need to mock at the SQLite level
+- The `CLAUDE.md` rule "mock at `LegislatureDataProvider` boundary" remains correct and unchanged
+
+**Critical CLAUDE.md note preserved:** The existing Vitest rejection test pattern (`.rejects` before `vi.runAllTimersAsync()`) and `toContain` assertion style on `nature`/`action` fields carry over verbatim.
+
+_Source: [Vitest integration](https://developers.cloudflare.com/workers/testing/vitest-integration/), [Workers Vitest blog post](https://blog.cloudflare.com/workers-vitest-integration/)_
+
+### Deployment and Operations Practices
+
+**GitHub Actions CI/CD pipeline:**
+```yaml
+- uses: pnpm/action-setup@v4
+- uses: actions/setup-node@v4
+  with:
+    node-version: 20
+    cache: 'pnpm'
+- run: pnpm install --frozen-lockfile
+- run: pnpm test          # runs vitest in workers pool
+  working-directory: apps/mcp-server
+- run: wrangler d1 migrations apply on-record-cache --remote
+  working-directory: apps/mcp-server
+  if: github.ref == 'refs/heads/main'
+- run: wrangler deploy
+  working-directory: apps/mcp-server
+  if: github.ref == 'refs/heads/main'
+  env:
+    CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+```
+
+**Secrets management:** `wrangler secret put UGRC_API_KEY` stores the secret in Cloudflare's encrypted secret store. It is never in `wrangler.toml` or the repo. Accessed in code as `env.UGRC_API_KEY`.
+
+**Observability:** Workers logs stream to Cloudflare's Workers Observability dashboard. The project's Pino logger writes structured JSON — `console.log` in Workers produces structured JSON logs natively. The existing `console.error`-only rule in `apps/mcp-server/` is consistent with Workers best practices.
+
+_Source: [Advanced setups — CI/CD](https://developers.cloudflare.com/workers/ci-cd/builds/advanced-setups/), [Workers Best Practices](https://developers.cloudflare.com/workers/best-practices/workers-best-practices/)_
+
+### Cost Optimization and Resource Management
+
+For on-record's workload profile:
+
+| Usage dimension | Estimate | Plan impact |
+|---|---|---|
+| Cache refresh (scheduled) | ~1 write/bill × ~2,000 bills × daily | ~60K rows written/month |
+| MCP tool reads | ~100 searches/day × ~50 rows scanned | ~150K rows read/month |
+| Storage | ~2,000 bills × ~2 KB avg = ~4 MB | Well within 5 GB free |
+
+**Verdict: Free tier is sufficient indefinitely for this workload.** The paid plan ($5/month) is only needed if daily row-write limits (100K/day free) are approached — which requires >3,000 bills updated daily.
+
+Workers free tier: 100K requests/day, 10 ms CPU/request. The MCP server's lightweight query handlers fit easily within these limits. The scheduled handler runs once daily and counts as 1 request.
+
+_Source: [D1 Pricing](https://developers.cloudflare.com/d1/platform/pricing/), [Workers Pricing](https://developers.cloudflare.com/workers/platform/pricing/)_
+
+### Risk Assessment and Mitigation
+
+| Risk | Likelihood | Mitigation |
+|---|---|---|
+| `better-sqlite3` sync→async API mismatch causes bugs | Medium | Write tests first; D1 behaviour is well-documented |
+| FTS5 MATCH queries behave differently in D1 | Low | D1 is full SQLite 3.x; FTS5 is identical |
+| 10ms CPU limit exceeded during cache refresh | Low | Refresh is a `scheduled` handler with 15-second CPU budget (not 10ms) |
+| int64 precision loss in D1 | Low | Bill IDs and district numbers are small integers; not affected |
+| Cron Trigger timing precision | Low | ±30 second accuracy is fine for a daily cache refresh |
+| Cold start latency for MCP tool calls | Low | Workers cold starts are ~5ms; isolate reuse is common at normal MCP usage rates |
+
+_Source: [Workers Limits](https://developers.cloudflare.com/workers/platform/limits/), [D1 FAQ](https://developers.cloudflare.com/d1/reference/faq/)_
+
+## Technical Research Recommendations
+
+### Implementation Roadmap
+
+1. **Day 1 — Scaffold:** `wrangler d1 create`, update `wrangler.toml`, run `wrangler types`, install `@cloudflare/vitest-pool-workers`
+2. **Day 2–3 — Cache layer rewrite:** Replace `cache/*.ts` sync DB calls with async D1 API; update all call sites in `tools/`
+3. **Day 4 — Scheduler migration:** Replace `node-cron` setup with `scheduled` export; test via `wrangler dev --test-scheduled`
+4. **Day 5 — Test suite migration:** Update `vitest.config.ts` to workers pool; verify all existing tests pass
+5. **Day 6 — Deploy + smoke test:** `wrangler deploy`, verify via Claude Desktop MCP connection
+6. **Day 7 — Cleanup:** Remove `better-sqlite3`, `node-cron`, and any Node.js-specific startup code; update `CLAUDE.md` boundary rules
+
+### Technology Stack Recommendations
+
+| Component | Current | Recommended |
+|---|---|---|
+| Runtime | Node.js 20 | Cloudflare Workers (workerd) |
+| Database driver | better-sqlite3 (sync) | D1 binding (async) |
+| Scheduler | node-cron | Cron Trigger (`scheduled` export) |
+| HTTP framework | Hono 4.12 | Hono 4.12 (unchanged — Hono is Workers-native) |
+| Testing | Vitest + Node | `@cloudflare/vitest-pool-workers` |
+| Local dev | ts-node / tsx | `wrangler dev` |
+| Secrets | Environment variables | `wrangler secret` |
+
+### Success Metrics and KPIs
+
+- All existing Vitest tests pass in the `vitest-pool-workers` environment
+- `wrangler deploy` completes without errors on `main` branch push
+- MCP tool calls return results within 500ms end-to-end (includes D1 query)
+- Cache refresh Cron Trigger fires daily and populates D1 with current legislative data
+- Zero `better-sqlite3` or `node-cron` references remain in `apps/mcp-server/src/`
+- Monthly D1 usage stays within free tier limits
 
 ---
 
