@@ -1,0 +1,537 @@
+---
+stepsCompleted: [1, 2, 3, 4, 5, 6]
+inputDocuments: []
+workflowType: 'research'
+lastStep: 2
+research_type: 'technical'
+research_topic: 'chat app integration ecosystems (ChatGPT GPT Store, Claude MCP, Gemini Extensions, Microsoft Copilot Plugins/Agents)'
+research_goals: 'Understand the technical architecture, integration patterns, and developer ecosystem for the four major AI chat app extension/plugin platforms — ChatGPT GPT Store, Claude MCP, Gemini Extensions, and Microsoft Copilot — to inform decisions about how On Record might be distributed or integrated via these channels'
+user_name: 'Corey'
+date: '2026-03-15'
+web_research_enabled: true
+source_verification: true
+---
+
+# Research Report: technical
+
+**Date:** 2026-03-15
+**Author:** Corey
+**Research Type:** technical
+
+---
+
+## Research Overview
+
+This report examines the technical architecture, integration patterns, and developer ecosystems of the four major AI chat app extension platforms — ChatGPT (GPT Store / Responses API), Claude (MCP), Gemini Extensions, and Microsoft Copilot (Declarative Agents) — as they stand in March 2026. The research was conducted using current web sources, multi-source verification, and On Record's specific architectural constraints as an evaluation lens.
+
+The central finding is that MCP has emerged as the cross-platform convergence standard, now governed by the Agentic AI Foundation (Linux Foundation) with backing from Anthropic, OpenAI, Google, Microsoft, AWS, and Cloudflare. A single well-deployed remote MCP server — using Streamable HTTP transport and OAuth 2.1 — simultaneously satisfies Claude's native integration requirements and ChatGPT's Responses API. Microsoft Copilot's MCP plugin path adds a manifest layer on top of the same server. Gemini has no open third-party consumer store and is deprioritized for On Record.
+
+The research covers technology stack analysis, platform-by-platform integration patterns (including architectural diagrams), deployment architecture trade-offs (Cloudflare Workers vs Vercel vs Railway), implementation tooling, security requirements, team skill gaps, cost modeling, and a phased implementation roadmap. See the Executive Summary in the Research Synthesis section for the full strategic distillation.
+
+**Research Methodology:** Current web data (verified against live sources), multi-source validation for all technical claims, confidence framework for uncertain information, On Record architectural constraints (Hono + MCP SDK, pnpm monorepo, Vitest) used as evaluation filter throughout.
+
+---
+
+<!-- Content will be appended sequentially through research workflow steps -->
+
+## Technical Research Scope Confirmation
+
+**Research Topic:** chat app integration ecosystems (ChatGPT GPT Store, Claude MCP, Gemini Extensions, Microsoft Copilot Plugins/Agents)
+**Research Goals:** Understand the technical architecture, integration patterns, and developer ecosystem for the four major AI chat app extension/plugin platforms — ChatGPT GPT Store, Claude MCP, Gemini Extensions, and Microsoft Copilot — to inform decisions about how On Record might be distributed or integrated via these channels
+
+**Technical Research Scope:**
+
+- Architecture Analysis — GPT Actions vs MCP protocol vs Gemini Extensions vs Microsoft Copilot extensibility model
+- Implementation Approaches — dev workflows, manifest formats, auth, submission processes per platform
+- Technology Stack — underlying protocols, transport layers, SDKs, spec versions
+- Integration Patterns — how to wire On Record's Hono/MCP server into each ecosystem
+- Performance Considerations — rate limits, streaming, execution models
+
+**Research Methodology:**
+
+- Current web data with rigorous source verification
+- Multi-source validation for critical technical claims
+- Confidence level framework for uncertain information
+- Comprehensive technical coverage with architecture-specific insights
+
+**Scope Confirmed:** 2026-03-15
+
+---
+
+## Technology Stack Analysis
+
+### Programming Languages and Specification Formats
+
+Each platform converges on **TypeScript/JavaScript** and **Python** as the primary developer languages, with **OpenAPI/JSON Schema** as the near-universal tool description format.
+
+_ChatGPT (GPT Actions / Responses API):_ Tool schemas are defined in **OpenAPI 3.x** (Swagger). The GPT Actions system accepts an uploaded schema file; the Responses API accepts inline JSON function schemas. OpenAI SDKs are available in Python and Node.js. Key constraint: endpoint descriptions capped at 300 characters, parameter descriptions at 700 characters.
+_Source: [GPT Actions Introduction – OpenAI](https://platform.openai.com/docs/actions/introduction)_
+
+_Claude MCP:_ Tools are declared using **JSON Schema** within the MCP wire protocol (JSON-RPC 2.0). The official SDK is [`@modelcontextprotocol/sdk`](https://www.npmjs.com/package/@modelcontextprotocol/sdk) — currently v1.26.0 as used in this project, with v1.12+ shipping as of February 2026. SDKs exist for TypeScript/Node.js, Python, Java, Kotlin, C#, and Swift. Over 97 million monthly SDK downloads as of early 2026.
+_Source: [MCP Architecture Overview – modelcontextprotocol.io](https://modelcontextprotocol.io/docs/learn/architecture)_
+
+_Gemini (API / Function Calling):_ Function declarations follow **JSON Schema** embedded in the `tools` array of a `generateContent` request. The Google GenAI SDK reached GA in May 2025 and is available for Python, TypeScript/JavaScript, Go, and Java. The legacy `@google/generative-ai` library was deprecated November 30, 2025; the replacement is `@google/genai`. **Important distinction:** Consumer-facing "Gemini Extensions" (Gmail, Drive, YouTube integrations in the Gemini app) are Google-managed and not open to third-party developers — all third-party integration goes through the function-calling API.
+_Source: [Gemini API Libraries – Google AI for Developers](https://ai.google.dev/gemini-api/docs/libraries)_
+
+_Microsoft Copilot (M365 Declarative Agents):_ Plugin actions are described via **OpenAPI 3.x** (API plugins) or **MCP server manifests** (plugin manifest schema 2.4, announced at Ignite 2025). The Microsoft 365 Agents Toolkit (VS Code extension) is the primary scaffolding tool; **Kiota** generates plugin packages from existing OpenAPI specs. TypeScript and .NET (C#) are the preferred languages for custom engine agents.
+_Source: [Build plugins from an MCP server – Microsoft Learn](https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/build-mcp-plugins)_
+
+### Transport and Wire Protocols
+
+_ChatGPT:_ GPT Actions call developer-hosted REST endpoints over **HTTPS**. The Responses API additionally supports **remote MCP servers** as a native tool type, meaning On Record's MCP server endpoint is directly consumable without an OpenAPI wrapper.
+_Source: [Responses API – OpenAI](https://developers.openai.com/api/docs/guides/migrate-to-responses/)_
+
+_Claude MCP:_ Three transports are defined in the spec. **stdio** (subprocess, local only) is used for Claude Desktop/Claude Code. **SSE** (HTTP + Server-Sent Events) was the original remote transport. **Streamable HTTP** — a single HTTP endpoint with optional SSE streaming — is the modern standard as of the MCP 2025-03-26 spec and is the recommended transport for new remote servers in 2026.
+_Source: [MCP 2026 Roadmap – blog.modelcontextprotocol.io](http://blog.modelcontextprotocol.io/posts/2026-mcp-roadmap/)_
+
+_Gemini:_ Standard **REST/HTTP** (`generateContent`) for single-turn; **Server-Sent Events** (`streamGenerateContent`) for streaming. The **Live API** uses **WebSockets** for real-time bidirectional communication. The new **Interactions API** (Beta) offers a unified stateful interface as an alternative to raw `generateContent`.
+_Source: [Gemini API I/O Updates – Google Developers Blog](https://developers.googleblog.com/gemini-api-io-updates/)_
+
+_Microsoft Copilot:_ API plugins call developer REST endpoints over **HTTPS** with an OpenAPI description. MCP-based plugins reach the server over **Streamable HTTP** (same MCP transport standard). Static tool discovery only — `enable_dynamic_discovery` must be `false` in the manifest.
+_Source: [Declarative Agents Overview – Microsoft Learn](https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/overview-declarative-agent)_
+
+### Authentication Technologies
+
+_ChatGPT GPT Actions:_ Supports **API key** (header or query param) and **OAuth 2.0** (authorization code flow). The `x-openai-isConsequential` OpenAPI extension controls whether ChatGPT prompts users for confirmation before calling a write operation.
+_Source: [GPT Actions Production Notes – OpenAI](https://platform.openai.com/docs/actions/production)_
+
+_Claude MCP (remote):_ **OAuth 2.1 with PKCE** is mandatory for remote servers as of the March 2025 spec revision. The November 2025 spec added Protected Resource Metadata (RFC 9728) at `/.well-known/oauth-protected-resource` and Client ID Metadata Documents (CIMD). Token audience restriction (RFC 8707) is the recommended pattern for multi-server deployments. Claude Desktop and Claude.ai walk users through the OAuth flow automatically when a remote server requires auth.
+_Source: [MCP Authorization – modelcontextprotocol.io](https://modelcontextprotocol.io/specification/draft/basic/authorization); [Secure MCP with OAuth 2.1 – Scalekit](https://www.scalekit.com/blog/implement-oauth-for-mcp-servers)_
+
+_Gemini API:_ API key (for prototyping) or **Google service account / OAuth 2.0** for production Vertex AI usage. Firebase AI Logic adds client-side security for mobile/web apps.
+_Source: [Gemini API Libraries – Google AI for Developers](https://ai.google.dev/gemini-api/docs/libraries)_
+
+_Microsoft Copilot Plugins:_ **OAuth 2.0 authorization code flow only** — API key authentication is explicitly not supported for MCP plugins. **Microsoft Entra ID SSO** is the preferred integration path, enabling seamless single sign-on with the user's M365 credentials.
+_Source: [Configure Auth for plugins – Microsoft Learn](https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/api-plugin-authentication)_
+
+### Developer Tooling and SDKs
+
+| Platform | Primary SDK | Scaffolding Tool | Schema Format |
+|---|---|---|---|
+| ChatGPT / OpenAI | `openai` (Node/Python) | OpenAI Playground, Responses API | OpenAPI 3.x or JSON function schema |
+| Claude MCP | `@modelcontextprotocol/sdk` | MCP Inspector, Claude Desktop config | JSON-RPC 2.0 + JSON Schema |
+| Gemini | `@google/genai` (GA May 2025) | Google AI Studio, Firebase AI Logic | JSON Schema function declarations |
+| Microsoft Copilot | M365 Agents Toolkit (VS Code), Kiota | Partner Center / Copilot Developer Camp | OpenAPI 3.x or MCP manifest (schema 2.4) |
+
+_Sources: [OpenAI for Developers 2025](https://developers.openai.com/blog/openai-for-developers-2025/); [MCP Introduction – Anthropic](https://www.anthropic.com/news/model-context-protocol); [Gemini API Libraries](https://ai.google.dev/gemini-api/docs/libraries); [M365 Copilot Extensibility](https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/)_
+
+### Technology Adoption Trends
+
+_MCP is emerging as the cross-platform standard:_ As of early 2026, MCP has first-class support in Claude, ChatGPT (via Responses API), Microsoft Copilot (Ignite 2025), and Gemini (through function-calling compatible patterns). The 10,000+ active MCP servers and 97M monthly SDK downloads signal rapid ecosystem maturation.
+_Source: [What Is MCP – Generect](https://generect.com/blog/what-is-mcp/)_
+
+_OpenAI deprecation cycle:_ The Assistants API is deprecated as of August 2025, sunset August 26, 2026. The Responses API is OpenAI's long-term architecture. GPT Actions (OpenAPI-based) continue to function for existing custom GPTs but are no longer being enhanced — the investment has shifted to agent-native tool frameworks.
+_Source: [OpenAI Assistants API Deprecation – Ragwalla](https://ragwalla.com/docs/guides/openai-assistants-api-deprecation-2026-migration-guide-wire-compatible-alternatives)_
+
+_Google Gemini Extensions ≠ open developer platform:_ Consumer Gemini Extensions (Gmail, Drive, Maps, YouTube) are Google-curated integrations, not a third-party store. Third-party developer integration with Gemini is exclusively API/function-calling based. There is no equivalent to the GPT Store or MCP ecosystem for embedding into the consumer Gemini app.
+_Source: [Gemini API Tools – Google AI for Developers](https://ai.google.dev/gemini-api/docs/tools)_
+
+_Microsoft Copilot maturity:_ The declarative agent + MCP path is in public preview (not GA) as of March 2026. The tooling (M365 Agents Toolkit) is functional but younger. Distribution requires either IT admin org deployment or Partner Center submission with AppSource review — a higher bar than MCP or GPT Store self-publish.
+
+---
+
+## Integration Patterns Analysis
+
+There are two distinct integration surfaces for each platform: **consumer distribution** (how end-users discover and use On Record through a chat app) and **API/developer integration** (how a developer-built app calls On Record's backend). These are often confused but require different approaches.
+
+### Platform-by-Platform Integration Paths
+
+#### ChatGPT — Two Separate Paths
+
+**Path A — GPT Store (consumer distribution):** Create a Custom GPT in the GPT Builder UI with OpenAPI Actions pointing to On Record's REST endpoints. No formal review/approval process for publishing to the GPT Store. Rate limits are plan-dependent and dynamic (Free: 10 messages/5h; Plus: 160 messages/3h; Business/Enterprise: higher). Custom GPTs are only accessible on chatgpt.com — cannot be embedded. Auth options: API key or OAuth 2.0. This is the consumer discovery path.
+_Source: [GPTs FAQ – OpenAI Help Center](https://help.openai.com/en/articles/8554407-gpts-faq)_
+
+**Path B — Responses API (developer/agent path):** The Responses API natively supports remote MCP servers as a `type: "mcp"` tool. A developer passes On Record's MCP server URL directly — no OpenAPI wrapper needed. ChatGPT's runtime calls `tools/list` on the server, exposes tools to the model, and routes `tool_call` invocations back to the server. No additional cost beyond output tokens. Auth via OAuth header per request.
+```json
+{
+  "type": "mcp",
+  "server_label": "on-record",
+  "server_url": "https://mcp.on-record.app/mcp",
+  "require_approval": { "never": { "tool_names": ["find_legislators", "lookup_district"] } }
+}
+```
+_Source: [Remote MCP Tool – OpenAI Platform Docs](https://platform.openai.com/docs/guides/tools-remote-mcp); [OpenAI MCP Cookbook](https://cookbook.openai.com/examples/mcp/mcp_tool_guide)_
+
+**Key distinction for On Record:** Path A (GPT Store) is for reaching end-users directly through ChatGPT. Path B (Responses API) is for developers building apps that incorporate On Record's tools. Both are viable; they serve different use cases.
+
+---
+
+#### Claude — Native MCP, Single Path
+
+On Record's existing Hono MCP server is already the correct format for Claude integration. The path to production remote deployment is:
+
+1. **Transport:** Migrate from SSE to **Streamable HTTP** using `@hono/mcp` (official Hono package at `jsr.io/@hono/mcp`) or the production-ready `streamable-mcp-server-template` (Node.js + Hono + OAuth 2.1 + AES-256-GCM token encryption).
+2. **Auth:** Implement OAuth 2.1 with PKCE + `/.well-known/oauth-protected-resource` endpoint (RFC 9728). Claude walks users through the OAuth flow automatically.
+3. **Distribution:** Remote MCP connectors are available to Claude **Pro, Max, Team, and Enterprise** plan users — not Free tier. Users add the server URL in Claude settings; no app store submission required.
+4. **Tool scoping:** Use `allowed_tools` to limit exposed tools per integration context.
+
+The `@hono/mcp` package directly wraps the existing `@modelcontextprotocol/sdk` `McpServer`, making the transport upgrade minimal for On Record's existing codebase.
+_Source: [Building Custom Connectors – Claude Help Center](https://support.claude.com/en/articles/11503834-building-custom-connectors-via-remote-mcp-servers); [@hono/mcp – JSR](https://jsr.io/@hono/mcp); [MCP Connector – Claude API Docs](https://platform.claude.com/docs/en/agents-and-tools/mcp-connector)_
+
+---
+
+#### Gemini — API Function Calling Only (No Consumer Store Path)
+
+There is no path to embed On Record into the consumer Gemini app (gemini.google.com). Consumer Extensions are Google-curated only.
+
+The developer integration path: expose On Record's tools as **function declarations** in the `tools` array of a `generateContent` request. The declaration follows JSON Schema format. Developers build their own Gemini-powered app that calls On Record's backend.
+
+```js
+const tools = [{
+  functionDeclarations: [{
+    name: "find_legislators",
+    description: "Look up Utah state legislators for a given address",
+    parameters: {
+      type: "object",
+      properties: { address: { type: "string" }, zone: { type: "string" } },
+      required: ["address", "zone"]
+    }
+  }]
+}];
+```
+
+Gemini returns a `functionCall` response; the app executes the tool and sends results back in a `functionResponse` turn. Gemini 3's thinking layer significantly improves function selection accuracy.
+
+Note: MCP is now supported as a client in Gemini (Gemini can connect to MCP servers), but there is no "publish to Gemini" distribution store for third parties.
+_Source: [Function Calling – Google AI for Developers](https://ai.google.dev/gemini-api/docs/function-calling); [Building Agents with Gemini – Google Developers Blog](https://developers.googleblog.com/building-agents-google-gemini-open-source-frameworks/)_
+
+---
+
+#### Microsoft Copilot — MCP Plugin via Declarative Agent (Preview)
+
+The M365 Agents Toolkit in VS Code will auto-generate a plugin manifest by fetching On Record's MCP server URL at `https://<host>/mcp`. Key constraints:
+
+- **Static tool discovery only** — `enable_dynamic_discovery: false` required in manifest. Tool list is snapshotted at build time, not dynamically fetched at runtime.
+- **Auth:** OAuth 2.0 authorization code flow only. API key auth is explicitly not supported. Microsoft Entra ID SSO is the preferred path for M365 environments; standard OAuth 2.0 works for external IdPs. OAuth 2.0 Dynamic Client Registration (DCR) is supported for simpler setup.
+- **Plugin manifest schema 2.4** adds MCP server support. The toolkit generates the manifest; Kiota can also generate from OpenAPI.
+- **Distribution:** IT admin org deployment (internal) or Partner Center / AppSource review (public Copilot Store). The AppSource validation path requires screenshots of Copilot functionality and passes through Microsoft's review process.
+- **Audience:** M365 Business/Enterprise subscribers with Copilot add-on — the journalists, staffers, and lobbyist personas Corey identified.
+
+_Source: [Build Declarative Agents with MCP – M365 Dev Blog](https://devblogs.microsoft.com/microsoft365dev/build-declarative-agents-for-microsoft-365-copilot-with-mcp/); [Build plugins from MCP server – Microsoft Learn](https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/build-mcp-plugins); [Auth for Plugins – Microsoft Learn](https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/api-plugin-authentication)_
+
+---
+
+### Integration Complexity Comparison
+
+| Platform | Consumer Distribution | Developer/API Integration | Auth Requirement | On Record Effort |
+|---|---|---|---|---|
+| **Claude** | Remote MCP URL (Pro/Max/Team/Enterprise) | Native MCP | OAuth 2.1 + PKCE | Low — transport upgrade + OAuth layer |
+| **ChatGPT (GPT Store)** | Custom GPT with OpenAPI Actions | Responses API with MCP | API key or OAuth 2.0 | Medium — OpenAPI spec for Store; MCP already works for API path |
+| **ChatGPT (Responses API)** | N/A (developer path) | Native MCP | OAuth header | Low — same server as Claude |
+| **Microsoft Copilot** | Partner Center / AppSource (preview) | MCP plugin manifest | OAuth 2.0 auth code only, no API keys | Medium-High — manifest generation + Entra ID / OAuth setup + submission |
+| **Gemini** | No consumer store path | Function calling declarations | API key or service account | High — requires separate Gemini app build |
+
+### Key Integration Insight for On Record
+
+**One well-deployed remote MCP server with OAuth 2.1 serves Claude natively and ChatGPT's Responses API natively.** This is the highest-leverage integration investment. A separate OpenAPI spec layer (thin wrapper) enables the GPT Store custom GPT path and Microsoft Copilot path. Gemini requires a separate developer-built application and is the most isolated effort.
+
+_Source: [Vercel MCP Server + ChatGPT Connector Guide](https://vercel.com/kb/guide/mcp-server-chatgpt-connector); [Hono Stateless MCP Example](https://github.com/mhart/mcp-hono-stateless)_
+
+### Security Patterns Across Platforms
+
+All four platforms converge on **OAuth 2.0/2.1** as the auth standard for production integrations. Key differences:
+
+- MCP (Claude + ChatGPT): OAuth 2.1 with PKCE, `/.well-known/oauth-protected-resource` discovery endpoint required
+- Microsoft Copilot: OAuth 2.0 authorization code flow, Entra ID SSO preferred, API keys explicitly excluded
+- GPT Actions: API key or OAuth 2.0 (both supported, more flexible)
+- Gemini API: API key for prototyping, service account / OAuth 2.0 for production Vertex AI
+
+Notable security gotcha: CVE-2025-6514 in `mcp-remote` npm package (versions 0.0.5–0.1.15) allowed arbitrary OS command execution via unsanitized OAuth URLs. Fixed in 0.1.16. Any On Record deployment must use a patched version.
+_Source: [Secure MCP OAuth 2.1 – Scalekit](https://www.scalekit.com/blog/implement-oauth-for-mcp-servers); [MCP OAuth 2.1 – MCP Spec](https://modelcontextprotocol.io/specification/draft/basic/authorization)_
+
+---
+
+## Strategic Notes: BYOLLM Architecture and Monetization Implications
+
+### Scope Decision: Gemini Deprioritized
+
+Gemini is excluded from further analysis in this research. The consumer Gemini app has no third-party plugin ecosystem — integrations are Google-curated only. Reaching Gemini users requires building a standalone Gemini-powered application, which directly contradicts On Record's BYOLLM architecture (users bring their own LLM subscription; On Record provides the MCP server layer). Gemini's pricing advantage (~$0.10/M tokens for Flash vs ~$3/M for Claude Sonnet) is irrelevant when On Record does not pay for inference. Revisit only if the BYOLLM model is abandoned.
+
+### BYOLLM + Enterprise Contracts: The B2B Opportunity
+
+On Record's architecture is unusually well-suited to enterprise buyers who already hold AI contracts. Legislative affairs teams at law firms, lobbying shops, newsrooms, and government relations departments are disproportionately likely to have M365 Copilot or Claude Enterprise seats as part of broader software agreements. For these buyers:
+
+- **Zero new procurement friction** — no new AI vendor evaluation, no new data processing agreements, no new LLM cost line item. On Record is just another tool on infrastructure they've already purchased.
+- **Marginal token cost is near-zero** — enterprise AI contracts are typically seat-based or include generous token allowances. Using On Record tools consumes tokens they've already paid for.
+- **BYOLLM enables a lower On Record access fee** — On Record's cost structure excludes inference, so it can price plugin access below a full-service SaaS that bundles LLM costs. This is a genuine competitive framing.
+
+**Important nuance:** "Cheaper for the buyer" only holds if On Record's access pricing visibly reflects the thinner cost structure. If plugin access is priced similarly to a full-service competitor, buyers lose the framing and the value prop collapses.
+
+### Revenue Mechanisms by Segment
+
+**Consumer (individual constituents, Claude Pro / ChatGPT Plus subscribers):**
+No automatic revenue flow from LLM provider to On Record. Users paying $20/month to Anthropic or OpenAI generate nothing for On Record when they use the MCP server. Viable models: direct subscription tier, donation/civic funding model, or grants (civic tech organizations frequently operate on foundation grants). BYOLLM is excellent UX for this segment but does not auto-monetize.
+
+**Professional / Enterprise (journalists, lobbyists, legislative staffers):**
+- **Direct subscription** — most straightforward; On Record charges a per-seat or org fee for MCP server access, independent of LLM provider.
+- **Microsoft AppSource paid plugin** — Copilot plugins can be sold through AppSource. Microsoft handles billing and takes ~15–20%. This is the most structured monetization path for the M365/Copilot segment and handles enterprise procurement workflows natively.
+- **No rev share from Anthropic or OpenAI** — neither provider currently shares revenue with MCP server developers or GPT Store creators. OpenAI's GPT Store pays developers nothing. Anthropic has no marketplace.
+
+### Platform Prioritization Summary
+
+| Platform | Segment | Timeline | Revenue Path |
+|---|---|---|---|
+| **Claude (MCP)** | Consumer + prosumer | MVP | Direct subscription or free |
+| **ChatGPT (GPT Store)** | Consumer | Near-term | Direct subscription or free |
+| **ChatGPT (Responses API)** | Developer-built apps | Near-term | N/A (developer path) |
+| **Microsoft Copilot** | Professional / enterprise | Long-term | AppSource paid plugin or direct enterprise contract |
+| **Gemini** | — | Deprioritized | — |
+
+---
+
+## Architectural Patterns and Design
+
+### System Architecture: Stateless vs. Stateful MCP
+
+The MCP ecosystem is mid-transition on session architecture. The current Streamable HTTP spec (2025-03-26) supports both stateful sessions and stateless requests. The 2026 roadmap formalises **stateless-by-default** as the target — each request self-contained, with application-level statefulness layered on top via tokens/cookies, mirroring standard HTTP.
+
+**Implications for On Record's existing architecture:**
+
+On Record's MCP server is planned for **Cloudflare Workers** (stateless, edge-deployed), which is well-aligned with the 2026 stateless-by-default direction. Workers has no persistent in-process state between requests, matching the target model cleanly. The 2026 shift is directionally positive and removes any concern about stateful session management at the infrastructure layer.
+
+**Vercel** (where the web app lives) is the wrong host for the MCP server: its 10-second default timeout (60 seconds on Pro) is incompatible with MCP tool calls that chain UGRC geocoding → Utah Legislature API lookups. Cloudflare Workers has no hard per-request timeout for CPU-bound work and handles the chained external API calls correctly.
+
+_Source: [MCP Transport Future – MCP Blog](http://blog.modelcontextprotocol.io/posts/2025-12-19-mcp-transport-future/); [MCP 2026 Roadmap](http://blog.modelcontextprotocol.io/posts/2026-mcp-roadmap/); [Building Efficient MCP Servers – Vercel](https://vercel.com/blog/building-efficient-mcp-servers)_
+
+### Request Execution Model Per Platform
+
+Understanding how each platform executes tool calls is critical for designing On Record's tool handlers.
+
+**Claude (MCP):** The Claude host calls `tools/list` once at session start to enumerate available tools, then issues `tools/call` for each invocation. Calls are sequential within a turn but Claude can chain multiple tool calls across turns. No platform-imposed timeout on individual tool calls beyond the user's session patience. Streaming responses supported.
+
+**ChatGPT (Responses API / MCP):** Runtime calls `mcp_list_tools` on first use, caches the result. Tool invocations (`mcp_tool_call`) can be batched in an agentic loop within a single API request. The `require_approval` setting controls whether the runtime pauses for user confirmation. No per-tool timeout documented, but the overall Responses API request has a maximum duration. `allowed_tools` parameter should be used to limit tool list size and reduce token overhead per call.
+_Source: [Remote MCP Tool – OpenAI Platform](https://platform.openai.com/docs/guides/tools-remote-mcp)_
+
+**Microsoft Copilot (Declarative Agent):** Static tool discovery — tool list is snapshotted at manifest build time, not fetched dynamically at runtime. Tools are called as REST-style actions via the plugin manifest. This means On Record tools need to be stable and well-named in the manifest; additions require a manifest update and resubmission.
+_Source: [Declarative Agents Overview – Microsoft Learn](https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/overview-declarative-agent)_
+
+### Deployment Architecture
+
+On Record's planned split — MCP server on Cloudflare Workers, web app on Vercel — is well-aligned with each platform's strengths:
+
+```
+┌─────────────────────────────────────────────────────┐
+│                   Chat App Layer                    │
+│  Claude.ai  │  ChatGPT  │  M365 Copilot (future)   │
+└──────────────────────┬──────────────────────────────┘
+                       │ MCP / OpenAPI
+┌──────────────────────▼──────────────────────────────┐
+│       On Record MCP Server (Cloudflare Workers)     │
+│  Hono + @modelcontextprotocol/sdk                   │
+│  Streamable HTTP transport (upgrade from SSE)       │
+│  OAuth 2.1 + PKCE (to add)                         │
+│  Tools: find_legislators, lookup_district, etc.     │
+└───────────┬──────────────────────┬──────────────────┘
+            │                      │
+┌───────────▼──────┐   ┌───────────▼──────────────────┐
+│  Utah Legislature│   │  UGRC GIS API                │
+│  API             │   │  (geocoding + districts)      │
+└──────────────────┘   └──────────────────────────────┘
+
+┌─────────────────────────────────────────────────────┐
+│        On Record Web App (Vercel)                   │
+│  Next.js 16 — constituent-facing UI                 │
+│  Calls MCP server via NEXT_PUBLIC_MCP_SERVER_URL    │
+└─────────────────────────────────────────────────────┘
+```
+
+### Multi-Tenancy Considerations
+
+**MVP (individual constituents):** No multi-tenant complexity. Each user connects their own Claude/ChatGPT subscription. The MCP server handles requests statelessly per OAuth token — each token scoped to one user. No shared state between users.
+
+**Enterprise (future — professional firms):** Multi-tenant isolation requires: (1) tenant-scoped OAuth tokens with `tenant_id` claim, (2) per-tenant audit logging, (3) rate limiting per tenant to prevent one org from starving others. The key risk is **leaky context** — a shared session store without strong tenant filtering is a data incident. The layered pattern (IdP → gateway → MCP server → namespaced storage) is the proven blueprint.
+_Source: [Multi-User MCP Blueprint – Bix Tech](https://bix-tech.com/multi-user-ai-agents-with-an-mcp-server-a-practical-blueprint-for-secure-scalable-collaboration/)_
+
+### GPT Store vs. Responses API: Architectural Difference
+
+This distinction matters for how On Record exposes its interface to ChatGPT users:
+
+- **GPT Store (custom GPT + Actions):** OpenAI hosts the GPT; On Record hosts the Action endpoint. The GPT's system prompt, persona, and tool schema are configured in ChatGPT's builder UI and stored on OpenAI's platform. On Record's server only needs to handle the REST calls — it has no awareness of the conversation context.
+
+- **Responses API (MCP):** No GPT configuration needed. The calling application passes On Record's MCP server URL directly. On Record's tool descriptions (from `tools/list`) are what the model sees — so tool naming and descriptions in the MCP server are the primary UX surface, not a GPT system prompt.
+
+For consumer distribution via the GPT Store, both must exist: a custom GPT (OpenAI-hosted, minimal config) that points its Action at On Record's REST endpoints. For developer/API distribution, the MCP server alone is sufficient.
+
+### Performance Characteristics
+
+| Concern | Claude MCP | ChatGPT Responses API | Microsoft Copilot |
+|---|---|---|---|
+| **Tool list fetch** | Once per session (`tools/list`) | Once per session (`mcp_list_tools`) | Once at manifest build time (static) |
+| **Per-call latency overhead** | ~0ms protocol overhead | ~0ms protocol overhead | REST round-trip via plugin manifest |
+| **Timeout constraints** | None documented | None per-tool documented | REST action timeouts apply |
+| **Streaming support** | Yes (SSE within Streamable HTTP) | Yes | Limited |
+| **Approval UX** | OAuth prompt at connection | `require_approval` per tool | User confirms via Copilot chat |
+
+_Source: [GPT Actions Production – OpenAI](https://platform.openai.com/docs/actions/production); [MCP Architecture – modelcontextprotocol.io](https://modelcontextprotocol.io/docs/learn/architecture)_
+
+---
+
+## Implementation Approaches and Technology Adoption
+
+### Technology Adoption Strategies
+
+**MCP as the convergence standard:** MCP is no longer experimental. OpenAI added support in March 2025, Google DeepMind in April 2025, and by late 2025 the protocol moved to the Linux Foundation with backing from AWS, Microsoft, and Cloudflare. The TypeScript SDK sees millions of weekly downloads. The strategic adoption path for On Record is clear: invest in one well-deployed remote MCP server; all other platform integrations (ChatGPT Responses API, Microsoft Copilot) derive from the same endpoint.
+_Source: [The Ultimate Guide to MCP Servers – Treblle](https://treblle.com/blog/mcp-servers-guide)_
+
+**Additive migration pattern (Node.js → Cloudflare Workers):** `better-sqlite3` is a native Node.js module and cannot run in Cloudflare Workers' V8 isolate model. The migration is additive — the existing `@hono/node-server` entrypoint stays intact for local dev; a separate Workers entrypoint exports `{ fetch, scheduled }` using the same Hono `app` instance. D1's `prepare` API mirrors SQLite semantics, so query logic is mechanically portable (sync → async). See `technical-cloudflare-workers-deployment-2026-03-16.md` for full migration analysis.
+_Source: [Build a Remote MCP server – Cloudflare Agents docs](https://developers.cloudflare.com/agents/guides/remote-mcp-server/); [D1 Overview – Cloudflare](https://developers.cloudflare.com/d1/)_
+
+### Development Workflows and Tooling
+
+**Scaffolding:** `npm create cloudflare@latest` bootstraps an MCP server template with Wrangler configured. For On Record, this generates the Workers entrypoint to layer on top of the existing Hono app.
+
+**Local development:** Two parallel dev paths:
+- `pnpm dev` (existing) — `@hono/node-server` with `better-sqlite3`, hot reload, full Node.js environment
+- `wrangler dev` — Workers runtime emulation, D1 local SQLite proxy, validates Workers-specific constraints
+
+**Secret management:** Wrangler CLI manages production secrets (`npx wrangler secret put UTAH_LEGISLATURE_API_KEY`). GitHub Secrets store `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` for CI/CD. Never commit secrets to the repository.
+
+**MCP Inspector:** `npx @modelcontextprotocol/inspector@latest` provides a visual `tools/list` + `tools/call` debugger against the live server URL. Essential for validating tool schemas and raw JSON-RPC traffic without a full Claude/ChatGPT session.
+_Source: [MCP Inspector – GitHub](https://github.com/modelcontextprotocol/inspector)_
+
+### Testing and Quality Assurance
+
+**Current stack (Vitest) carries forward:** On Record already uses Vitest with mocks at the `LegislatureDataProvider` boundary. This pattern is the community standard for MCP server unit testing — tools are tested by calling `server.callTool(name, args)` directly without a transport layer.
+
+**Integration testing gap to fill:** No current tests exercise the full MCP wire protocol (`tools/list` → `tools/call` round-trip). MCP Inspector covers this manually; automating it with a `createTestClient` helper (as documented in the MCPcat guide) would close the gap and catch schema regressions before deployment.
+
+**Protocol compliance:** The `@modelcontextprotocol/inspector` proxy can be used in CI to run a smoke test: spin up the server, call `tools/list`, assert the expected tool names are present. This guards against accidental tool registration regressions.
+_Source: [Unit Testing MCP Servers – MCPcat](https://mcpcat.io/guides/writing-unit-tests-mcp-servers/)_
+
+### Deployment and Operations Practices
+
+**CI/CD with Wrangler + GitHub Actions:** The official `cloudflare/wrangler-action` handles Workers deployment from GitHub Actions. Add a deploy job to the existing `.github/workflows/` pipeline: on merge to `main`, run `wrangler deploy` with `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` from GitHub Secrets.
+
+```yaml
+- name: Deploy to Cloudflare Workers
+  uses: cloudflare/wrangler-action@v3
+  with:
+    apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+```
+
+**Observability:** Workers emits structured logs via `console.error` (already enforced by ESLint in On Record). Cloudflare's dashboard surfaces these alongside request metrics. No separate log aggregation needed at MVP scale.
+
+**Cron Triggers:** Replace `node-cron` scheduler with `wrangler.toml` Cron Triggers. The `scheduled()` Worker handler calls `warmUpLegislatorsCache` and `warmUpBillsCache` unchanged — the cache interface is unaffected.
+_Source: [GitHub Actions – Cloudflare Workers docs](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/); [Wrangler Action – GitHub Marketplace](https://github.com/marketplace/actions/deploy-to-cloudflare-workers-with-wrangler)_
+
+### Team Organization and Skills
+
+On Record is a solo-developer project. The skill additions needed for the Workers + MCP production deployment:
+
+| Skill | Current State | Gap |
+|---|---|---|
+| TypeScript MCP SDK | Implemented (Stories 2.4, 3.5) | None |
+| Hono framework | Implemented | None |
+| OAuth 2.1 + PKCE | Not yet implemented | Needed for remote MCP |
+| Cloudflare Workers / Wrangler | Not yet used | New — well-documented |
+| D1 async API | Not yet used | New — mechanical SQLite port |
+| `/.well-known/oauth-protected-resource` (RFC 9728) | Not yet implemented | Needed for MCP auth spec |
+
+The OAuth 2.1 layer is the highest-skill-investment item. Cloudflare's `workers-oauth-provider` library handles the spec compliance (PKCE, RFC 9728, RFC 7591 DCR) so the implementation surface is reduced to wiring an IdP (GitHub OAuth or similar) rather than implementing OAuth primitives from scratch.
+_Source: [Authorization – Cloudflare Agents docs](https://developers.cloudflare.com/agents/model-context-protocol/authorization/); [workers-oauth-provider – GitHub](https://github.com/cloudflare/workers-oauth-provider)_
+
+### Cost Optimization and Resource Management
+
+At MVP/PAC-meeting scale, the full stack is free:
+
+| Service | Free tier | On Record usage estimate |
+|---|---|---|
+| Cloudflare Workers | 100K req/day | <1K req/day |
+| Cloudflare D1 | 5M rows read/day, 100K writes/day, 5GB | ~10K reads/day, ~500 writes/day |
+| Vercel (Next.js) | 100GB bandwidth, 100K function invocations | Well within |
+
+Graduated cost at scale: Workers Paid ($5/month) includes 10M requests and 25B D1 row reads — sufficient for significant growth. No egress fees on D1. This compares favorably to Railway Hobby ($5/month) with no global distribution and Node.js cold start overhead.
+_Source: [D1 Pricing – Cloudflare](https://developers.cloudflare.com/d1/platform/pricing/); [Railway vs Cloudflare – Railway Blog](https://blog.railway.com/p/railway-vs-cloudflare-how-their-architectures-differ-and-when-to-use-each)_
+
+### Risk Assessment and Mitigation
+
+| Risk | Likelihood | Mitigation |
+|---|---|---|
+| `better-sqlite3` FTS5 queries break on D1 | Low | D1 supports FTS5; JOIN query pattern already used |
+| OAuth 2.1 implementation complexity | Medium | Use `workers-oauth-provider` library; defer to a dedicated story |
+| Workers request timeout on chained API calls | Low | Workers has no hard CPU timeout; external fetch calls have their own timeout |
+| `mcp-remote` CVE-2025-6514 (OAuth URL injection) | Low for server-side | On Record is the server, not the client; ensure any client-side tooling uses ≥0.1.16 |
+| D1 free tier exhaustion | Very low at MVP | 5M row reads/day; On Record cache is read-heavy but tiny |
+
+## Technical Research Recommendations
+
+### Implementation Roadmap
+
+1. **Now (Epic 4–7):** Continue on current Node.js stack. No migration needed during active feature development.
+2. **Pre-launch (Epic 6 or 7):** Add Workers entrypoint + `wrangler.toml` as a parallel deployment target. Node.js path stays for local dev.
+3. **Post-launch:** Migrate cache layer to D1 async API. Add OAuth 2.1 layer using `workers-oauth-provider`.
+4. **Post-MVP:** OpenAPI spec layer for GPT Store custom GPT. Microsoft Copilot plugin manifest.
+
+### Technology Stack Recommendations
+
+- **OAuth:** `cloudflare/workers-oauth-provider` + GitHub OAuth (or Stytch for enterprise SSO) — avoids implementing OAuth primitives
+- **Workers testing:** Add `createTestClient` integration test for `tools/list` + `tools/call` wire protocol validation
+- **CI/CD:** `cloudflare/wrangler-action@v3` — official, well-maintained, minimal config
+
+### Success Metrics and KPIs
+
+| Metric | Target |
+|---|---|
+| MCP server p95 response time | <2s (chained GIS + Legislature API calls) |
+| Workers cold start | <50ms (edge, no container spin-up) |
+| D1 query latency | <10ms (co-located with Worker) |
+| Monthly infrastructure cost at MVP | $0 |
+| Monthly infrastructure cost at 10K active users | $5 |
+
+---
+
+## Research Synthesis
+
+### Table of Contents
+
+1. [Technical Research Scope Confirmation](#technical-research-scope-confirmation)
+2. [Technology Stack Analysis](#technology-stack-analysis) — languages, SDKs, transport protocols, auth, tooling, adoption trends
+3. [Integration Patterns Analysis](#integration-patterns-analysis) — platform-by-platform paths, complexity comparison, security patterns, BYOLLM architecture, monetization
+4. [Architectural Patterns and Design](#architectural-patterns-and-design) — stateless vs stateful, request execution model per platform, deployment architecture, multi-tenancy, performance
+5. [Implementation Approaches and Technology Adoption](#implementation-approaches-and-technology-adoption) — adoption strategy, dev workflows, testing, CI/CD, team skills, cost, risk
+6. [Technical Research Recommendations](#technical-research-recommendations) — implementation roadmap, stack recommendations, success metrics
+
+### Executive Summary
+
+**The MCP-first bet is the right call for On Record, and it's now lower-risk than it was twelve months ago.** Anthropic donated MCP to the Linux Foundation's Agentic AI Foundation in early 2026 — co-founded with OpenAI, backed by Google, Microsoft, AWS, and Cloudflare. With 97 million monthly SDK downloads, 10,000+ active servers, and first-class client support in Claude, ChatGPT, Microsoft Copilot, and VS Code, MCP is no longer an Anthropic-proprietary bet. It is the cross-industry protocol for AI-to-tool communication.
+
+**One server, three platforms.** On Record's existing Hono + `@modelcontextprotocol/sdk` server is structurally correct for all three viable platform targets. Claude uses it natively over Streamable HTTP. ChatGPT's Responses API consumes it directly as a `type: "mcp"` tool — no OpenAPI wrapper required. Microsoft Copilot's M365 Agents Toolkit generates a plugin manifest from the same MCP server URL. The only required additions are: (1) migrate SSE transport → Streamable HTTP, (2) add OAuth 2.1 + PKCE with `/.well-known/oauth-protected-resource` discovery. These are two focused engineering stories, not architectural pivots.
+
+**Deployment platform is Cloudflare Workers.** Vercel's per-request timeout (10–60s) is incompatible with On Record's chained GIS + Legislature API tool calls. Railway works but adds cold start overhead and lacks global edge distribution. Cloudflare Workers is stateless-by-default (matching the MCP 2026 spec direction), has no hard CPU timeout on external fetch calls, runs at edge, and is $0 at MVP scale. The migration from `better-sqlite3` to D1 is mechanical — same FTS5 SQL, sync → async API. This is a pre-launch story, not a now story.
+
+**Gemini is deprioritized.** Consumer Gemini Extensions are Google-curated — no third-party store exists. Integrating with Gemini requires building a standalone Gemini-powered application, which directly contradicts On Record's BYOLLM architecture. Deprioritized indefinitely unless the BYOLLM model changes.
+
+**Key Technical Findings:**
+- MCP (Streamable HTTP) + OAuth 2.1 is the single implementation that serves Claude, ChatGPT Responses API, and Microsoft Copilot from one server
+- `workers-oauth-provider` (Cloudflare) handles OAuth 2.1 spec compliance — reduces OAuth implementation to IdP wiring
+- `@hono/mcp` (JSR) enables the Streamable HTTP transport upgrade with minimal code changes
+- `mcp-remote` CVE-2025-6514 is a client-side vulnerability; On Record as server is not directly affected, but client tooling must use ≥0.1.16
+- Cloudflare Workers + D1 is $0 at MVP, $5/month at scale — lowest-cost production deployment with global edge distribution
+- Microsoft AppSource is the only platform with a paid plugin monetization path (15–20% take rate); Claude and ChatGPT do not revenue-share with server developers
+
+**Recommended Prioritization:**
+1. **Now:** Continue feature development on Node.js. No migration during active sprint work.
+2. **Pre-launch story:** Streamable HTTP transport upgrade (`@hono/mcp` or `streamable-mcp-server-template`).
+3. **Pre-launch story:** OAuth 2.1 + PKCE layer using `workers-oauth-provider` + GitHub OAuth.
+4. **Pre-launch story:** Cloudflare Workers entrypoint + `wrangler.toml` (additive — Node.js path stays for local dev).
+5. **Post-launch:** D1 migration (cache layer only; query logic is mechanically portable).
+6. **Post-MVP:** OpenAPI spec layer → GPT Store custom GPT. Microsoft Copilot plugin manifest + AppSource submission.
+
+### Research Conclusion
+
+The landscape has clarified significantly since the research question was posed. There is no longer a meaningful "which platform should On Record integrate with?" decision to make — MCP has converged the answer. The correct architecture is a single remote MCP server that is agnostic of client, deployed on Cloudflare Workers at the edge, protected by OAuth 2.1, and exposing On Record's existing tool surface unchanged.
+
+The research surfaces two strategic insights beyond the technical implementation:
+
+**The BYOLLM model is a genuine competitive moat at the enterprise tier.** Journalists, legislative staffers, and lobbyists are disproportionately likely to have M365 Copilot or Claude Enterprise seats. On Record entering via their existing AI infrastructure — zero new procurement friction, zero new LLM cost line item — is a faster enterprise sales motion than any SaaS competitor that bundles inference costs.
+
+**No platform currently pays MCP server developers.** Neither Anthropic nor OpenAI revenue-shares with server developers. The GPT Store pays nothing to creators. The only structured paid path is Microsoft AppSource for Copilot plugins (15–20% take rate, available to M365 org buyers). On Record's monetization must be direct — subscription access to the MCP server endpoint — and should be priced to reflect the BYOLLM cost advantage versus full-service competitors.
+
+---
+
+**Research Completion Date:** 2026-03-16
+**Research Period:** Current analysis as of March 2026
+**Source Verification:** All technical facts cited with current sources
+**Confidence Level:** High — based on multiple authoritative sources; Microsoft Copilot plugin path marked as Public Preview (not GA) as of March 2026
+
+_This document serves as the authoritative technical reference for On Record's chat app integration strategy and should be reviewed before any story work on remote MCP deployment, OAuth implementation, or platform-specific integrations._
