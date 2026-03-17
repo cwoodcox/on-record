@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2]
+stepsCompleted: [1, 2, 3]
 inputDocuments: []
 workflowType: 'research'
 lastStep: 1
@@ -347,3 +347,159 @@ The user's insight that GraphQL would elegantly solve the compound-query problem
 The compound query naturally decomposes into: (1) one-time bulk ingest per session — person registry + roll call register, (2) live on-demand queries — bill detail, text search against cached index.
 
 _Source: Research synthesis — confirmed through source code and API manual review_
+
+---
+
+## Architectural Patterns and Design
+
+### Session-Based Ingest Architecture
+
+Legislative data has a natural partitioning unit: the **legislative session**. Sessions are bounded, well-defined, and largely immutable once closed — making them ideal cache keys. This shapes the recommended architecture for on-record:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Background Ingest (node-cron)                          │
+│                                                         │
+│  Session open?                                          │
+│  ├── Yes (active): Incremental sync via change_hash     │
+│  │   every N hours — poll getMasterList, fetch only     │
+│  │   bills whose change_hash has changed                │
+│  └── No (closed):  Session already fully ingested;      │
+│       no further sync needed                            │
+│                                                         │
+│  New session detected → trigger bulk dataset download   │
+│  (getDataset ZIP → unzip → parse all bills/votes/people)│
+└─────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────┐
+│  SQLite Cache (better-sqlite3)                          │
+│  sessions / people / bills / roll_calls / votes         │
+│  bill_fts (FTS5 virtual table)                          │
+└─────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────┐
+│  MCP Tool Layer                                         │
+│  search_bills(query, jurisdiction, session, person_id?) │
+│  get_votes_by_person(person_id, session)                │
+│  get_bill_detail(bill_id)                               │
+└─────────────────────────────────────────────────────────┘
+```
+
+**LegiScan's `change_hash` pattern**: The `getMasterListRaw` response contains a `change_hash` per bill — a content fingerprint. The recommended sync loop is: fetch master list → compare stored `change_hash` values → call `getBill` only for bills with differing hashes. This minimizes API query consumption against rate limits. The LegiScan `legiscand` daemon implements exactly this pattern.
+
+_Source: [LegiScan API Manual v1.91](https://api.legiscan.com/dl/LegiScan_API_User_Manual.pdf), [LegiScan API docs](https://api.legiscan.com/docs/)_
+
+---
+
+### Session Calendar and Data Freshness Tiers
+
+Understanding session cadence directly shapes ingest scheduling:
+
+- **46 states** hold annual sessions; **4 states** (Montana, Nevada, North Dakota, Texas) meet biennially (odd years only).
+- Most active legislative period: **January–June**. Bills are introduced, debated, and voted on during this window. Summer–fall is largely dormant for most part-time legislatures.
+- **23 states** carry over bills session-to-session (two-year cycle); 27 require fresh introduction each session — affecting whether a "closed session" cache can be considered fully static.
+- Special/extraordinary sessions can be called at any time by the governor — a small but non-zero staleness risk outside normal session windows.
+
+**Practical data freshness tiers for on-record's ingest scheduler:**
+
+| State | Sync frequency | Rationale |
+|---|---|---|
+| Session active (Jan–June) | Every 4–12 hours | Bills change daily; votes recorded in real-time |
+| Session nearing close (last 2 weeks) | Every 1–4 hours | High vote volume as deadlines hit |
+| Inter-session (July–Dec, annual states) | Daily or weekly | Only special sessions or interim committee activity |
+| Session closed (biennial off-year) | None | Session fully archived; no new votes |
+
+_Source: [MultiState 2026 Session Dates](https://www.multistate.us/resources/2026-legislative-session-dates), [Ballotpedia 2025 Sessions](https://ballotpedia.org/Dates_of_2025_state_legislative_sessions), [NCSL Session Calendar](https://www.ncsl.org/about-state-legislatures/2024-state-legislative-session-calendar)_
+
+---
+
+### SQLite Schema Design for the Compound Query
+
+The compound query — *bills person X voted on matching topic Y in session Z* — maps to a join across four entities. The schema should reflect this traversal path:
+
+```sql
+-- Core tables
+sessions     (id, source, source_id, jurisdiction, year, identifier, name)
+people       (id, source, source_id, name, party, chamber, district, jurisdiction)
+bills        (id, session_id, source_id, identifier, title, description, status)
+roll_calls   (id, bill_id, date, motion, yea_count, nay_count, absent_count)
+votes        (roll_call_id, people_id, vote_option)  -- vote_option: yea/nay/absent/other
+subjects     (bill_id, subject)                       -- from OpenStates subject tags
+
+-- Full-text search
+bill_fts     FTS5 over (title, description) with content=bills
+
+-- Composite primary keys
+bills:        PRIMARY KEY (source, source_id)
+people:       PRIMARY KEY (source, source_id)
+-- Bills repeat across sessions: enforce (source, source_id, session_id)
+```
+
+**Query execution plan for compound query:**
+```sql
+-- "bills person X voted on matching 'education' in 2025 UT session"
+SELECT b.identifier, b.title, v.vote_option
+FROM bill_fts
+JOIN bills b ON b.rowid = bill_fts.rowid
+JOIN roll_calls rc ON rc.bill_id = b.id
+JOIN votes v ON v.roll_call_id = rc.id
+JOIN people p ON p.id = v.people_id
+WHERE bill_fts MATCH 'education'
+  AND b.session_id = (SELECT id FROM sessions WHERE jurisdiction='ut' AND year=2025)
+  AND p.source_id = ?   -- LegiScan people_id or OCD person ID
+  AND v.vote_option IN ('yea', 'nay')
+ORDER BY bill_fts.rank;
+```
+
+This is a single SQLite query once data is ingested — no API round-trips at query time. The FTS5 `rank` ordering gives relevance-ranked results consistent with on-record's existing `bill_fts` pattern (see CLAUDE.md: "FTS5 content table queries: use JOIN pattern").
+
+---
+
+### Multi-Source Fusion Strategy
+
+No single service is optimal across all dimensions. A hybrid strategy is worth considering:
+
+| Dimension | Best source | Rationale |
+|---|---|---|
+| State bill + vote data | **LegiScan bulk** | Complete roll-call coverage; structured per-person votes; `change_hash` for efficient sync |
+| Subject/topic tags | **OpenStates** | Normalized controlled vocabulary; LegiScan has no structured subject taxonomy |
+| Federal bills + votes | **Congress.gov** | Official LoC data; `bioguideId` stable identifiers; sponsored-legislation endpoints |
+| Legislator biographical data | **LegiScan `getPerson`** or **OpenStates `/people`** | Both adequate; LegiScan already co-loaded with bill data |
+
+**Recommended baseline for on-record (Utah + federal focus):**
+- **LegiScan bulk dataset** as primary source for all Utah state bill and vote data
+- **Congress.gov API** for federal member activity (sponsored legislation; vote data pending beta stabilization)
+- **OpenStates `/bills?include=votes`** as an optional enrichment pass for subject tags — can be layered on top of the LegiScan bill records by matching on bill identifier
+
+This avoids dual-ingest of the same bills while capturing the one structural advantage OpenStates has (subject taxonomy).
+
+---
+
+### Reliability and Fallback Architecture
+
+Given the 2025 API outage events (Congress.gov August outage, Google Civic API shutdown April 2025), the on-record architecture should treat all external data sources as unreliable:
+
+- **Never query the upstream API synchronously during an MCP tool call.** All tool calls should read from the local SQLite cache only. Background ingest jobs absorb availability failures gracefully with retry/backoff.
+- **Stale-on-failure**: If the ingest job fails (network error, API outage), serve cached data with a `dataAsOf` timestamp in the response. Constituent queries against slightly stale bill data are tolerable; serving an error is not.
+- **Source rotation**: If LegiScan's free tier is exhausted (30K req/month), fall back to OpenStates bulk data for state bills. The cache schema is source-agnostic (uses `source` + `source_id` fields) to support multi-source ingestion.
+- **LegiScan push tier** as a future upgrade path: if on-record grows to need near-real-time data, the Push API can replace the pull-based cron job without schema changes — the data payloads are identical between pull and push modes.
+
+_Source: [LegiScan API Manual (push/pull architecture)](https://api.legiscan.com/dl/LegiScan_API_User_Manual.pdf), Research synthesis_
+
+---
+
+### Data Architecture Patterns: Source Identifiers and Deduplication
+
+Cross-source identifier mapping is the hardest data architecture problem in this space:
+
+- **LegiScan**: Numeric `bill_id`, `people_id`, `roll_call_id` — stable within LegiScan's system
+- **OpenStates**: OCD-format string IDs (`ocd-bill/...`, `ocd-person/...`) — stable and globally unique
+- **Congress.gov**: `bioguideId` for members (stable since 1989), `{congress}/{billType}/{billNumber}` for bills
+
+Bills can be matched across sources using `(jurisdiction, session_identifier, bill_number)` — e.g., `(utah, 2025, SB0001)`. This tuple is stable and present in all services. People are harder: state legislators have no national stable identifier equivalent to `bioguideId`. OpenStates OCD person IDs are the closest thing for state-level legislator deduplication.
+
+The `subjects` enrichment from OpenStates → LegiScan bill matching should use the `(session, identifier)` composite key, not internal IDs.
+
+_Source: [OpenStates OCD data model](https://docs.openstates.org/data/), [Congress.gov Member Endpoint](https://github.com/LibraryOfCongress/api.congress.gov/blob/main/Documentation/MemberEndpoint.md)_
