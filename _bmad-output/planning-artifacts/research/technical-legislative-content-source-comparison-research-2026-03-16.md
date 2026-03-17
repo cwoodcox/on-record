@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3, 4]
+stepsCompleted: [1, 2, 3, 4, 5, 6]
 inputDocuments: []
 workflowType: 'research'
 lastStep: 1
@@ -12,17 +12,21 @@ web_research_enabled: true
 source_verification: true
 ---
 
-# Research Report: technical
+# Legislative Data Source Comparison: Technical Research Report
 
 **Date:** 2026-03-16
 **Author:** Corey
-**Research Type:** technical
+**Research Type:** Technical — API and data model evaluation
 
 ---
 
 ## Research Overview
 
-[Research overview and methodology will be appended here]
+This report evaluates third-party services that aggregate US state and federal legislative data — OpenStates, LegiScan, Congress.gov, and others — for integration into on-record's MCP server. The research documents each service's API surface, data model entity shapes, rate limits, and practical query expressiveness for on-record's primary use case: answering constituent inquiries about how their representative voted on bills matching a given topic in a given session.
+
+The central architectural finding is that no service exposes a single API call for the compound query "bills person X voted on matching topic Y in session Z." Both leading services (OpenStates v3 and LegiScan) require multi-step traversal — a pattern that resolves cleanly through **bulk dataset ingest + local SQLite query** rather than on-demand API calls. This maps directly onto on-record's existing better-sqlite3 cache layer and FTS5 search infrastructure. For a full executive summary and prioritized recommendations, see the [Executive Summary and Strategic Recommendations](#executive-summary-and-strategic-recommendations) section below.
+
+**Research methodology:** Five-step technical workflow — scope confirmation, technology stack analysis (service landscape), integration patterns (API endpoint inventory and query workflows), architectural patterns (ingest design and schema), and implementation research (SDK options, data quality risks, cost, testing). All claims verified against live documentation and source code where accessible.
 
 ---
 
@@ -606,3 +610,74 @@ Testing against live legislative APIs without burning rate limits:
 - **Bulk dataset fixtures**: A LegiScan session dataset ZIP is an ideal test fixture — download once, commit a small subset (5–10 bills + associated roll calls + people) as a fixture file, use it for all ingest pipeline tests.
 - **Integration tests** (`test:live` pattern from `legiscan-mcp-server`): Separate test suite that requires a real API key, runs against live endpoints, explicitly excluded from CI. Used only for verifying API contract hasn't changed.
 - **Stale-data testing**: Test that the `dataAsOf` timestamp is surfaced correctly in MCP tool responses when cache is older than a configurable threshold.
+
+---
+
+## Executive Summary and Strategic Recommendations
+
+### Service Landscape — Final Assessment
+
+Three services are viable for on-record's use case. Two are clearly unsuitable.
+
+**Viable:**
+- **LegiScan** — broadest coverage (all 50 states + Congress), complete roll-call vote records per legislator, efficient bulk dataset download, free tier sufficient with bulk ingest strategy, `change_hash` incremental sync. **Primary recommended source for state legislative data.**
+- **OpenStates / Plural Open** — 50-state coverage, open-source, free, structured `subject` tags (where states provide them), REST JSON API. Weaker on vote data access (votes only accessible as sub-resource of bills, no voter filter). **Useful as optional enrichment layer for subject taxonomy; not primary source.**
+- **Congress.gov API** — official Library of Congress source for federal bills, free, good member sponsorship data, stable `bioguideId` identifiers. Member vote data is beta (2025, 118th Congress forward, House only). **Recommended for federal bill coverage; defer vote integration until beta stabilizes.**
+
+**Not viable:**
+- **ProPublica Congress API** — no new API keys; effectively closed.
+- **LegiLink** — no web presence found; not a recognized market participant.
+
+---
+
+### Key Technical Findings
+
+1. **No single-endpoint compound query exists on any service.** "Bills person X voted on matching topic Y in session Z" requires multi-step traversal on both OpenStates and LegiScan. This is not a blocker — it resolves through bulk ingest + local SQL.
+
+2. **Bulk dataset ingest is the correct architecture.** LegiScan's `getDataset` ZIP (updated weekly free / every 4h enterprise) delivers all bills + roll calls + people for a session in 2 API calls. Local SQLite query then handles the compound use case in a single `bill_fts JOIN … JOIN votes JOIN people WHERE` query — zero API round-trips at MCP tool call time.
+
+3. **OpenStates subject tags are not a reliable topic taxonomy.** Tags are state-provided and many states provide none. Topic filtering for state bills should use on-record's own FTS5 index over ingested bill titles and descriptions — already consistent with the existing `bill_fts` implementation.
+
+4. **GraphQL would have solved the compound query elegantly.** OpenStates v2 (GraphQL, deprecated December 2023) could express person → votes → bill[topic, session] in one traversal. No current service offers equivalent graph query capability. Bulk ingest is the practical substitute.
+
+5. **Reliability risk is real.** Congress.gov had a multi-day outage in August 2025 with no communication. Google Civic API and OpenSecrets both shut down in April 2025. Never query upstream APIs synchronously from MCP tool handlers — always read from the local cache.
+
+6. **A LegiScan MCP server already exists** (`legiscan-mcp-server` / `sh-patterson`). It is pull-only with no caching — burns rate limits, high query latency. Not a dependency candidate, but useful as interface shape reference for `get_legislator_votes` tool design.
+
+---
+
+### Strategic Recommendations
+
+**Recommendation 1 — Use LegiScan bulk dataset as primary state bill source.**
+Register for a free LegiScan API key. Implement `getDataset` ZIP ingest for Utah (and other jurisdictions as needed). Run `change_hash` incremental sync via node-cron, session-aware frequency. This covers bills, roll calls, per-legislator votes, and legislator profiles in a single ingest pipeline. Free tier is sufficient for on-record's single-state initial scope.
+
+**Recommendation 2 — Build the compound query as a local SQL operation, not an API query.**
+The on-record SQLite schema should include `sessions`, `people`, `bills`, `roll_calls`, and `votes` tables with `bill_fts` (FTS5) over titles+descriptions. The compound query becomes: `bill_fts MATCH ? JOIN bills JOIN roll_calls JOIN votes JOIN people WHERE people.source_id = ? AND session = ?`. This is consistent with on-record's existing FTS5 JOIN pattern.
+
+**Recommendation 3 — Add Congress.gov as the federal layer.**
+Use `/member/{bioguideId}/sponsored-legislation` for Utah representatives' sponsored federal bills. Do not depend on the beta member-votes endpoint until it is confirmed production-stable. Use `bioguideId` for stable cross-session identity.
+
+**Recommendation 4 — Defer OpenStates subject tag enrichment; verify Utah coverage first.**
+Before committing to an OpenStates enrichment pass, query `GET /bills?jurisdiction=ut&session=2025&include=sponsorships` and check what fraction of bills have non-empty `subject` arrays. If >70%, implement enrichment keyed on `(session_identifier, bill_number)`. If lower, skip — FTS5 is adequate.
+
+**Recommendation 5 — Never surface API errors directly in MCP tool responses.**
+All tool handlers read from local SQLite. Ingest failures (network, API outage, rate limit) are absorbed by the background cron job with retry/backoff. Include a `dataAsOf` field in tool responses so the LLM can acknowledge data currency to the constituent.
+
+---
+
+### Open Questions for Story Spec
+
+Before writing implementation stories, these should be confirmed:
+
+| Question | Impact |
+|---|---|
+| Which Utah legislative sessions does on-record need? Current session only, or historical? | Determines ingest scope and initial data volume |
+| Does on-record need federal bills at launch, or state only? | Decides whether Congress.gov integration is Phase 1 or Phase 2 |
+| What is the tolerable data staleness for a constituent query? (same day? 24h? weekly?) | Drives cron frequency and whether enterprise push tier is needed |
+| Should the MCP tool expose "voted yes/no/absent" or just "voted on"? | Affects `vote_option` filtering in SQL query |
+| Are special sessions in scope? (e.g. Utah called a special session; LegiScan tracks these as separate session IDs) | Affects session discovery logic in ingest |
+
+---
+
+**Research completed:** 2026-03-17
+**Source verification:** All technical claims verified against live documentation, source code, or API manual where accessible. Confidence high for LegiScan and OpenStates findings (source code reviewed); medium for Congress.gov member-votes beta (endpoint not yet confirmed production-stable).
