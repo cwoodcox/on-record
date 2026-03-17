@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3]
+stepsCompleted: [1, 2, 3, 4]
 inputDocuments: []
 workflowType: 'research'
 lastStep: 1
@@ -503,3 +503,106 @@ Bills can be matched across sources using `(jurisdiction, session_identifier, bi
 The `subjects` enrichment from OpenStates → LegiScan bill matching should use the `(session, identifier)` composite key, not internal IDs.
 
 _Source: [OpenStates OCD data model](https://docs.openstates.org/data/), [Congress.gov Member Endpoint](https://github.com/LibraryOfCongress/api.congress.gov/blob/main/Documentation/MemberEndpoint.md)_
+
+---
+
+## Implementation Approaches and Technology Adoption
+
+### Available TypeScript/Node.js SDKs
+
+Three community packages exist for LegiScan in the Node.js ecosystem:
+
+| Package | Type safety | Caching | Notes |
+|---|---|---|---|
+| `@civicnews/legiscan-client` | Partial (JS with normalization helpers) | None | Chalkbeat/NPR; browser-compatible; CLI included; most widely used |
+| `legiscan` (npm: `legiscan`) | TypeScript | None | `agbales/legiscan`; wraps all pull API operations |
+| `legiscan-mcp-server` | Full TypeScript | None | `sh-patterson/legiscan-mcp`; MCP server wrapping LegiScan; composite tools for batching |
+| Official PHP client | N/A | Optional (DB schema provided) | Reference implementation with ERD; not for Node.js |
+
+**Critical observation on `legiscan-mcp-server`**: This package already implements an MCP server with a `legiscan_get_legislator_votes` composite tool that batches multiple API calls to retrieve all votes by a specific legislator. It achieves "90%+ reduction in API usage" through batching — but still makes real-time API calls with no persistent local cache. This makes it unsuitable for on-record's architecture (rate limits would be exhausted during active sessions; tool response latency would be unacceptable). It is a useful reference for the tool interface shape, but not a dependency candidate.
+
+For OpenStates, **no maintained TypeScript/Node.js client was found**. The `pyopenstates` Python library exists but is Python-only. Integration would require raw `fetch()` calls against the REST API with hand-written TypeScript types — or types generated from the FastAPI OpenAPI spec at `https://v3.openstates.org/docs`.
+
+_Source: [Chalkbeat legiscan-client](https://github.com/Chalkbeat/legiscan-client), [agbales/legiscan](https://github.com/agbales/legiscan), [sh-patterson/legiscan-mcp](https://github.com/sh-patterson/legiscan-mcp)_
+
+---
+
+### Data Quality Risks
+
+**OpenStates — structural risks:**
+- **Subjects are state-provided only.** Many states provide zero subject tags. This significantly weakens the earlier recommendation to use OpenStates as an enrichment layer for structured topic filtering — the coverage is uneven and state-dependent, not a reliable taxonomy. Utah's subject tag coverage should be verified before relying on it.
+- **Vote data fragmentation.** Texas has a documented scraper bug where per-legislator votes are not properly separated into individual records. Other states may have similar issues. This is a systemic scraper fragility, not a one-off.
+- **Scraper breakage cadence.** ~200 independent scrapers, each brittle to state website changes. When a scraper breaks, data for that state stops updating silently (unless the error type is detectable). On-record would need to track `updatedSince` timestamps per jurisdiction to detect stale data.
+- **Legislator name resolution lags.** Legislator data is curated by humans, not scraped, meaning it can lag behind bill/vote data during session transitions (new members, mid-term appointments).
+
+**LegiScan — structural risks:**
+- **Free tier rate ceiling.** 30,000 queries/month sounds large but disappears quickly during active sessions. The Chalkbeat client documentation notes Michigan alone has ~3,000 bills per session — pulling bill details for all of them would consume the monthly quota in a single run. Bulk dataset download sidesteps this entirely for session data.
+- **Bulk dataset update frequency.** Weekly on free/pull tiers (Sunday mornings), every 4 hours on enterprise push. For a constituent calling an office about a bill that passed yesterday, the cache could be up to 6 days stale on the free tier. The incremental `change_hash` sync loop mitigates this if on-record runs daily cron jobs, but each `getBill` call consumes query quota.
+- **No structured subject taxonomy.** Topic filtering is full-text only. On-record's own FTS5 index over ingested titles/descriptions is equivalent or superior to what LegiScan's `search` endpoint provides.
+
+**Congress.gov — structural risks:**
+- **Member votes endpoint is beta.** The House Roll Call Votes endpoint introduced in 2025 (118th Congress forward) is not confirmed production-stable. Senate votes are not covered.
+- **August 2025 outage.** An undisclosed infrastructure issue caused the API to enter an infinite redirect loop with no communication from the Library of Congress for several days. This is a single-source-of-failure risk for any service relying on it.
+
+_Source: [OpenStates issues repo](https://github.com/openstates/issues), [Understanding OpenStates Data](https://docs.openstates.org/data/), [Chalkbeat legiscan-client README](https://github.com/Chalkbeat/legiscan-client), [OpenStates Data Report Card (Ballotpedia)](https://ballotpedia.org/Open_States%27_Legislative_Data_Report_Card)_
+
+---
+
+### Topic Filtering: Revised Assessment
+
+The architectural section recommended OpenStates as an enrichment layer for structured subject tags. The data quality research revises this:
+
+- OpenStates subjects are **state-provided and inconsistently populated** — not a reliable controlled vocabulary
+- LegiScan has **no structured subject taxonomy** at all
+- Congress.gov `policyArea` + `subjects` is well-populated for federal bills (Library of Congress's Legislative Indexing Vocabulary) — but federal-only
+
+**Revised recommendation**: For state bills, topic filtering should be handled by **on-record's own FTS5 index** over ingested bill titles and descriptions, optionally augmented by OpenStates `subject` tags where available. This avoids a hard dependency on inconsistent upstream tagging and is already consistent with on-record's existing `bill_fts` implementation pattern.
+
+---
+
+### Implementation Sequence
+
+Based on the full research, the recommended implementation order for integrating legislative content into on-record:
+
+**Phase 1 — LegiScan Utah state bills (highest value, lowest friction)**
+1. Register for a LegiScan API key (free)
+2. Implement `getDataset` bulk download for Utah (UT) current session
+3. Parse ZIP → normalize into on-record SQLite schema (sessions, people, bills, roll_calls, votes)
+4. Implement `change_hash` cron job for incremental updates (node-cron, session-aware frequency)
+5. Expose MCP tools: `search_bills`, `get_bill`, `get_votes_by_person`
+
+**Phase 2 — Congress.gov federal bills**
+1. Register for Congress.gov API key (free)
+2. Implement `getMasterList`-equivalent via `/bill/{congress}` pagination
+3. Add `sponsored-legislation` and `cosponsored-legislation` per Utah representatives' `bioguideId`
+4. Defer member-votes until the beta endpoint stabilizes
+
+**Phase 3 — Subject enrichment (optional, low priority)**
+1. Spot-check Utah bill subject tag coverage in OpenStates API
+2. If coverage is sufficient (>70% of bills tagged), implement enrichment pass keyed on `(session, bill_identifier)`
+3. If coverage is insufficient, skip — FTS5 over titles is adequate
+
+---
+
+### Cost Analysis
+
+| Service | Free tier | Paid upgrade trigger | Est. monthly cost at scale |
+|---|---|---|---|
+| LegiScan | 30K queries/month | Bulk dataset download avoids most query costs; upgrade if cron sync exceeds limit | $99+/month (pull), enterprise pricing for push |
+| OpenStates | 500 req/day (~15K/month) free | Bronze: 5K/day; Silver: 50K/day | Contact openstates.org |
+| Congress.gov | 5,000 req/hour free | Essentially unlimited for on-record's use case | Free |
+
+With bulk dataset ingest, on-record's ongoing LegiScan query consumption reduces to: `getSessionList` (1/week) + `getMasterListRaw` (daily per state) + `getBill` for changed bills only. For Utah with typical session activity (~1,000-2,000 bills/session), daily change_hash checks might trigger 10–50 `getBill` calls/day during active session. This is well within the free 30K/month limit.
+
+_Source: [LegiScan API pricing](https://legiscan.com/legiscan), [OpenStates rate limit discussion](https://github.com/openstates/issues/discussions/205), [Congress.gov API docs](https://api.congress.gov)_
+
+---
+
+### Testing Strategy
+
+Testing against live legislative APIs without burning rate limits:
+
+- **Unit tests**: Mock at the `LegislatureDataProvider` boundary (consistent with CLAUDE.md: "Tests mock at `LegislatureDataProvider` boundary, never touch SQLite directly"). Real API responses should be captured as fixtures during initial development.
+- **Bulk dataset fixtures**: A LegiScan session dataset ZIP is an ideal test fixture — download once, commit a small subset (5–10 bills + associated roll calls + people) as a fixture file, use it for all ingest pipeline tests.
+- **Integration tests** (`test:live` pattern from `legiscan-mcp-server`): Separate test suite that requires a real API key, runs against live endpoints, explicitly excluded from CI. Used only for verifying API contract hasn't changed.
+- **Stale-data testing**: Test that the `dataAsOf` timestamp is surfaced correctly in MCP tool responses when cache is older than a configurable threshold.
