@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1]
+stepsCompleted: [1, 2]
 inputDocuments: []
 workflowType: 'research'
 lastStep: 1
@@ -120,3 +120,230 @@ _Source: [Washington State SOAP API on data.gov](https://catalog.data.gov/datase
 - **AI/ML feature layers** are being added on top of raw data aggregation by both OpenStates (Plural's AI tracker) and commercial platforms, but these are product-layer features, not data access improvements.
 - **Reliability concerns**: Two significant service availability events occurred in 2025 — the Congress.gov API outage (August 2025) and the Google Civic Information API / OpenSecrets API shutdowns (April 2025). These signal that developer reliance on a single civic-data source carries meaningful risk.
 _Source: [GovTech API outage](https://www.govtech.com/gov-experience/congress-govs-api-has-gone-dark-impacting-data-access), [Google Civic API turndown notice](https://groups.google.com/g/google-civicinfo-api/c/9fwFn-dhktA)_
+
+---
+
+## Integration Patterns Analysis
+
+This section documents the concrete API integration patterns for each service, with specific focus on expressing on-record's primary query: *"find bills representative X voted on matching topic Y in session/year Z."*
+
+### API Design and Authentication
+
+All active services expose **REST JSON APIs** over HTTPS. Authentication is uniformly **API-key based**:
+
+| Service | Key delivery | Notes |
+|---|---|---|
+| OpenStates v3 | `X-API-KEY` header or `?apikey=` query param | Free key via openstates.org |
+| LegiScan | `?key=` query param | Free key via legiscan.com/legiscan-register |
+| Congress.gov | `?api_key=` query param or `X-Api-Key` header | Free key via api.congress.gov |
+| NY Senate | None required for read operations | Public access |
+| Washington State | None required | Official SOAP service, no key |
+
+No OAuth, no mTLS, no JWT across any of the primary services. All are read-only public APIs — no write operations exist.
+
+_Source: [OpenStates API v3 Overview](https://docs.openstates.org/api-v3/), [LegiScan API](https://legiscan.com/legiscan), [Congress.gov API](https://api.congress.gov)_
+
+---
+
+### OpenStates v3 — Endpoint Inventory
+
+The FastAPI application (`github.com/openstates/api-v3`) exposes these top-level route files: `bills.py`, `people.py`, `committees.py`, `events.py`, `jurisdictions.py`. **There is no `votes.py` — votes are not a top-level resource.**
+
+**`GET /bills`** — the primary search endpoint
+| Parameter | Type | Description |
+|---|---|---|
+| `jurisdiction` | string | State name or OCD jurisdiction ID |
+| `session` | string | Session identifier (e.g. `2024`) |
+| `chamber` | string | `upper`, `lower`, or `legislature` |
+| `q` | string | Full-text search term |
+| `subject` | string (repeatable) | Subject tag filter |
+| `sponsor` | string | Filter by sponsor name or OCD person ID |
+| `sponsor_classification` | string | `primary`, `cosponsor`, etc. |
+| `identifier` | string (repeatable, max 20) | Bill number(s) |
+| `classification` | string | `bill`, `resolution`, etc. |
+| `updated_since` / `created_since` / `action_since` | ISO-8601 datetime | Recency filters |
+| `sort` | string | `updated`, `first_action`, `latest_action` |
+| `include` | enum (repeatable) | Inline embeds (see below) |
+
+**`?include=` options on `/bills`:** `sponsorships`, `abstracts`, `other_titles`, `other_identifiers`, `actions`, `sources`, `documents`, `versions`, **`votes`**, `related_bills`
+
+**`GET /people`** — legislator lookup
+- Filters: `name` (partial match), `memberOf` (org name or OCD ID), `jurisdiction`, `district`, `party`
+
+**Vote access**: Votes are accessible *only* via `?include=votes` on bill detail or bill list responses. There is no standalone `/votes` endpoint and **no ability to filter bills by who voted on them**. The `sponsor` filter covers sponsorship only.
+
+**Rate limits (tiered):**
+| Tier | Requests/minute | Requests/day |
+|---|---|---|
+| default (free) | 10 | 500 |
+| bronze | 40 | 5,000 |
+| silver | 80 | 50,000 |
+| unlimited | 240 | ~unlimited |
+
+_Source: [OpenStates api-v3 GitHub](https://github.com/openstates/api-v3), [Rate limit discussion](https://github.com/openstates/issues/discussions/205)_
+
+---
+
+### LegiScan — Endpoint Inventory
+
+LegiScan uses a single base URL with an `op=` query parameter to select operation. All operations are `GET` requests returning JSON.
+
+`https://api.legiscan.com/?key=API_KEY&op=OPERATION[&params]`
+
+| Operation | Key parameters | Returns |
+|---|---|---|
+| `getSessionList` | `state` | All sessions for a state |
+| `getMasterList` | `state` or `id` (session) | Bill ID + change_hash list for a session |
+| `getMasterListRaw` | `state` or `id` | Same as above but raw format |
+| `getBill` | `id` (bill ID) | Full bill with sponsors, actions, vote IDs |
+| `getBillText` | `id` (doc ID) | Base64-encoded bill text |
+| `getRollCall` | `id` (roll call ID) | Vote result with per-person votes |
+| `getPerson` | `id` (person ID) | Individual legislator record |
+| `getSessionPeople` | `id` (session ID) | All legislators active in a session |
+| `getSponsoredList` | `id` (person ID) | Bills **sponsored** by person (not voted) |
+| `getSearch` | `state`, `query`, `year`, `page` | Full-text search results |
+| `getSearchRaw` | same | Raw search results |
+| `getDatasetList` | `state`, `year` | Available bulk datasets |
+| `getDataset` | `id` (session ID), `access_key` | Dataset ZIP (all bills + votes + people) |
+| `getDatasetRaw` | same | Same but raw format |
+| `getMonitorList` / `setMonitor` | — | Bill watch-list management |
+
+**Critical gap**: `getSponsoredList` returns bills a person *sponsored*, not bills they *voted on*. There is no `getVotedList` or equivalent. To find all bills a person voted on, you must either:
+1. Download the full session dataset (`getDataset`) and parse roll calls — O(1) API calls, local processing
+2. Call `getMasterList` then `getBill` for every bill, then `getRollCall` for each vote on each bill — O(N×M) API calls, impractical against rate limits
+
+**Full-text search** (`getSearch`) supports Boolean operators (`AND`, `OR`, `NOT`, `ADJ`), `state`, `year` (1=all, 2=current, 3=recent, 4=prior), and `page` pagination. Returns bill IDs + relevance scores.
+
+_Source: [LegiScan API User Manual v1.91 (2025-03-17)](https://api.legiscan.com/dl/LegiScan_API_User_Manual.pdf), [Microsoft Connector Docs](https://learn.microsoft.com/en-us/connectors/legiscan/)_
+
+---
+
+### Congress.gov API v3 — Endpoint Inventory
+
+`https://api.congress.gov/v3/...?api_key=KEY`
+
+Primarily federal (House + Senate). Key endpoints:
+
+| Endpoint | Description |
+|---|---|
+| `/member` | All members (paginated, unfiltered) |
+| `/member/{bioguideId}` | Member biography and metadata |
+| `/member/{bioguideId}/sponsored-legislation` | Bills sponsored by member |
+| `/member/{bioguideId}/cosponsored-legislation` | Bills cosponsored by member |
+| `/member/congress/{congress}` | All members in a Congress |
+| `/member/congress/{congress}/{state}` | Members filtered by state |
+| `/bill/{congress}/{billType}/{billNumber}` | Bill detail |
+| `/bill/{congress}/{billType}/{billNumber}/cosponsors` | Bill cosponsor list |
+| `/bill/{congress}/{billType}/{billNumber}/subjects` | Bill subject tags |
+| `/bill/{congress}/{billType}/{billNumber}/text` | Bill text versions |
+
+**House Roll Call Votes (Beta, 2025):** A beta endpoint was introduced in 2025 providing vote data from the 118th Congress forward, but the exact endpoint path and whether it supports filtering by member ID is not confirmed in current documentation. The `/member/{bioguideId}` record does not include a `voted-legislation` sub-resource. Rate limit: 5,000 req/hr; page sizes 20–250.
+
+**No state coverage.** This API is strictly federal.
+
+_Source: [Congress.gov Member Endpoint docs](https://github.com/LibraryOfCongress/api.congress.gov/blob/main/Documentation/MemberEndpoint.md), [R `congress` package](https://cran.r-project.org/web/packages/congress/congress.pdf)_
+
+---
+
+### Query Workflow Comparison: On-Record Primary Use Case
+
+**Query:** *"Bills that representative X voted on, matching topic Y, in session/year Z"*
+
+This requires three logical components: (1) person identity resolution, (2) vote record retrieval for that person, (3) topic/subject filtering.
+
+#### OpenStates v3
+
+```
+Step 1: GET /people?jurisdiction=ut&name=Jane+Doe
+        → returns person with ocd-person/... ID
+
+Step 2: GET /bills?jurisdiction=ut&session=2025&q=education&include=votes
+        → returns bills matching "education" with embedded vote arrays
+
+Step 3: [client-side] filter bills where votes[].voters[].voter == ocd-person/...
+```
+
+**Round trips:** 2 API calls + client-side filtering. Scales poorly if topic is broad (many pages of bills to paginate through). Works well if topic is narrow (few results per page). Cannot reverse the query order (start from person, then filter to topic) — there is no "bills person X voted on" first step.
+
+**Confidence:** High — confirmed from source code review.
+
+#### LegiScan (on-demand approach)
+
+```
+Step 1: GET ?op=getSessionList&state=UT → find session ID for year Z
+Step 2: GET ?op=getSessionPeople&id=SESSION_ID → find person ID for rep X
+Step 3: GET ?op=getMasterList&id=SESSION_ID → list of all bill IDs (potentially 1000s)
+Step 4: [for each bill] GET ?op=getBill&id=BILL_ID → get roll call IDs
+Step 5: [for each roll call] GET ?op=getRollCall&id=RC_ID → check if person X voted
+Step 6: Filter results by topic Y against bill titles/descriptions
+```
+
+**Round trips:** 2 + N (bills) + M (roll calls). Completely impractical against the 30,000 req/month free limit. Only viable with the push/enterprise tier.
+
+#### LegiScan (bulk dataset approach)
+
+```
+Step 1: GET ?op=getDatasetList&state=UT → find dataset ID for session Z
+Step 2: GET ?op=getDataset&id=DATASET_ID → download ZIP (~10-100MB)
+Step 3: [local] unzip, parse people.json → find person X's people_id
+Step 4: [local] iterate roll_call/*.json → collect bills where person X voted
+Step 5: [local] match bill titles/descriptions against topic Y using local FTS
+```
+
+**Round trips:** 2 API calls, then all processing local. Highly efficient for batch/caching scenarios. Bulk dataset is updated weekly (Sunday) on all tiers; enterprise push tier updates every 4–15 minutes.
+
+**Confidence:** High — confirmed from API manual.
+
+#### Congress.gov (federal bills only)
+
+```
+Step 1: GET /member/congress/{congress}/{state} → find bioguideId for rep X
+Step 2: GET /member/{bioguideId}/sponsored-legislation → sponsored bills only
+        [no voted-on endpoint confirmed as production-ready]
+Step 3: Filter by subject using /bill/.../{congress}/{type}/{num}/subjects
+```
+
+**Vote data gap**: Sponsored/cosponsored legislation endpoints exist but a "voted-on" endpoint is only available in beta (House Roll Call Votes, 118th Congress+). Not reliable for production use as of March 2026.
+
+---
+
+### Data Model Entity Shapes
+
+#### Common entities across services
+
+| Entity | OpenStates name | LegiScan name | Congress.gov name |
+|---|---|---|---|
+| Legislation | `Bill` | `Bill` | `Bill` |
+| Lawmaker | `Person` | `Person` | `Member` |
+| Vote event | `VoteEvent` | `RollCall` | *(beta, unnamed)* |
+| Individual cast vote | *(embedded in VoteEvent)* | vote record in RollCall | *(beta)* |
+| Legislative session | `LegislativeSession` | `Session` | `Congress` (not session) |
+| Jurisdiction | `Jurisdiction` (OCD format) | `State` (2-letter abbr) | N/A (federal only) |
+| Sponsorship | `Sponsorship` (classification field) | sponsor array in Bill | `Sponsor` |
+| Subject/Topic | `Subject` (normalized tags) | *(full-text only, no structured tags)* | `PolicyArea` + `Subject` |
+
+#### Notable structural differences
+
+**Subjects/Topics**: OpenStates normalizes bills into a controlled vocabulary of `Subject` tags (e.g., "Education", "Health"). LegiScan has no structured subject taxonomy — topic filtering is only available through full-text search against bill title and description. Congress.gov has both a `policyArea` field (single primary category) and a `subjects` sub-resource (LOC's Legislative Indexing Vocabulary, fairly granular).
+
+**Vote granularity**: OpenStates embeds individual voter records (`option`: yes/no/other/absent) within each `VoteEvent`. LegiScan's `getRollCall` returns per-person vote records keyed by `people_id`. Congress.gov's beta endpoint structure is unconfirmed.
+
+**Session vs. year**: OpenStates uses session identifiers that vary by state (e.g., "2025" for Utah, "2023-2024" for California). LegiScan normalizes to a numeric `year` parameter (1=all, 2=current, 3=recent, 4=prior). Congress.gov uses `congress` numbers (118th, 119th) instead of calendar years.
+
+**Identifier stability**: OpenStates OCD IDs (`ocd-person/UUID`) are stable across sessions. LegiScan `people_id` values are stable within the service. Congress.gov `bioguideId` values are the most stable (official Library of Congress identifiers, used since 1989).
+
+_Source: [OpenStates api-v3/api/bills.py](https://github.com/openstates/api-v3/blob/main/api/bills.py), [LegiScan API Manual](https://api.legiscan.com/dl/LegiScan_API_User_Manual.pdf), [Congress.gov Member Endpoint docs](https://github.com/LibraryOfCongress/api.congress.gov/blob/main/Documentation/MemberEndpoint.md)_
+
+---
+
+### Bulk Data vs. On-Demand Access
+
+The user's insight that GraphQL would elegantly solve the compound-query problem (person + vote + topic in a single traversal) is correct — and the retirement of OpenStates's v2 GraphQL API closed that door. The practical architectural implication for on-record:
+
+- **On-demand REST** is suitable for: resolving a specific bill, looking up a legislator's profile, searching for bills matching a keyword in a given session.
+- **Bulk dataset download** is the only practical path for: "all bills person X voted on in session Y" — particularly for LegiScan, and as a performance optimization for OpenStates when session-wide vote scanning is needed.
+- **Cache layer design** (which on-record already has via better-sqlite3) should plan for ingesting bulk session datasets as a background job, rather than relying on per-request API calls for vote history queries.
+
+The compound query naturally decomposes into: (1) one-time bulk ingest per session — person registry + roll call register, (2) live on-demand queries — bill detail, text search against cached index.
+
+_Source: Research synthesis — confirmed through source code and API manual review_
