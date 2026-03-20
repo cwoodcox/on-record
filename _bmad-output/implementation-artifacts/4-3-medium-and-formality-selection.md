@@ -1,6 +1,6 @@
 # Story 4.3: Medium and Formality Selection
 
-Status: in-progress
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
