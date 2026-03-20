@@ -90,7 +90,7 @@ development_status:
   4-3-medium-and-formality-selection: review
   4-4-voice-calibrated-draft-generation-with-source-citations: backlog
   4-5-draft-revision-loop: backlog
-  4-6-progressstrip-and-draftcard-ui-components: ready-for-dev
+  4-6-progressstrip-and-draftcard-ui-components: in-progress
   4-7-system-prompt-token-footprint-optimization: backlog
   epic-4-retrospective: optional
 
