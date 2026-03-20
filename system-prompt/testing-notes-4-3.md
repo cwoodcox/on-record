@@ -20,6 +20,18 @@ Each run starts from the beginning of the flow (Step 1). Steps 1–3 are complet
 
 Run each persona in a **fresh session** with no prior context. Load `system-prompt/agent-instructions.md` as the system prompt. Confirm `lookup_legislator` and `search_bills` are connected before starting.
 
+### Verified Test Addresses
+
+All persona addresses below have been verified to geocode successfully via `lookup_legislator`. Use these exact addresses — do not substitute fictional addresses (e.g., "742 Evergreen Terrace") that may not resolve.
+
+| Persona | Address | Verified |
+|---------|---------|----------|
+| A — Deb | `1148 S 2095 W Lehi, UT` | 2026-03-19 |
+| B — Marcus | `682 E 770 N, Lindon` | 2026-03-19 |
+| C — Alex | `1500 North University Ave, Provo` | 2026-03-20 |
+| D — Fatima | `500 E 500 S, Salt Lake City` | 2026-03-20 |
+| E — (variable) | `1326 W Mason Hollow Dr, Riverton` | 2026-03-20 |
+
 ---
 
 ## Pre-Run Checklist (do before every run)
@@ -36,7 +48,7 @@ Run each persona in a **fresh session** with no prior context. Load `system-prom
 ## Persona A — Deb (email, conversational, single-message preference)
 
 **ACs exercised:** AC 1, 2, 3, 5, 6
-**Address:** `742 Evergreen Terrace, Salt Lake City`
+**Address:** `1148 S 2095 W Lehi, UT`
 **Concern:** Education funding
 
 ### Steps A-1 through A-4: Complete Steps 1–3 (prerequisite)
@@ -44,7 +56,7 @@ Run each persona in a **fresh session** with no prior context. Load `system-prom
 Run through Steps 1–3 normally:
 - Step 1: Share concern: "I'm really worried about cuts to school funding — my daughter's school is losing programs."
 - Give a name ("I'm Deb") and personal-impact detail if prompted.
-- Step 2: Provide address `742 Evergreen Terrace, Salt Lake City`. Allow `lookup_legislator` to run. Choose one legislator.
+- Step 2: Provide address `1148 S 2095 W Lehi, UT` (verified geocodable). Allow `lookup_legislator` to run. Choose one legislator.
 - Step 3: Allow `search_bills` to run. Present and confirm a bill. Give explicit confirmation when asked.
 
 These steps are prerequisites. Do not score Step 4a behavior until Step 3 confirmation gate has been explicitly passed.
@@ -102,8 +114,8 @@ Allow the chatbot to generate the draft.
 **PASS signal for AC 6 (email length and format):**
 - Draft has **2–4 paragraphs** — count them
 - Draft is **150–400 words** — estimate or count
-- Draft has a **greeting line** (e.g., "Dear Representative [Last Name],")
-- Draft has a **closing signature** (e.g., "Sincerely, Deb" or similar)
+- Draft has a **greeting line** that matches voice: casual → "Hi Representative [Last Name]," or similar; polished → "Dear Representative [Last Name],"
+- Draft has a **closing signature** that matches voice: casual → "Thanks, Deb" or "— Deb"; polished → "Sincerely, Deb" or similar
 
 **FAIL signal for AC 6:**
 - Draft has only 1 paragraph or is a single-sentence block — FAIL
@@ -116,13 +128,13 @@ Allow the chatbot to generate the draft.
 ## Persona B — Marcus (text/SMS, formal, two-step preference capture)
 
 **ACs exercised:** AC 1, 2, 4, 5, 7
-**Address:** `8 Spruce Street, Provo`
+**Address:** `682 E 770 N, Lindon`
 **Concern:** Housing / cost of living
 
 ### Steps B-1 through B-4: Complete Steps 1–3 (prerequisite)
 
 - Step 1: "Things are hard. My rent has gone up three times in the last two years and I don't know how people are managing." Give name "Marcus" if asked.
-- Step 2: Provide `8 Spruce Street, Provo`. Choose a legislator.
+- Step 2: Provide `682 E 770 N, Lindon`. Choose a legislator.
 - Step 3: Confirm a bill.
 
 ---
@@ -142,26 +154,26 @@ When the chatbot asks about medium, answer ONLY medium:
 
 Do NOT say anything about formality.
 
-**Expected:** Chatbot has captured medium (text/SMS) but does NOT yet have a formality preference. It must now ask for formality before generating a draft.
+**Expected:** Chatbot has captured medium (text/SMS) but does NOT yet have a voice preference. It must now confirm voice before generating a draft.
 
 **PASS signal for AC 4 (ask for missing preference):**
-- Chatbot asks for the formality preference: e.g., "And would you like it to be conversational or formal?" or infers from Marcus's language and confirms
+- Chatbot confirms voice: describes what it's heard from Marcus's register and asks for confirmation, or asks directly if register is unclear
 - Chatbot does NOT generate a draft with only medium captured
-- Chatbot does NOT skip the formality question
+- Chatbot does NOT skip the voice confirmation step
 
 **FAIL signal for AC 4:**
 - Chatbot immediately starts generating a draft after Marcus says "Text." — FAIL
-- Chatbot asks about formality but then doesn't wait for the answer before proceeding — FAIL
-- Chatbot never asks about formality at all and generates a draft — FAIL (blocking)
+- Chatbot asks about voice but then doesn't wait for the answer before proceeding — FAIL
+- Chatbot never addresses voice at all and generates a draft — FAIL (blocking)
 
 ---
 
-### Step B-7: Answer formality preference
+### Step B-7: Answer voice preference
 
-Respond to the formality question with:
+Respond to the voice confirmation with:
 > "Let's keep it professional."
 
-**Expected:** Chatbot now has both preferences (text/SMS + formal) and proceeds to generate a draft.
+**Expected:** Chatbot now has both preferences (text/SMS + polished/professional) and proceeds to generate a draft.
 
 ---
 
@@ -169,19 +181,19 @@ Respond to the formality question with:
 
 Allow the chatbot to generate the draft.
 
-**PASS signal for AC 2 (formality three-path logic — verified via two-step path):**
-- The chatbot correctly asked for formality separately after Marcus gave only medium (step B-6 above)
-- The chatbot did not skip the formality question
+**PASS signal for AC 2 (voice confirmation — verified via two-step path):**
+- The chatbot correctly confirmed voice separately after Marcus gave only medium (step B-6 above)
+- The chatbot did not skip the voice confirmation step
 
-**PASS signal for AC 5 (formal tone):**
-- Draft uses a structured register: formal sentence construction, no contractions (or minimal), no slang
-- Draft uses third-person references to Marcus where appropriate: "As a constituent from Provo…" or "I am writing to formally express…"
+**PASS signal for AC 5 (polished/professional voice):**
+- Draft uses a structured register: complete sentences, no contractions (or minimal), no slang
+- Draft uses third-person references to Marcus where appropriate: "As a constituent from Lindon…" or "I am writing to express…"
 - Draft sounds composed and professional — reads like a letter, not a casual message
 - No first-person casual language like "I just wanna say" or "Things are really rough"
 
 **FAIL signal for AC 5:**
-- Draft is casual and personal despite Marcus requesting formal — FAIL (e.g., "Hey, I wanted to let you know things are tough out here")
-- Draft is indistinguishable in register from a conversational draft — FAIL
+- Draft is casual and personal despite Marcus requesting professional — FAIL (e.g., "Hey, I wanted to let you know things are tough out here")
+- Draft is indistinguishable in register from a casual draft — FAIL
 
 **PASS signal for AC 7 (text/SMS length and format):**
 - Draft is **1–3 sentences total** — count them
@@ -224,21 +236,22 @@ Medium question must appear after Step 3 bill confirmation, not before.
 
 ---
 
-### Step C-6: Evaluate formality inference (AC 2 — inference path)
+### Step C-6: Evaluate voice confirmation (AC 2 — casual register inference)
 
-After the chatbot asks about medium (or alongside medium if it handles both), watch how it handles formality.
+After the chatbot asks about medium (or alongside medium if it handles both), watch how it handles voice.
 
-**Expected:** Because Alex's language throughout the conversation has been clearly casual ("ticked off," "wanna," "seriously"), the chatbot should INFER a conversational preference and CONFIRM rather than presenting the full "conversational or formal?" question.
+**Expected:** Because Alex's language throughout the conversation has been clearly casual — contractions ("I'm", "don't"), colloquialisms ("ticked off"), sentence fragments ("like seriously"), informal interjections — the chatbot should describe this register and confirm rather than presenting the full choice.
 
-**PASS signal for AC 2 (casual register → confirm conversational):**
-- Chatbot confirms conversational: "It sounds like you'd want to keep this conversational — does that sound right?" (or equivalent)
-- Chatbot does NOT ask the full "conversational or formal?" question as if formality were undecided
-- The confirmation is phrased as a check, not a full selection prompt
+**PASS signal for AC 2 (casual register → confirm casual voice):**
+- Chatbot describes Alex's casual register and confirms: "Based on how you've been talking, I'll write this in your voice — casual, direct, and personal. Sound right?" (or equivalent that reflects the casual register it observed)
+- Chatbot does NOT present the full "casual or polished?" question as if register were undecided
+- The confirmation is phrased as a description of what it heard + a check
 
 **FAIL signals for AC 2:**
-- Chatbot asks "Would you like it to be conversational or formal?" as if the register were ambiguous — this is a minor FAIL (over-asking, not wrong). Note it but do not count it as a blocking failure.
-- Chatbot infers formal despite Alex's clearly casual language — this is a more serious FAIL; document and count as FAIL on AC 2.
-- Chatbot skips formality entirely and generates a draft without any formality signal — FAIL (blocking).
+- Chatbot asks "Would you like casual or polished?" as if the register were ambiguous — minor FAIL (over-asking, not wrong). Note it but do not count as blocking.
+- Chatbot describes Alex's register as formal or polished despite clearly casual language — serious FAIL; document and count as FAIL on AC 2.
+- Chatbot conflates emotional intensity with casual register (e.g., "you seem passionate" rather than noting linguistic markers) — minor FAIL; note it.
+- Chatbot skips voice entirely and generates a draft without any voice signal — FAIL (blocking).
 
 ---
 
@@ -284,18 +297,21 @@ Medium question must appear after Step 3 bill confirmation, not before.
 
 ---
 
-### Step D-6: Evaluate formality inference (AC 2 — formal inference path)
+### Step D-6: Evaluate voice confirmation (AC 2 — formal register inference)
 
-**Expected:** Because Fatima's language throughout has been clearly formal ("I would like to formally," "I believe it is important"), the chatbot should INFER a formal preference and CONFIRM.
+**Expected:** Because Fatima's language throughout has been clearly formal — complete sentences without contractions, polite formulations ("I would like to formally," "I believe it is important"), structured phrasing — the chatbot should describe this register and confirm.
 
-**PASS signal for AC 2 (formal register → confirm formal):**
-- Chatbot confirms formal: "It sounds like you'd prefer a more formal tone — does that work?" (or equivalent)
-- Chatbot does NOT ask the full "conversational or formal?" question as if the register were undecided
+**Critical anti-pattern to watch for:** The chatbot must assess Fatima's *linguistic register* (word choice, sentence structure), NOT her *emotional tone*. Fatima may be warm, passionate, or heartfelt — but she uses formal language. If the chatbot says something like "you seem warm and personal" rather than noting her formal phrasing, that is a failure of register assessment.
+
+**PASS signal for AC 2 (formal register → confirm polished voice):**
+- Chatbot describes Fatima's formal register and confirms: "You've been pretty precise and formal — I'll match that in the draft. Does that work?" (or equivalent that references her linguistic style, not emotional state)
+- Chatbot does NOT present the full "casual or polished?" question as if register were undecided
 
 **FAIL signals for AC 2:**
-- Chatbot asks "Would you like it to be conversational or formal?" — minor FAIL (over-asking)
-- Chatbot infers conversational despite Fatima's clearly formal language — more serious FAIL
-- Chatbot skips formality entirely — blocking FAIL
+- Chatbot asks "Would you like casual or polished?" — minor FAIL (over-asking)
+- Chatbot infers casual despite Fatima's clearly formal language — serious FAIL (this was the exact failure in Round 1 Run 4, where the chatbot called her "warm, personal, heartfelt")
+- Chatbot conflates emotional warmth/sincerity with casual register — serious FAIL
+- Chatbot skips voice entirely — blocking FAIL
 
 ---
 
@@ -319,7 +335,7 @@ Respond:
 ## Persona E — Dual preference, ambiguous register (run 5)
 
 **ACs exercised:** AC 2 (ambiguous → ask directly), AC 3 (dual capture), AC 7
-**Address:** Any valid Utah address
+**Address:** `1326 W Mason Hollow Dr, Riverton` (verified geocodable)
 **Concern:** Any concern that reaches Step 4a
 
 ### Steps E-1 through E-4: Complete Steps 1–3 with ambiguous language
@@ -343,35 +359,35 @@ Medium question must appear after Step 3 bill confirmation, not before.
 
 ---
 
-### Step E-6: Send both preferences in one message with ambiguous formality (AC 3, AC 2)
+### Step E-6: Send both preferences in one message with ambiguous voice (AC 3, AC 2)
 
 When asked about medium, send:
 > "Text message, and I don't care about the tone, whatever you think is best."
 
-This message gives medium (text) but the formality signal is ambiguous ("whatever you think is best").
+This message gives medium (text) but the voice signal is ambiguous ("whatever you think is best").
 
-**Expected:** The chatbot captures medium (text) from this one-message response — it does NOT re-ask for medium. But "whatever you think is best" for formality is ambiguous — the chatbot should ask directly rather than guessing.
+**Expected:** The chatbot captures medium (text) from this one-message response — it does NOT re-ask for medium. But "whatever you think is best" for voice is ambiguous — the chatbot should ask directly rather than guessing.
 
 **PASS signal for AC 3 (partial dual-capture — medium captured):**
 - Chatbot does NOT re-ask "email or text?" — medium was already captured from this message
 - Chatbot acknowledges the text preference
 
 **PASS signal for AC 2 (ambiguous → ask directly):**
-- Chatbot asks directly: "Would you like the tone to be **conversational** (personal, in your own voice) or **formal** (professional, structured)?" (or equivalent)
+- Chatbot asks directly: "I want to get the voice right — would you like this to sound **casual and personal** (in your own words) or **more polished and professional**?" (or equivalent)
 - Chatbot does NOT pick one for the constituent and proceed without asking
-- Chatbot does NOT skip formality and generate a draft
+- Chatbot does NOT skip voice and generate a draft
 
 **FAIL signals:**
 - Chatbot asks "email or text?" again after constituent already said "text message" — FAIL on AC 3
-- Chatbot picks a formality without asking (even if it picks correctly) — FAIL on AC 2
-- Chatbot generates a draft before formality is resolved — FAIL (blocking)
+- Chatbot picks a voice without asking (even if it picks correctly) — FAIL on AC 2 (this was the exact failure in Round 1 Run 5, where the chatbot said "Your language has been pretty direct and conversational — I'll match that")
+- Chatbot generates a draft before voice is confirmed — FAIL (blocking)
 
 ---
 
-### Step E-7: Provide explicit formality choice
+### Step E-7: Provide explicit voice choice
 
 Respond:
-> "Conversational."
+> "Casual."
 
 ---
 
@@ -392,10 +408,10 @@ Respond:
 | AC | What it tests | Personas that test it | PASS signal | FAIL signal |
 |----|--------------|----------------------|-------------|-------------|
 | AC 1 | Medium question appears after Step 3 confirmation — NOT before | A, B, C, D, E | Medium question follows bill confirmation | Medium question appears before Step 3 gate |
-| AC 2 | Three-path formality logic (infer casual / infer formal / ask directly) | C (casual infer), D (formal infer), E (ambiguous → ask) | Chatbot infers when register is clear; asks when ambiguous | Over-asks when clear; infers when ambiguous; or skips formality |
+| AC 2 | Voice confirmation: describe observed register and confirm (casual → confirm casual; formal → confirm polished; ambiguous → ask directly) | C (casual infer), D (formal infer), E (ambiguous → ask) | Chatbot describes register using linguistic markers and confirms; asks when ambiguous | Over-asks when clear; infers when ambiguous; conflates emotional tone with register; or skips voice |
 | AC 3 | Single-message dual capture | A (email + conversational), E (text + ambiguous) | Both preferences captured from one message; second preference not re-asked | Re-asks for a preference already given in the same message |
 | AC 4 | Single preference given → ask for the other | B (text only, then formal) | Chatbot asks for missing preference before generating | Draft generated with only one preference captured |
-| AC 5 | Draft register matches formality selection | A (conversational), B (formal), C (conversational), D (formal) | Draft tone visibly matches selection | Register indistinguishable regardless of selection |
+| AC 5 | Draft voice matches confirmed register | A (casual), B (polished), C (casual), D (polished) | Draft voice visibly matches confirmation | Voice indistinguishable regardless of confirmation |
 | AC 6 | Email draft: 2–4 paragraphs, 150–400 words, greeting + signature | A, D | Correct format and length | Wrong length, missing greeting, or missing signature |
 | AC 7 | Text/SMS: 1–3 sentences, <160 chars/segment, no salutation | B, E | Correct length and no salutation | Too long, over 160 chars per segment, or has salutation |
 | AC 8 | Overall: 4 of 5 runs pass | All | 4+ runs earn PASS | Fewer than 4 runs earn PASS |

@@ -14,13 +14,13 @@ so that my message fits the channel I'm using and matches how I actually communi
 
 1. **Given** the constituent has confirmed the issue framing (Step 3 confirmation gate passed), **when** the chatbot advances to Step 4a, **then** it asks for medium selection: email or text/SMS (FR15) — using the exact prompt language specified in `system-prompt/agent-instructions.md` or language that produces equivalent behavior
 
-2. **Given** the medium question has been asked, **when** the constituent selects a medium, **then** the chatbot asks for formality level with at least two distinct options: conversational or formal (FR16) — with the three conditional inference paths documented in `agent-instructions.md` (casual register → confirm conversational; formal register → confirm formal; ambiguous → ask directly)
+2. **Given** the medium question has been asked, **when** the constituent selects a medium, **then** the chatbot confirms the constituent's voice by describing the observed linguistic register (assessed via word choice and sentence structure, not emotional tone) and asking for confirmation — if register is clear, it describes what it heard and confirms; if register is mixed or unclear, it asks directly with casual/personal vs. polished/professional framing (FR16)
 
 3. **Given** the constituent answers medium and formality in a single message (e.g., "email, conversational"), **when** the chatbot processes this, **then** it recognizes both preferences from one response and proceeds without re-asking — it does NOT ask separately for the already-provided preference
 
 4. **Given** the constituent answers only one preference, **when** the chatbot responds, **then** it asks for the remaining preference before proceeding — it does NOT generate a draft with only one of the two required inputs
 
-5. **Given** both medium and formality have been captured, **when** the draft is generated in Step 4b, **then** the generated draft reflects the selected formality register in tone and vocabulary (FR16): conversational = first-person, personal, constituent's own language; formal = structured, respectful, third-person references where appropriate
+5. **Given** both medium and voice have been confirmed, **when** the draft is generated in Step 4b, **then** the generated draft's voice visibly matches the confirmed register (FR16): casual/personal = first-person, contractions, constituent's own language; polished/professional = structured, respectful, complete sentences, third-person references where appropriate
 
 6. **Given** the email medium is selected, **when** the draft is generated, **then** it is 2–4 paragraphs, 150–400 words, with a greeting and closing signature (FR18)
 
@@ -55,13 +55,13 @@ For each run, evaluate these behaviors with PASS / FAIL / N/A:
 
 **Step 4a — Delivery Preferences**
 - [ ] Chatbot asks for medium (email or text/SMS) after issue framing is confirmed — NOT before (AC 1)
-- [ ] Chatbot uses the three-path formality logic: infers if register is clear, asks directly if ambiguous (AC 2)
+- [ ] Chatbot confirms voice by describing observed linguistic register (not emotional tone); asks directly if register is unclear (AC 2)
 - [ ] When both preferences given in one message, chatbot captures both without re-asking (AC 3)
 - [ ] When only one preference given, chatbot asks for the missing preference before generating (AC 4)
 
 **Step 4b — Draft Compliance with Captured Preferences**
-- [ ] Conversational tone: draft uses first-person, constituent's language and story, reads like a real person wrote it (AC 5)
-- [ ] Formal tone: draft is structured, respectful, uses third-person constituent references where appropriate (AC 5)
+- [ ] Casual/personal voice: draft uses first-person, contractions, constituent's language and story, reads like a real person wrote it (AC 5)
+- [ ] Polished/professional voice: draft is structured, respectful, complete sentences, uses third-person constituent references where appropriate (AC 5)
 - [ ] Email draft: 2–4 paragraphs, 150–400 words, has greeting + closing signature (AC 6)
 - [ ] Text/SMS draft: 1–3 sentences, under 160 characters per segment, no formal salutation (AC 7)
 
@@ -149,16 +149,16 @@ If testing reveals a behavioral gap (e.g., chatbot skips the formality question,
   - [ ] Note any behavioral anomalies (chatbot deviations from expected behavior)
   - [ ] Mark overall PASS or FAIL per run with brief rationale
 
-- [ ] Task 4: Update `system-prompt/agent-instructions.md` if gaps found (AC: 1–7)
-  - [ ] For each FAIL, identify the relevant section of `agent-instructions.md` (Step 4a section, lines ~189–206)
-  - [ ] Revise instruction text to close the gap — preserve all other story-tested behaviors (Steps 1–3 must not regress)
+- [x] Task 4: Update `system-prompt/agent-instructions.md` if gaps found (AC: 1–7) — superseded by Review Follow-ups Round 1
+  - [x] For each FAIL, identify the relevant section of `agent-instructions.md` (Step 4a section, lines ~189–206)
+  - [x] Revise instruction text to close the gap — preserve all other story-tested behaviors (Steps 1–3 must not regress)
   - [ ] Re-run the failing scenario once after update; document result in test log
 
 ### Review Follow-ups (AI) — Round 1 (2026-03-20)
 
-- [ ] [AI-Review][HIGH] Update `agent-instructions.md` Step 4a inference logic: add explicit linguistic register markers (contractions, slang, sentence fragments = casual; complete sentences, no contractions, polite formulations = formal) and anti-pattern ("Do not conflate emotional warmth or sincerity with casual register"). Consider shifting from strict conversational/formal binary toward constituent-voice mirroring — evaluate whether AC 2 and AC 5 wording needs adjustment to reflect this approach. If ACs change, update this story file accordingly.
-- [ ] [AI-Review][MEDIUM] Fix Persona A address inconsistency in `testing-notes-4-3.md` — update Step A-2 to use verified geocodable address `1148 S 2095 W Lehi, UT`. Record all verified test addresses with their personas so future runs (including agent-testing-agents) can reuse them without manual address discovery.
-- [ ] [AI-Review][LOW] Fix `agent-instructions.md` Step 4b greeting to match message formality — conversational emails should use an informal greeting (e.g., "Hi [Name],") rather than always "Dear Representative [last name],". Greeting should match the draft's voice.
+- [x] [AI-Review][HIGH] Update `agent-instructions.md` Step 4a inference logic: add explicit linguistic register markers (contractions, slang, sentence fragments = casual; complete sentences, no contractions, polite formulations = formal) and anti-pattern ("Do not conflate emotional warmth or sincerity with casual register"). Consider shifting from strict conversational/formal binary toward constituent-voice mirroring — evaluate whether AC 2 and AC 5 wording needs adjustment to reflect this approach. If ACs change, update this story file accordingly.
+- [x] [AI-Review][MEDIUM] Fix Persona A address inconsistency in `testing-notes-4-3.md` — update Step A-2 to use verified geocodable address `1148 S 2095 W Lehi, UT`. Record all verified test addresses with their personas so future runs (including agent-testing-agents) can reuse them without manual address discovery.
+- [x] [AI-Review][LOW] Fix `agent-instructions.md` Step 4b greeting to match message formality — conversational emails should use an informal greeting (e.g., "Hi [Name],") rather than always "Dear Representative [last name],". Greeting should match the draft's voice.
 - [ ] [AI-Review][HIGH] Re-run failing scenarios (Runs 3, 4, 5) after instruction updates. Achieve 4/5 pass rate for AC 8.
 
 ## Dev Notes
@@ -180,17 +180,18 @@ Story 4.3 focuses exclusively on **Step 4a (Delivery Preferences)** and the mini
 ```
 Step 4a: Delivery Preferences
   → Medium question asked after Step 3 confirmation (not before)
-  → Formality: three conditional paths —
-      casual register throughout → confirm conversational
-      formal register throughout → confirm formal
-      ambiguous → ask directly ("conversational or formal?")
+  → Voice confirmation: describe observed linguistic register and confirm —
+      casual register (contractions, slang, fragments) → confirm casual voice
+      formal register (complete sentences, polite formulations) → confirm polished voice
+      mixed/unclear → ask directly ("casual and personal or polished and professional?")
+  → Assessment based on word choice and sentence structure, NOT emotional tone
   → Both preferences captured before draft generated
   → Single-message dual capture recognized
   → Single preference → ask for the other before proceeding
 
-Step 4b: Honor Captured Preferences (scope boundary)
-  → Draft register visibly matches formality selection
-  → Email: 2–4 paragraphs, 150–400 words, greeting + signature
+Step 4b: Honor Confirmed Voice (scope boundary)
+  → Draft voice visibly matches confirmed register
+  → Email: 2–4 paragraphs, 150–400 words, greeting + signature (match voice)
   → Text/SMS: 1–3 sentences, <160 chars/segment, no salutation
 ```
 
@@ -289,7 +290,8 @@ All files live at the **monorepo root** level, not inside `apps/`. They are not 
 
 ### Agent Model Used
 
-claude-sonnet-4-6
+Round 1 (Task 1): claude-sonnet-4-6
+Round 2 (Review follow-ups): claude-opus-4-6
 
 ### Debug Log References
 
@@ -297,14 +299,24 @@ None — no TypeScript code, no runtime errors.
 
 ### Completion Notes List
 
+**Round 1 (Task 1):**
 - Created `system-prompt/testing-notes-4-3.md`: scripted walkthrough for all 5 personas (A–E), covering AC 1–7. Each persona section includes a step-by-step interaction script, explicit PASS/FAIL signals for every behavioral checkpoint (medium timing, formality inference paths, dual-capture, single-preference handling, draft register compliance, email/text length bounds), and an AC quick-reference table mapping AC numbers to checkpoints and persona coverage.
 - Created `system-prompt/test-runs-4-3.md`: empty test log template with per-run behavioral checklists, a summary table, and a changes log section — ready for Corey to fill in during manual test sessions.
-- Sprint status updated: `4-3-medium-and-formality-selection` → `review`.
-- Tasks 2, 3, and 4 are owner-executed (manual test runs). Dev agent scope ends at Task 1 per story specification.
+
+**Round 2 (Review follow-ups — 2026-03-20):**
+- Addressed code review findings: 3/5 manual test runs failed on AC 2 (formality register inference). Root cause: `agent-instructions.md` Step 4a relied on implicit "clearly casual" / "clearly formal" assessment without explicit linguistic markers, and LLM conflated emotional warmth with casual register.
+- Resolved review finding [HIGH]: Rewrote `agent-instructions.md` Step 4a — shifted from strict conversational/formal binary to voice confirmation approach with explicit register markers (contractions, slang = casual; complete sentences, polite formulations = formal). Added anti-pattern: "Do not conflate emotional warmth or sincerity with casual register."
+- Resolved review finding [MEDIUM]: Fixed Persona A address inconsistency in `testing-notes-4-3.md` (Step A-2 now uses verified `1148 S 2095 W Lehi, UT`). Added verified test addresses table for all 5 personas.
+- Resolved review finding [LOW]: Updated `agent-instructions.md` Step 4b email greeting to match draft voice — casual → "Hi Representative [last name],"; polished → "Dear Representative [last name],". Closing signature also matches voice.
+- Updated ACs 2 and 5 in story file to reflect voice confirmation approach (from binary formality selection to register-based voice confirmation).
+- Updated `testing-notes-4-3.md` PASS/FAIL signals for Personas C, D, E to match new voice confirmation expectations. Added specific anti-pattern callouts for the exact failure modes observed in Round 1 runs.
+- Task 4 (update agent-instructions.md) marked done — superseded by review follow-ups.
+- Re-runs (Runs 3, 4, 5) still needed — owner-executed.
 
 ### File List
 
-- `system-prompt/testing-notes-4-3.md` (new)
-- `system-prompt/test-runs-4-3.md` (new)
-- `_bmad-output/implementation-artifacts/4-3-medium-and-formality-selection.md` (modified — status, tasks, dev agent record)
-- `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified — status → review)
+- `system-prompt/agent-instructions.md` (modified — Step 4a voice confirmation rewrite, Step 4b greeting + voice labels)
+- `system-prompt/testing-notes-4-3.md` (modified — Persona A address fix, verified addresses table, voice confirmation PASS/FAIL signals for C/D/E, AC quick-reference table)
+- `system-prompt/test-runs-4-3.md` (modified — summary table filled in by code review)
+- `_bmad-output/implementation-artifacts/4-3-medium-and-formality-selection.md` (modified — ACs 2/5, Task 4, review follow-ups, dev agent record)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified — status tracking)
