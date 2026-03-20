@@ -1,6 +1,6 @@
 # Story 4.6: ProgressStrip and DraftCard UI Components
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -55,27 +55,27 @@ This story is **independent of Stories 4.4 and 4.5** and can be implemented befo
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Implement `ProgressStrip` component (AC: 1–6)
-  - [ ] Create `apps/web/src/components/ProgressStrip.tsx`
-  - [ ] Root element: `<nav aria-label="Form progress">` with 4 segments: Address / Your Rep / Your Issue / Send
-  - [ ] Segment styling: completed = `bg-on-record-accent` (amber), active = `bg-white` (or `bg-on-record-surface`), upcoming = amber with `opacity-40`
-  - [ ] `aria-current="step"` on the active segment only
-  - [ ] Mobile: segment labels hidden (`hidden sm:block`), active label always visible; desktop: all 4 labels visible
-  - [ ] No hardcoded hex values; focus-visible ring on focusable elements only (step indicators are not buttons)
-  - [ ] Create `apps/web/src/components/ProgressStrip.test.tsx` covering AC 1–6
+- [x] Task 1: Implement `ProgressStrip` component (AC: 1–6)
+  - [x] Create `apps/web/src/components/ProgressStrip.tsx`
+  - [x] Root element: `<nav aria-label="Form progress">` with 4 segments: Address / Your Rep / Your Issue / Send
+  - [x] Segment styling: completed = `bg-on-record-accent` (amber), active = `bg-white` (or `bg-on-record-surface`), upcoming = amber with `opacity-40`
+  - [x] `aria-current="step"` on the active segment only
+  - [x] Mobile: segment labels hidden (`hidden sm:block`), active label always visible; desktop: all 4 labels visible
+  - [x] No hardcoded hex values; focus-visible ring on focusable elements only (step indicators are not buttons)
+  - [x] Create `apps/web/src/components/ProgressStrip.test.tsx` covering AC 1–6
 
-- [ ] Task 2: Implement `DraftCard` component (AC: 7–14)
-  - [ ] Create `apps/web/src/components/DraftCard.tsx`
-  - [ ] Header row: medium badge + formality badge + AI disclosure placeholder (`<span>AI-generated draft</span>` or similar)
-  - [ ] Email variant: `leading-relaxed` line-height, `space-y-4` paragraph spacing, no character count
-  - [ ] Text/SMS variant: compact block; show `{N}/160` character count indicator when `draftBody.length >= 130`
-  - [ ] Draft body: selectable `<div>` (not button); `CitationTag` rendered below draft text using `CitationTagProps`
-  - [ ] `isRevising` prop: apply `opacity-60` to card body when true
-  - [ ] `DraftCardSkeleton` exported component with `aria-busy="true"` (follows `BillCardSkeleton` / `LegislatorCardSkeleton` pattern)
-  - [ ] Create `apps/web/src/components/DraftCard.test.tsx` covering AC 7–14
+- [x] Task 2: Implement `DraftCard` component (AC: 7–14)
+  - [x] Create `apps/web/src/components/DraftCard.tsx`
+  - [x] Header row: medium badge + formality badge + AI disclosure placeholder (`<span>AI-generated draft</span>` or similar)
+  - [x] Email variant: `leading-relaxed` line-height, `space-y-4` paragraph spacing, no character count
+  - [x] Text/SMS variant: compact block; show `{N}/160` character count indicator when `draftBody.length >= 130`
+  - [x] Draft body: selectable `<div>` (not button); `CitationTag` rendered below draft text using `CitationTagProps`
+  - [x] `isRevising` prop: apply `opacity-60` to card body when true
+  - [x] `DraftCardSkeleton` exported component with `aria-busy="true"` (follows `BillCardSkeleton` / `LegislatorCardSkeleton` pattern)
+  - [x] Create `apps/web/src/components/DraftCard.test.tsx` covering AC 7–14
 
-- [ ] Task 3: Update sprint status (AC: all)
-  - [ ] Update `_bmad-output/implementation-artifacts/sprint-status.yaml`: `4-6-progressstrip-and-draftcard-ui-components` → `review`
+- [x] Task 3: Update sprint status (AC: all)
+  - [x] Update `_bmad-output/implementation-artifacts/sprint-status.yaml`: `4-6-progressstrip-and-draftcard-ui-components` → `review`
 
 ## Dev Notes
 
@@ -392,6 +392,23 @@ claude-sonnet-4-6
 
 ### Debug Log References
 
+No debug issues encountered. All tests passed on first run.
+
 ### Completion Notes List
 
+- Implemented `ProgressStrip` component as a `<nav aria-label="Form progress">` with `<ol>/<li>` segments following AC 1–6 exactly. Added optional `className` prop for AC4 parent-controlled visibility. Segment states: completed=`bg-on-record-accent`, active=`bg-white border border-on-record-accent` with `aria-current="step"`, upcoming=`bg-on-record-accent opacity-40`. Mobile collapse via `sm:hidden`/`hidden sm:block` pattern. 18 unit tests cover all ACs including no-button, no-hex-color, aria-current assertions.
+- Implemented `DraftCard` component with header row (medium badge, formality badge, AI disclosure `<span>`), selectable draft body (not a button), character count for text/SMS ≥130 chars, `CitationTag` below draft, `isRevising` → `opacity-60` on card body. `DraftCardSkeleton` follows `BillCardSkeleton` pattern with `aria-busy="true"` and `aria-label="Generating draft…"`. 22 unit tests cover all ACs 7–14.
+- Full regression suite: 88 web tests + 191 mcp-server tests all pass. TypeScript strict mode passes with no errors.
+
 ### File List
+
+apps/web/src/components/ProgressStrip.tsx
+apps/web/src/components/ProgressStrip.test.tsx
+apps/web/src/components/DraftCard.tsx
+apps/web/src/components/DraftCard.test.tsx
+_bmad-output/implementation-artifacts/sprint-status.yaml
+_bmad-output/implementation-artifacts/4-6-progressstrip-and-draftcard-ui-components.md
+
+## Change Log
+
+- 2026-03-20: Implemented `ProgressStrip` and `DraftCard` UI components with full unit test coverage (40 tests total: 18 ProgressStrip + 22 DraftCard). All ACs 1–14 satisfied. Sprint status updated to review.

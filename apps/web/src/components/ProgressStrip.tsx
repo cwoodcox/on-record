@@ -9,11 +9,12 @@ const STEPS = [
 
 interface ProgressStripProps {
   currentStep: 1 | 2 | 3 | 4
+  className?: string
 }
 
-export function ProgressStrip({ currentStep }: ProgressStripProps) {
+export function ProgressStrip({ currentStep, className }: ProgressStripProps) {
   return (
-    <nav aria-label="Form progress">
+    <nav aria-label="Form progress" className={className}>
       <ol className="flex w-full">
         {STEPS.map((step, index) => {
           const stepNumber = index + 1
