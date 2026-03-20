@@ -1,6 +1,6 @@
 # Story 4.3: Medium and Formality Selection
 
-Status: review
+Status: in-progress
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -153,6 +153,13 @@ If testing reveals a behavioral gap (e.g., chatbot skips the formality question,
   - [ ] For each FAIL, identify the relevant section of `agent-instructions.md` (Step 4a section, lines ~189–206)
   - [ ] Revise instruction text to close the gap — preserve all other story-tested behaviors (Steps 1–3 must not regress)
   - [ ] Re-run the failing scenario once after update; document result in test log
+
+### Review Follow-ups (AI) — Round 1 (2026-03-20)
+
+- [ ] [AI-Review][HIGH] Update `agent-instructions.md` Step 4a inference logic: add explicit linguistic register markers (contractions, slang, sentence fragments = casual; complete sentences, no contractions, polite formulations = formal) and anti-pattern ("Do not conflate emotional warmth or sincerity with casual register"). Consider shifting from strict conversational/formal binary toward constituent-voice mirroring — evaluate whether AC 2 and AC 5 wording needs adjustment to reflect this approach. If ACs change, update this story file accordingly.
+- [ ] [AI-Review][MEDIUM] Fix Persona A address inconsistency in `testing-notes-4-3.md` — update Step A-2 to use verified geocodable address `1148 S 2095 W Lehi, UT`. Record all verified test addresses with their personas so future runs (including agent-testing-agents) can reuse them without manual address discovery.
+- [ ] [AI-Review][LOW] Fix `agent-instructions.md` Step 4b greeting to match message formality — conversational emails should use an informal greeting (e.g., "Hi [Name],") rather than always "Dear Representative [last name],". Greeting should match the draft's voice.
+- [ ] [AI-Review][HIGH] Re-run failing scenarios (Runs 3, 4, 5) after instruction updates. Achieve 4/5 pass rate for AC 8.
 
 ## Dev Notes
 
