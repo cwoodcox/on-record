@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3]
+stepsCompleted: [1, 2, 3, 4]
 inputDocuments: []
 workflowType: 'research'
 lastStep: 1
@@ -278,5 +278,216 @@ _MCP stdio trust boundary_: `stdio` transport is local-process-only — no netwo
 
 _Prompt injection risk_: When testing with `ConversationSimulator`, the simulated user inputs are LLM-generated (not from real users). Your system prompt additions should treat simulator inputs as potentially adversarial for robustness testing.
 _Source: [DeepEval Custom LLMs Guide](https://deepeval.com/guides/guides-using-custom-llms)_
+
+## Architectural Patterns and Design
+
+### System Architecture Patterns
+
+The complete test harness architecture for ConversationSimulator + cloud LLM + local MCP tools has three distinct layers:
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Test Layer (pytest / deepeval test run)             │
+│  ┌─────────────────────────────────────────────────┐ │
+│  │ ConversationSimulator                           │ │
+│  │  - simulator_model (fake user LLM)              │ │
+│  │  - async_mode + max_concurrent                  │ │
+│  │  - on_simulation_complete hook                  │ │
+│  └──────────────────┬──────────────────────────────┘ │
+│                     │ model_callback(input, turns,   │
+│                     │               thread_id)        │
+│  ┌──────────────────▼──────────────────────────────┐ │
+│  │ Chatbot Under Test (model_callback impl)        │ │
+│  │  - CUSTOM_SYSTEM_PROMPT injection               │ │
+│  │  - Conversation history reconstruction         │ │
+│  │  - Agentic loop (tool_use handling)             │ │
+│  │  - MCPToolCall collection per turn              │ │
+│  └────────┬──────────────────────┬─────────────────┘ │
+│           │ HTTPS/REST           │ stdio              │
+│  ┌────────▼────────┐   ┌────────▼────────────────┐   │
+│  │ Cloud LLM (SUT) │   │ Local MCP Server(s)     │   │
+│  │ Anthropic/OpenAI│   │ StdioServerParameters   │   │
+│  └─────────────────┘   └─────────────────────────┘   │
+└─────────────────────────────────────────────────────┘
+```
+
+_Pattern_: **Inversion of Control** — deepeval owns the outer simulation loop; your `model_callback` owns the inner LLM invocation and MCP tool wiring. This cleanly separates test orchestration from application logic.
+_Source: [Unit Testing in CI/CD](https://deepeval.com/docs/evaluation-unit-testing-in-ci-cd), [End-to-End LLM Evaluation](https://deepeval.com/docs/evaluation-end-to-end-llm-evals)_
+
+### Design Principles and Best Practices
+
+**One MCP ClientSession per thread_id** (critical for concurrent runs):
+With `async_mode=True` (default), ConversationSimulator runs multiple conversations concurrently. `stdio` MCP transport is single-client per process — you must create a separate `ClientSession` per conversation thread. Use a `dict[thread_id, ClientSession]` initialized in `on_simulation_complete` setup or lazily in `model_callback`.
+
+**Reconstruct history from scratch each turn**:
+The `model_callback` receives the full `turns: List[Turn]` on every call. Rebuild the Anthropic messages array from these on every invocation — this keeps conversation state outside your callback (stateless callback design).
+
+**Separate SUT model from simulator model**:
+The `simulator_model` (drives fake user) should be a different model from your SUT to avoid echo-chamber effects. Use OpenAI GPT-4.1 (default) as simulator; use Anthropic Claude as SUT — or vice versa.
+
+**Minimum 20 ConversationalGoldens** for meaningful coverage (per deepeval docs). Fewer give statistically noisy results.
+
+**Log system prompt as hyperparameter** to `evaluate()` for run comparison:
+```python
+evaluate(test_cases, metrics, hyperparameters={
+    "model": "claude-sonnet-4-5",
+    "system_prompt": CUSTOM_SYSTEM_PROMPT,
+})
+```
+_Source: [Optimizing Hyperparameters](https://deepeval.com/guides/guides-optimizing-hyperparameters), [Conversation Simulator Docs](https://deepeval.com/docs/conversation-simulator)_
+
+### Scalability and Performance Patterns
+
+_Parallelism_: `max_concurrent` on `ConversationSimulator` controls how many conversations run in parallel (default 100 — reduce if hitting LLM rate limits). Separate from `deepeval test run -n` which controls pytest worker processes.
+
+_Caching_: `deepeval test run -c` caches metric evaluations — prevents re-evaluating unchanged test cases. Critical for iterative development: only re-evaluate cases where the chatbot output changed.
+
+_Rate limit management_: Lower `max_concurrent` first (e.g. 5–10) when using Anthropic's API with default tier limits. MCP stdio servers have no rate limit concern.
+
+_Turn budget_: `max_user_simulations=10` (default) is the ceiling. Set lower (3–5) for fast feedback loops in CI; use higher (8–10) for pre-release regression runs.
+
+_Source: [Unit Testing in CI/CD](https://deepeval.com/docs/evaluation-unit-testing-in-ci-cd)_
+
+### Integration and Communication Patterns
+
+**Full end-to-end test file structure** for your use case:
+
+```python
+# test_conversations.py
+import asyncio
+import pytest
+from contextlib import AsyncExitStack
+from typing import List, Dict
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+from deepeval import evaluate
+from deepeval.simulator import ConversationSimulator
+from deepeval.dataset import EvaluationDataset, ConversationalGolden
+from deepeval.test_case import Turn, MCPToolCall, MCPServer, ConversationalTestCase
+from deepeval.metrics import MultiTurnMCPUseMetric, MCPTaskCompletionMetric, KnowledgeRetentionMetric
+
+CUSTOM_SYSTEM_PROMPT = """You are a helpful assistant for Utah legislative research.
+You help constituents understand and contact their legislators.
+Always be accurate about district information and bill status."""
+
+MCP_SERVER_PATH = "apps/mcp-server/src/index.ts"  # your local server
+
+# --- MCP session pool (one per thread_id) ---
+sessions: Dict[str, ClientSession] = {}
+exit_stacks: Dict[str, AsyncExitStack] = {}
+tool_schemas = []  # populated once at setup
+
+async def get_or_create_session(thread_id: str) -> ClientSession:
+    if thread_id not in sessions:
+        stack = AsyncExitStack()
+        exit_stacks[thread_id] = stack
+        params = StdioServerParameters(command="node", args=[MCP_SERVER_PATH])
+        read, write = await stack.enter_async_context(stdio_client(params))
+        session = await stack.enter_async_context(ClientSession(read, write))
+        await session.initialize()
+        sessions[thread_id] = session
+    return sessions[thread_id]
+
+# --- model_callback ---
+async def model_callback(input: str, turns: List[Turn], thread_id: str) -> Turn:
+    session = await get_or_create_session(thread_id)
+    messages = [{"role": t.role, "content": t.content} for t in turns]
+    messages.append({"role": "user", "content": input})
+
+    mcp_calls: List[MCPToolCall] = []
+    final_text = ""
+
+    while True:
+        response = anthropic_client.messages.create(
+            model="claude-sonnet-4-5",
+            system=CUSTOM_SYSTEM_PROMPT,
+            messages=messages,
+            tools=tool_schemas,
+            max_tokens=2048,
+        )
+        if response.stop_reason == "end_turn":
+            final_text = next(b.text for b in response.content if b.type == "text")
+            break
+        for block in response.content:
+            if block.type == "tool_use":
+                result = await session.call_tool(block.name, block.input)
+                mcp_calls.append(MCPToolCall(name=block.name, args=block.input, result=result.content))
+                messages.append({"role": "assistant", "content": response.content})
+                messages.append({"role": "user", "content": [
+                    {"type": "tool_result", "tool_use_id": block.id, "content": str(result.content)}
+                ]})
+                break
+
+    return Turn(role="assistant", content=final_text, mcp_tools_called=mcp_calls or None)
+
+# --- Goldens ---
+goldens = [
+    ConversationalGolden(
+        scenario="Constituent wants to find their state representative and send them a message about HB123.",
+        expected_outcome="User receives their representative's name and sends a message.",
+        user_description="A concerned Utah resident in Salt Lake City.",
+    ),
+    # ... more goldens
+]
+
+# --- Run simulation + evaluate ---
+simulator = ConversationSimulator(model_callback=model_callback)
+test_cases = simulator.simulate(conversational_goldens=goldens, max_user_simulations=6)
+
+@pytest.mark.parametrize("test_case", test_cases)
+def test_conversation(test_case: ConversationalTestCase):
+    from deepeval import assert_test
+    assert_test(test_case, metrics=[
+        MultiTurnMCPUseMetric(threshold=0.7),
+        MCPTaskCompletionMetric(threshold=0.7),
+        KnowledgeRetentionMetric(threshold=0.7),
+    ])
+```
+
+_Source: [Chatbot Evaluation Quickstart](https://deepeval.com/docs/getting-started-chatbots), [MCP Evaluation Quickstart](https://deepeval.com/docs/getting-started-mcp)_
+
+### Security Architecture Patterns
+
+_API key isolation_: Keep `ANTHROPIC_API_KEY` for the SUT separate from any key used for `simulator_model`. If using the same provider for both, consider separate API keys with separate rate limit budgets.
+
+_MCP server trust_: Local stdio MCP servers run as child processes of the test runner — they inherit the test process environment. Ensure the server doesn't expose sensitive production data during tests; use a test/dev database or mock data layer.
+
+_System prompt confidentiality_: When logging `system_prompt` as a hyperparameter to Confident AI, be aware it transmits the prompt to Confident AI's cloud. Use `identifier` tagging instead if the system prompt contains sensitive information.
+
+_Prompt injection in goldens_: ConversationalGolden `scenario` fields are fed to the simulator LLM which generates user messages. Avoid embedding executable instructions in scenario text.
+_Source: [DeepEval Security best practices via Anthropic docs](https://deepeval.com/integrations/models/anthropic)_
+
+### Data Architecture Patterns
+
+_Test data lifecycle_:
+1. `ConversationalGolden` (input spec) → `simulator.simulate()` → `ConversationalTestCase` (runtime artifact) → `evaluate()` → scores + reasons
+2. Test cases are ephemeral (in-memory) unless persisted via `EvaluationDataset` or Confident AI
+3. MCPToolCall objects within Turns capture the full tool interaction record for audit/debugging
+
+_Benchmark stability_: Run evaluations against the **same set of goldens** across different system prompt/model iterations to produce comparable benchmarks. Changing goldens between runs breaks comparison validity.
+
+_Source: [Evaluation Datasets](https://deepeval.com/docs/evaluation-datasets), [Optimizing Hyperparameters Guide](https://deepeval.com/guides/guides-optimizing-hyperparameters)_
+
+### Deployment and Operations Architecture
+
+**CI/CD integration pattern** (GitHub Actions example):
+
+```yaml
+- name: Run conversation evaluations
+  env:
+    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  run: |
+    deepeval test run tests/test_conversations.py -n 4 -c --identifier "pr-${{ github.run_id }}"
+```
+
+Key flags:
+- `-n 4` — 4 parallel pytest workers (each runs its own conversation batch)
+- `-c` — use cache; only re-evaluate changed test cases
+- `--identifier` — tag the run for regression tracking on Confident AI
+
+**Blocking deploys on regression**: If `assert_test()` fails (metric score below threshold), pytest exits non-zero → CI pipeline fails → deployment blocked. Set thresholds conservatively at first (0.5–0.6) and tighten as the system matures.
+
+_Source: [Unit Testing in CI/CD](https://deepeval.com/docs/evaluation-unit-testing-in-ci-cd)_
 
 <!-- Content will be appended sequentially through research workflow steps -->
