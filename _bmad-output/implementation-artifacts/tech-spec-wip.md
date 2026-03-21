@@ -199,13 +199,103 @@ metric = ConversationalGEval(
 
 ## Implementation Plan
 
-### Tasks
+### Stories
 
-_To be filled in Step 3_
+#### Story E5-1: Python Project Scaffold and MCP Server Lifecycle
 
-### Acceptance Criteria
+**Goal:** Set up the `evals/` directory with Python tooling and a reliable MCP server lifecycle manager.
 
-_To be filled in Step 3_
+**Deliverables:**
+- `evals/pyproject.toml` — Python project config (dependencies, pytest config)
+- `evals/.python-version` — pin Python 3.12+
+- `evals/conftest.py` — pytest fixtures for server lifecycle (session-scoped)
+- `evals/server.py` — `start_mcp_server()` / `stop_mcp_server()` using `subprocess.Popen`, polling `GET /health` with retry, teardown on exit
+- `evals/.gitignore` — ignore `.venv/`, `__pycache__/`, `.deepeval/`
+- Root `.gitignore` update — ignore `evals/.venv/`
+
+**AC:**
+1. `cd evals && uv sync` (or `pip install -e .`) installs all dependencies
+2. `pytest --co` discovers test files without errors
+3. Server fixture starts MCP server, confirms health check passes within 10s, tears down on scope exit
+4. Server fixture fails fast with clear error if `PORT`, API keys, or Node.js unavailable
+5. No pnpm workspace changes — `evals/` is isolated Python, not a pnpm package
+
+#### Story E5-2: MCP HTTP Client and model_callback
+
+**Goal:** Build the `model_callback` function that ConversationSimulator calls on each turn — wrapping Claude API + MCP tool proxying.
+
+**Deliverables:**
+- `evals/mcp_client.py` — `McpHttpClient` class: manages `mcp-session-id`, sends JSON-RPC `tools/call` requests via `httpx`, parses responses
+- `evals/chatbot.py` — `model_callback(input, turns) -> Turn`: builds Claude messages from turn history, calls Claude API, handles tool_use loop (potentially multiple sequential tool calls per turn), returns final Turn
+- `evals/conftest.py` update — fixture providing initialized `McpHttpClient`
+
+**AC:**
+1. `model_callback` reads system prompt from `system-prompt/agent-instructions.md` at startup (not hardcoded)
+2. Tool call proxying: when Claude returns `tool_use`, callback extracts tool name + args, sends to MCP server via `McpHttpClient`, feeds `tool_result` back to Claude, loops until no more tool_use blocks
+3. Multi-tool handling: if Claude calls `lookup_legislator` then `search_bills` in sequence within one turn, both are proxied correctly
+4. `McpHttpClient` manages session lifecycle: initializes session on first call, reuses `mcp-session-id` across calls within a conversation
+5. Errors from MCP server (4xx, 5xx, timeout) are surfaced in the Turn content, not swallowed — the LLM should see the error and respond appropriately
+6. `model_callback` returns `Turn(role="chatbot", content=<final text>)` — no tool_use blocks leak into the Turn content
+
+#### Story E5-3: ConversationalGolden Scenarios
+
+**Goal:** Define eval scenarios as ConversationalGolden objects — one per persona/flow combination.
+
+**Deliverables:**
+- `evals/goldens.py` — all ConversationalGolden definitions
+- Scenarios: Deb happy path (email), Marcus happy path (SMS), bad address, zero-result fallback, scope boundary probe, confirmation gate (ambiguous "OK"), revision loop
+
+**AC:**
+1. Minimum 5 distinct goldens covering: happy path x2, error path x1, behavioral boundary x2
+2. Each golden has `scenario`, `user_description`, and `expected_outcome` filled with enough detail for ConversationSimulator to generate realistic user messages
+3. `user_description` includes persona emotional state, address, and communication preferences (so the simulated user provides them naturally)
+4. Goldens are importable from `evals/goldens.py` — no JSON files, pure Python for IDE support and type checking
+
+#### Story E5-4: ConversationalGEval Metrics
+
+**Goal:** Define custom scoring rubrics for all 11 eval dimensions.
+
+**Deliverables:**
+- `evals/metrics.py` — all ConversationalGEval metric definitions
+- One metric per eval dimension (warm open, validate-before-inform, tool params, theme inference, confirmation gate, no-editorializing, citation format, draft format, revision loop, scope boundary, zero-result fallback)
+- Helper function `get_metrics_for_scenario(scenario_tag) -> list[metric]` — not all metrics apply to all scenarios
+
+**AC:**
+1. All 11 eval dimensions from the spec have a corresponding ConversationalGEval metric
+2. Each metric has `criteria`, `evaluation_steps` (3–6 steps), `threshold` (0.7–0.9 depending on subjectivity), and uses `AnthropicModel` as judge
+3. Deterministic dimensions (tool params, draft format) use stricter thresholds (0.9); subjective dimensions (validate-before-inform, no-editorializing) use 0.7–0.8
+4. `get_metrics_for_scenario()` maps scenario tags to applicable metrics (e.g., "zero-result" scenario skips citation format metric)
+5. Metrics are importable and composable — tests import what they need
+
+#### Story E5-5: Integration Tests and First Eval Run
+
+**Goal:** Wire everything together — run ConversationSimulator with model_callback against goldens, score with metrics, verify end-to-end.
+
+**Deliverables:**
+- `evals/tests/test_conversations.py` — pytest tests that simulate conversations and evaluate them
+- `evals/tests/conftest.py` — test-level fixtures (goldens, metrics, simulator)
+- Updated `evals/conftest.py` — session-scoped MCP server fixture shared across tests
+- `evals/README.md` — setup and run instructions
+
+**AC:**
+1. `cd evals && pytest` runs at least 2 conversation simulations (Deb + Marcus happy paths) end-to-end
+2. Each test: creates golden → runs ConversationSimulator → gets ConversationalTestCase → evaluates with applicable metrics → asserts all pass threshold
+3. Test output shows per-metric scores and overall pass/fail
+4. Conversation transcripts are printed to stdout on failure for debugging (not written to files — DeepEval dashboard handles persistence)
+5. Full eval run completes in under 5 minutes (2 conversations, ~8 turns each)
+6. `pytest -k "deb"` runs only Deb scenarios; `pytest -k "marcus"` runs only Marcus
+7. README documents: prerequisites, env vars, how to run, how to add new scenarios/metrics
+
+### Acceptance Criteria (Harness-Level)
+
+1. **Isolated Python:** `evals/` has its own `pyproject.toml` and virtual environment. No changes to pnpm workspace, no TypeScript in `evals/`.
+2. **Single command run:** `cd evals && pytest` executes the full eval suite (server lifecycle, conversation simulation, scoring).
+3. **MCP server lifecycle:** Server starts automatically, health-checks, and tears down — no manual setup required.
+4. **model_callback fidelity:** Claude API calls use the real `agent-instructions.md` system prompt. Tool calls are proxied to the real MCP server. No mocks in the default test path.
+5. **Scoring coverage:** All 11 eval dimensions have ConversationalGEval metrics. Each happy-path scenario is scored on at least 8 of them.
+6. **Pass rate:** Happy path scenarios (Deb email, Marcus SMS) pass all applicable metrics at their defined thresholds on 4 of 5 runs — matching the manual testing standard.
+7. **Extensibility:** Adding a new scenario = adding a ConversationalGolden + listing applicable metrics. Adding a new metric = adding a ConversationalGEval definition. No framework changes needed.
+8. **No monorepo pollution:** `evals/` doesn't affect `pnpm install`, `pnpm build`, or `pnpm test` in the main workspace.
 
 ## Additional Context
 
@@ -225,7 +315,21 @@ _To be filled in Step 3_
 
 ### Testing Strategy
 
-_To be filled in Step 3_
+The eval harness IS the testing strategy — it replaces the manual test protocol from Story 4.1:
+
+1. **Conversation simulation** via ConversationSimulator replaces human testers playing Deb/Marcus personas
+2. **Automated scoring** via ConversationalGEval replaces the manual pass/fail checklist from `testing-notes.md`
+3. **Pass criterion carried forward:** 4 of 5 runs passing all metrics = harness pass (same as manual protocol's "4 of 5 clean sessions")
+
+**What's NOT tested by the harness:**
+- MCP server unit tests (already covered by existing Vitest suite)
+- Frontend behavior (out of scope — no web app interaction)
+- Cost/latency (out of scope for this phase)
+
+**Validation of the harness itself:**
+- Compare first automated eval run results against manual test run log (`system-prompt/test-runs.md`)
+- The harness should flag the same behavioral gaps found manually (e.g., Gemini skipping validation in Run 3)
+- If harness scores diverge significantly from manual observations, recalibrate metric thresholds and evaluation_steps
 
 ### Notes
 
