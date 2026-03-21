@@ -118,12 +118,12 @@ describe('ProgressStrip', () => {
     expect(listItems[1]?.className).toContain('bg-on-record-accent')
   })
 
-  it('active step has bg-white class', () => {
+  it('active step has bg-on-record-surface class', () => {
     render(<ProgressStrip currentStep={2} />)
     const nav = screen.getByRole('navigation', { name: 'Form progress' })
     const listItems = nav.querySelectorAll('li')
     // Step 2 (index 1) is active
-    expect(listItems[1]?.className).toContain('bg-white')
+    expect(listItems[1]?.className).toContain('bg-on-record-surface')
   })
 
   it('upcoming steps have opacity-40 class', () => {
@@ -131,6 +131,7 @@ describe('ProgressStrip', () => {
     const nav = screen.getByRole('navigation', { name: 'Form progress' })
     const listItems = nav.querySelectorAll('li')
     // Steps 2, 3, 4 (indices 1, 2, 3) are upcoming
+    expect(listItems[1]?.className).toContain('opacity-40')
     expect(listItems[2]?.className).toContain('opacity-40')
     expect(listItems[3]?.className).toContain('opacity-40')
   })

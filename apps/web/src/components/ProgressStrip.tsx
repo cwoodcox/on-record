@@ -20,33 +20,17 @@ export function ProgressStrip({ currentStep, className }: ProgressStripProps) {
           const stepNumber = index + 1
           const isCompleted = stepNumber < currentStep
           const isActive = stepNumber === currentStep
-          const isUpcoming = stepNumber > currentStep
 
           const segmentClasses = [
             'flex-1 flex items-center justify-center px-2 py-1.5 text-sm font-medium',
             isCompleted
               ? 'bg-on-record-accent text-white'
               : isActive
-                ? 'bg-white border border-on-record-accent text-on-record-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-on-record-accent focus-visible:ring-offset-2'
+                ? 'bg-on-record-surface border border-on-record-accent text-on-record-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-on-record-accent focus-visible:ring-offset-2'
                 : 'bg-on-record-accent opacity-40 text-white',
           ]
             .filter(Boolean)
             .join(' ')
-
-          // Upcoming segments need opacity via wrapper; active has explicit class
-          // Use a div wrapper for upcoming to avoid opacity cascading issues
-          if (isUpcoming) {
-            return (
-              <li
-                key={step.label}
-                className="flex-1 flex items-center justify-center px-2 py-1.5 text-sm font-medium bg-on-record-accent opacity-40 text-white"
-              >
-                {/* Mobile: show short label only; desktop: show full label */}
-                <span className="sm:hidden">{step.shortLabel}</span>
-                <span className="hidden sm:block">{step.label}</span>
-              </li>
-            )
-          }
 
           return (
             <li

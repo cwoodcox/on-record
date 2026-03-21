@@ -66,8 +66,10 @@ describe('DraftCard', () => {
 
   it('shows {N}/160 character count when medium="text" and draftBody >= 130 chars', () => {
     const longDraft = 'A'.repeat(135) // 135 chars >= 130
-    render(<DraftCard {...makeProps({ medium: 'text', draftBody: longDraft })} />)
-    expect(screen.getByText('135/160')).toBeInTheDocument()
+    const { container } = render(<DraftCard {...makeProps({ medium: 'text', draftBody: longDraft })} />)
+    const countEl = screen.getByText('135/160')
+    expect(countEl).toBeInTheDocument()
+    expect(countEl.className).toContain('text-right')
   })
 
   it('shows character count at exactly 130 chars', () => {
@@ -100,10 +102,11 @@ describe('DraftCard', () => {
     expect(opacityEl).not.toBeInTheDocument()
   })
 
-  it('email variant uses leading-relaxed class', () => {
+  it('email variant uses leading-relaxed and space-y-4 classes', () => {
     const { container } = render(<DraftCard {...makeProps({ medium: 'email' })} />)
     const leadingEl = container.querySelector('.leading-relaxed')
     expect(leadingEl).toBeInTheDocument()
+    expect(leadingEl?.className).toContain('space-y-4')
   })
 
   it('email variant renders multi-paragraph content as separate p elements', () => {
