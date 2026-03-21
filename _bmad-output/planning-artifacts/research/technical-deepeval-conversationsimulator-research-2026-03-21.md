@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3, 4]
+stepsCompleted: [1, 2, 3, 4, 5]
 inputDocuments: []
 workflowType: 'research'
 lastStep: 1
@@ -489,5 +489,200 @@ Key flags:
 **Blocking deploys on regression**: If `assert_test()` fails (metric score below threshold), pytest exits non-zero → CI pipeline fails → deployment blocked. Set thresholds conservatively at first (0.5–0.6) and tighten as the system matures.
 
 _Source: [Unit Testing in CI/CD](https://deepeval.com/docs/evaluation-unit-testing-in-ci-cd)_
+
+## Implementation Approaches and Technology Adoption
+
+### Technology Adoption Strategies
+
+**Adopt incrementally — start with `evaluate()` directly, then layer `ConversationSimulator`:**
+
+1. **Phase 1** (week 1): Write 3–5 `ConversationalTestCase`s manually with hard-coded `turns`. Validate that your metrics work and score as expected. This proves the evaluation stack before adding simulation complexity.
+2. **Phase 2** (week 2): Replace manual test cases with `ConversationSimulator`. Write 5–10 `ConversationalGolden`s. Run `simulator.simulate()` locally with `max_user_simulations=3` for fast iteration.
+3. **Phase 3** (week 3): Expand to 20+ goldens, wire into `deepeval test run` in CI, set deployment gates on metric thresholds.
+
+_Source: [Chatbot Evaluation Quickstart](https://deepeval.com/docs/getting-started-chatbots), [MCP Evaluation Quickstart](https://deepeval.com/docs/getting-started-mcp)_
+
+### Development Workflows and Tooling
+
+**Verified `ConversationSimulator` API signature (2025):**
+
+```python
+from deepeval.simulator import ConversationSimulator
+
+simulator = ConversationSimulator(
+    model_callback=model_callback,   # async callable — see below
+    simulator_model="gpt-4o",        # default; the fake-user driver
+    async_mode=True,                 # default; concurrent simulation
+)
+
+conversational_test_cases = simulator.simulate(
+    conversational_goldens=goldens,  # List[ConversationalGolden]
+    max_user_simulations=10,         # default; max turns per conversation
+)
+```
+
+**Verified `model_callback` signature** — two variants found in docs:
+
+_Variant A_ (returns `str` — simpler, no MCP tracking):
+```python
+async def model_callback(user_input: str, conversation_history: List[Dict]) -> str:
+    # conversation_history: [{"user_input": "...", "agent_response": "..."}]
+    ...
+    return reply_string
+```
+
+_Variant B_ (returns `Turn` — required when tracking `MCPToolCall`s):
+```python
+async def model_callback(input: str, turns: List[Turn], thread_id: str) -> Turn:
+    ...
+    return Turn(role="assistant", content=final_text, mcp_tools_called=mcp_calls)
+```
+
+**IMPORTANT — known signature ambiguity**: The docs show both variants. If `MCPToolCall` tracking is required (for `MultiTurnMCPUseMetric`), use Variant B. Verify the exact signature against [deepeval source](https://github.com/confident-ai/deepeval) at implementation time, as the API was actively evolving through early 2025.
+
+**Known bug — double initial user message** ([GitHub #1884](https://github.com/confident-ai/deepeval/issues/1884)):
+When `async_mode=True`, the simulator may generate two user turns before the first assistant turn. Workaround: filter `turns` in your `model_callback` to deduplicate consecutive `role="user"` entries, or set `async_mode=False` while the bug is open.
+
+_Source: [Conversation Simulator Docs](https://deepeval.com/docs/conversation-simulator), [GitHub Issue #1884](https://github.com/confident-ai/deepeval/issues/1884)_
+
+### Testing and Quality Assurance
+
+**Metric selection guide for the on-record project:**
+
+| Goal | Metric | Default Threshold | Notes |
+|---|---|---|---|
+| LLM uses MCP tools correctly (multi-turn) | `MultiTurnMCPUseMetric` | 0.5 | MCP primitive alignment score |
+| Each conversation turn satisfies user need | `MCPTaskCompletionMetric` | 0.5 | Tasks satisfied ÷ total interactions |
+| Chatbot remembers earlier context | `KnowledgeRetentionMetric` | 0.5 | "No-forgetting" verdicts |
+| Conversation fully addresses user concern | `ConversationCompletenessMetric` | 0.5 | Self-explaining LLM-eval |
+| Turn-level response quality | `TurnRelevancyMetric` | 0.5 | Per-turn relevance |
+| Custom on-record criteria | `ConversationalGEval` | configurable | e.g. "legislator info accuracy" |
+
+**Start with thresholds at 0.5; raise to 0.7 once the system is stable.** All three metrics use LLM-as-judge, so lower thresholds are safer for initial deployment.
+
+`strict_mode=True` forces binary 0/1 scoring (pass only if perfect). Avoid for initial CI gating; use for acceptance sign-off on specific goldens only.
+
+**Recommended metric set for on-record MVP:**
+```python
+metrics = [
+    MCPTaskCompletionMetric(threshold=0.6),
+    KnowledgeRetentionMetric(threshold=0.6),
+    ConversationCompletenessMetric(threshold=0.6),
+]
+```
+_Source: [MCP Task Completion](https://deepeval.com/docs/metrics-mcp-task-completion), [Metrics Introduction](https://deepeval.com/docs/metrics-introduction)_
+
+### Deployment and Operations Practices
+
+**Local development loop:**
+```bash
+# Fast local check — 3 turns max, no cache needed
+deepeval test run tests/test_conversations.py -v
+
+# Full regression — 6 turns, parallel, with cache
+deepeval test run tests/test_conversations.py -n 4 -c --identifier "local-$(date +%s)"
+```
+
+**CI/CD gate (GitHub Actions):**
+```yaml
+- name: Conversation eval gate
+  env:
+    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}   # for simulator_model
+  run: |
+    pnpm run build:mcp-server
+    deepeval test run tests/test_conversations.py \
+      -n 2 \
+      -c \
+      --identifier "ci-${{ github.sha }}" \
+      --exit-on-first-failure
+```
+
+`--exit-on-first-failure` stops the run immediately if any test case fails — prevents burning LLM API credits on a clearly broken build.
+
+**Environment variable requirements** (add to `.env.test`):
+- `ANTHROPIC_API_KEY` — SUT (Claude) invocations in `model_callback`
+- `OPENAI_API_KEY` — `simulator_model` (default GPT-4o) for fake-user generation
+- `MCP_SERVER_PATH` — path to built MCP server entry point
+
+_Source: [Unit Testing in CI/CD](https://deepeval.com/docs/evaluation-unit-testing-in-ci-cd)_
+
+### Team Organization and Skills
+
+**Skill requirements for this integration:**
+- **Python async/await** — `model_callback` must be `async def`; MCP client uses `AsyncExitStack`
+- **MCP protocol** — understanding of `stdio_client`, `ClientSession.initialize()`, `call_tool()`
+- **Anthropic SDK** — `messages.create()` with `tool_use` stop reason handling and agentic loop
+- **deepeval API** — `ConversationalGolden`, `ConversationSimulator`, conversational metrics
+
+**Division of responsibility:**
+- QA / story author: writes `ConversationalGolden` scenario + expected_outcome text
+- Dev: implements `model_callback` + MCP session wiring + CI integration
+- Both: tune metric thresholds based on observed scores
+
+### Cost Optimization and Resource Management
+
+**LLM API cost breakdown per evaluation run** (20 goldens, 6 turns max):
+- `simulator_model` (GPT-4o): ~120 API calls (20 goldens × 6 user turns) — ~$0.15–0.30
+- SUT (Claude Sonnet): ~120 API calls — ~$0.10–0.25 (depending on system prompt length)
+- Metric evaluation (LLM-as-judge, default GPT-4o): ~3–5 calls per test case × 20 cases = ~$0.15–0.25
+- **Total per full run: ~$0.40–0.80**
+
+**Cost controls:**
+- Use `-c` (cache) flag — cached metric scores cost $0
+- Use `max_user_simulations=3` during development, 6+ for pre-release
+- Set `simulator_model="gpt-4o-mini"` if cost is a concern (lower quality fake user)
+- Only run full eval suite on PRs touching `mcp-server/` or system prompt changes
+
+### Risk Assessment and Mitigation
+
+| Risk | Likelihood | Mitigation |
+|---|---|---|
+| Double initial user message bug | Medium | Filter duplicate consecutive user turns in `model_callback` |
+| `model_callback` signature mismatch between doc versions | Medium | Verify against current deepeval source before implementing |
+| MCP stdio session leaks (missing cleanup) | High if uncaught | Use `AsyncExitStack` in fixture teardown; track all `exit_stacks` by `thread_id` |
+| Flaky metric scores (LLM-as-judge variance) | Medium | Use score averaging over 2–3 runs for threshold tuning; don't chase single-point scores |
+| Rate limit failures during CI | Low-Medium | Reduce `max_concurrent` and `-n` parallelism; add `ANTHROPIC_API_KEY` with higher tier in CI |
+| Golden scenarios too narrow / not representative | Medium | Include both happy-path and failure-mode goldens (e.g. bad address, out-of-session tool call) |
+
+## Technical Research Recommendations
+
+### Implementation Roadmap
+
+1. **Install + smoke test** (1 day): `pip install deepeval`, write one `ConversationalGolden`, implement minimal `model_callback` returning mock `Turn`, verify `simulate()` runs
+2. **Real model_callback** (2–3 days): Wire Anthropic Claude with agentic loop; connect to MCP server via stdio; collect `MCPToolCall`s per turn
+3. **Golden dataset** (1–2 days): Write 10–20 `ConversationalGolden`s covering the on-record use cases (address lookup, bill search, legislator messaging, session boundary errors)
+4. **Metrics + thresholds** (1 day): Run evaluation with initial 0.5 thresholds; observe scores; calibrate to 0.6–0.7 for CI gate
+5. **CI integration** (1 day): Add `deepeval test run` step to GitHub Actions; wire secrets; verify gate blocks on regression
+
+### Technology Stack Recommendations
+
+```
+deepeval >= 1.x (latest stable)         # core framework
+openai                                    # default simulator_model judge
+anthropic                                 # SUT in model_callback
+mcp[cli]                                  # MCP client (stdio_client, ClientSession)
+pytest                                    # test runner (via deepeval test run)
+```
+
+Install in `apps/mcp-server` dev dependencies or a separate `tests/` workspace package. Keep test dependencies isolated from the production server bundle.
+
+### Skill Development Requirements
+
+- Read: [Conversation Simulator docs](https://deepeval.com/docs/conversation-simulator)
+- Read: [MCP Evaluation Quickstart](https://deepeval.com/docs/getting-started-mcp)
+- Run: the [multi-turn MCP example](https://github.com/confident-ai/deepeval/blob/main/examples/mcp_evaluation/mcp_eval_multi_turn.py) locally against a mock MCP server
+- Review: [GitHub Issue #1884](https://github.com/confident-ai/deepeval/issues/1884) status before implementing — may be fixed in latest release
+
+### Success Metrics and KPIs
+
+| KPI | Target | Measurement |
+|---|---|---|
+| `MCPTaskCompletionMetric` average score | ≥ 0.70 | deepeval test run output |
+| `KnowledgeRetentionMetric` average score | ≥ 0.70 | deepeval test run output |
+| `ConversationCompletenessMetric` average | ≥ 0.70 | deepeval test run output |
+| Zero regressions on golden happy-path scenarios | 100% pass | CI gate |
+| Eval suite runtime in CI | < 5 min | GitHub Actions timing |
+| Cost per CI eval run | < $1.00 | Anthropic + OpenAI billing |
 
 <!-- Content will be appended sequentially through research workflow steps -->
