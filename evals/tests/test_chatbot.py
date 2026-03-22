@@ -232,6 +232,14 @@ async def test_mcp_error_surfaced_not_raised():
     assert isinstance(result, Turn)
     assert result.role == "assistant"
     assert result.content  # non-empty string
+    # Verify the error info was surfaced in the tool call result, not swallowed
+    assert result.mcp_tools_called is not None
+    assert len(result.mcp_tools_called) == 1
+    tool_call = result.mcp_tools_called[0]
+    assert tool_call.name == "lookup_legislator"
+    assert isinstance(tool_call.result, CallToolResult)
+    assert tool_call.result.isError is True
+    assert "Tool error:" in tool_call.result.content[0].text
 
 
 # ---------------------------------------------------------------------------
