@@ -1,6 +1,6 @@
 # Story E5-1: Python Project Scaffold and MCP Server Lifecycle
 
-Status: in-progress
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -64,10 +64,10 @@ so that I can run eval harness tests against the real MCP server without manual 
 
 ### Review Follow-ups (AI)
 
-- [ ] [AI-Review][High] Validate JSON response body in start_mcp_server [evals/server.py:64]
-- [ ] [AI-Review][High] Fix hatchling project structure/config in pyproject.toml [evals/pyproject.toml]
-- [ ] [AI-Review][Medium] Add test case for invalid health check JSON response [evals/tests/test_server_lifecycle.py]
-- [ ] [AI-Review][Medium] Refine exception handling in health poll loop [evals/server.py:66]
+- [x] [AI-Review][High] Validate JSON response body in start_mcp_server [evals/server.py:64]
+- [x] [AI-Review][High] Fix hatchling project structure/config in pyproject.toml [evals/pyproject.toml]
+- [x] [AI-Review][Medium] Add test case for invalid health check JSON response [evals/tests/test_server_lifecycle.py]
+- [x] [AI-Review][Medium] Refine exception handling in health poll loop [evals/server.py:66]
 
 ## Dev Notes
 
