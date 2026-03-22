@@ -47,10 +47,14 @@ class McpHttpClient:
             },
             "id": self._next_id(),
         }
+        headers = {
+            "Accept": "application/json, text/event-stream",
+        }
         try:
             response = await self._http.post(
                 f"{self._base_url}/mcp",
                 json=init_payload,
+                headers=headers,
                 timeout=10.0,
             )
             if response.status_code >= 400:
@@ -79,7 +83,9 @@ class McpHttpClient:
             "method": "notifications/initialized",
             "params": {},
         }
-        headers = {}
+        headers = {
+            "Accept": "application/json, text/event-stream",
+        }
         if self._session_id:
             headers["mcp-session-id"] = self._session_id
 
@@ -114,7 +120,9 @@ class McpHttpClient:
             "params": {"name": name, "arguments": arguments},
             "id": self._next_id(),
         }
-        headers = {}
+        headers = {
+            "Accept": "application/json, text/event-stream",
+        }
         if self._session_id:
             headers["mcp-session-id"] = self._session_id
 
