@@ -1,6 +1,6 @@
 # Story E5-2: MCP HTTP Client and model_callback
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -25,36 +25,36 @@ so that DeepEval's `ConversationSimulator` can drive simulated conversations aga
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create `evals/mcp_client.py` (AC: 2, 5, 6, 10)
-  - [ ] `class McpHttpClient` with `__init__(self, base_url: str = "http://localhost:3001")`
-  - [ ] `async def initialize(self) -> None` — sends MCP `initialize` JSON-RPC, captures `Mcp-Session-Id` response header as `self._session_id`
-  - [ ] `async def call_tool(self, name: str, arguments: dict) -> Any` — sends `tools/call` JSON-RPC, parses result, retries on 429 with backoff (1s, 2s, 4s up to 3 retries), surfaces non-429 errors in return value (not raised)
-  - [ ] `self._request_id` counter for JSON-RPC `id` field (increment per request)
-  - [ ] All requests include `mcp-session-id` header after `initialize()` sets `self._session_id`
-  - [ ] Use `httpx.AsyncClient` (async — required by `model_callback` which is async)
+- [x] Task 1: Create `evals/mcp_client.py` (AC: 2, 5, 6, 10)
+  - [x] `class McpHttpClient` with `__init__(self, base_url: str = "http://localhost:3001")`
+  - [x] `async def initialize(self) -> None` — sends MCP `initialize` JSON-RPC, captures `Mcp-Session-Id` response header as `self._session_id`
+  - [x] `async def call_tool(self, name: str, arguments: dict) -> Any` — sends `tools/call` JSON-RPC, parses result, retries on 429 with backoff (1s, 2s, 4s up to 3 retries), surfaces non-429 errors in return value (not raised)
+  - [x] `self._request_id` counter for JSON-RPC `id` field (increment per request)
+  - [x] All requests include `mcp-session-id` header after `initialize()` sets `self._session_id`
+  - [x] Use `httpx.AsyncClient` (async — required by `model_callback` which is async)
 
-- [ ] Task 2: Create `evals/chatbot.py` (AC: 1, 2, 3, 4, 7, 8, 9)
-  - [ ] Load `SYSTEM_PROMPT` from `REPO_ROOT / "system-prompt" / "agent-instructions.md"` at module load
-  - [ ] Define `MCP_TOOL_SCHEMAS` — hardcoded Anthropic tool schema list for both MCP tools (see Dev Notes — do NOT fetch dynamically)
-  - [ ] `_clients: dict[str, McpHttpClient]` module-level pool, keyed by `thread_id`
-  - [ ] `async def get_or_create_client(thread_id: str, port: int = 3001) -> McpHttpClient` — returns existing or creates + initializes new client
-  - [ ] `async def model_callback(input: str, turns: list[Turn], thread_id: str) -> Turn` with full agentic loop
-  - [ ] Bug #1884 workaround: filter `turns` to remove consecutive same-role entries before building Anthropic messages
-  - [ ] Agentic loop: query Claude API → if `tool_use` → `call_tool()` → append `tool_result` → loop; on `end_turn` → extract text → return `Turn`
-  - [ ] Error from `call_tool()` → append as `tool_result` with error text so Claude sees it; include in `Turn.content` on `end_turn` if it was the last response
+- [x] Task 2: Create `evals/chatbot.py` (AC: 1, 2, 3, 4, 7, 8, 9)
+  - [x] Load `SYSTEM_PROMPT` from `REPO_ROOT / "system-prompt" / "agent-instructions.md"` at module load
+  - [x] Define `MCP_TOOL_SCHEMAS` — hardcoded Anthropic tool schema list for both MCP tools (see Dev Notes — do NOT fetch dynamically)
+  - [x] `_clients: dict[str, McpHttpClient]` module-level pool, keyed by `thread_id`
+  - [x] `async def get_or_create_client(thread_id: str, port: int = 3001) -> McpHttpClient` — returns existing or creates + initializes new client
+  - [x] `async def model_callback(input: str, turns: list[Turn], thread_id: str) -> Turn` with full agentic loop
+  - [x] Bug #1884 workaround: filter `turns` to remove consecutive same-role entries before building Anthropic messages
+  - [x] Agentic loop: query Claude API → if `tool_use` → `call_tool()` → append `tool_result` → loop; on `end_turn` → extract text → return `Turn`
+  - [x] Error from `call_tool()` → append as `tool_result` with error text so Claude sees it; include in `Turn.content` on `end_turn` if it was the last response
 
-- [ ] Task 3: Update `evals/conftest.py` (AC: 2)
-  - [ ] Add session-scoped fixture `mcp_client_factory` that validates `ANTHROPIC_API_KEY` is set, yields a callable `(thread_id: str) -> McpHttpClient` backed by `chatbot.get_or_create_client`
-  - [ ] Keep existing `mcp_server` fixture unchanged
+- [x] Task 3: Update `evals/conftest.py` (AC: 2)
+  - [x] Add session-scoped fixture `mcp_client_factory` that validates `ANTHROPIC_API_KEY` is set, yields a callable `(thread_id: str) -> McpHttpClient` backed by `chatbot.get_or_create_client`
+  - [x] Keep existing `mcp_server` fixture unchanged
 
-- [ ] Task 4: Create `evals/tests/test_chatbot.py` (AC: 3, 5, 6, 9, 10)
-  - [ ] `test_tool_call_proxied`: mock Anthropic client (one `tool_use` then `end_turn`) + mock `McpHttpClient.call_tool()` → verify `MCPToolCall` in returned `Turn.mcp_tools_called`
-  - [ ] `test_multi_tool_sequence`: mock Claude returning `lookup_legislator` then `search_bills` tool_use blocks → verify both appear in `mcp_tools_called`
-  - [ ] `test_bug_1884_workaround`: pass `turns` list with consecutive `role="user"` entries → verify filtered before building Anthropic messages (patch `anthropic.Anthropic.messages.create` and inspect `messages` arg)
-  - [ ] `test_mcp_error_surfaced_not_raised`: mock `McpHttpClient.call_tool()` to raise `httpx.HTTPStatusError` (500) → verify `model_callback` returns a `Turn` (does not raise), `Turn.content` contains error info
-  - [ ] `test_429_retry_backoff`: mock `httpx.AsyncClient.post` to return 429 three times then 200 → verify `call_tool()` retried with delays (mock `asyncio.sleep`), succeeds on 4th attempt
-  - [ ] `test_429_exhausted`: mock `httpx.AsyncClient.post` to always return 429 → verify `call_tool()` raises `RuntimeError` containing `"MCP rate limit exceeded"` after 4 attempts
-  - [ ] `test_model_callback_live(mcp_server)`: integration test requiring real server + `ANTHROPIC_API_KEY` — send a message that will NOT trigger tool calls (e.g., a greeting) and verify a `Turn` is returned with `mcp_tools_called=None`
+- [x] Task 4: Create `evals/tests/test_chatbot.py` (AC: 3, 5, 6, 9, 10)
+  - [x] `test_tool_call_proxied`: mock Anthropic client (one `tool_use` then `end_turn`) + mock `McpHttpClient.call_tool()` → verify `MCPToolCall` in returned `Turn.mcp_tools_called`
+  - [x] `test_multi_tool_sequence`: mock Claude returning `lookup_legislator` then `search_bills` tool_use blocks → verify both appear in `mcp_tools_called`
+  - [x] `test_bug_1884_workaround`: pass `turns` list with consecutive `role="user"` entries → verify filtered before building Anthropic messages (patch `anthropic.Anthropic.messages.create` and inspect `messages` arg)
+  - [x] `test_mcp_error_surfaced_not_raised`: mock `McpHttpClient.call_tool()` to raise `httpx.HTTPStatusError` (500) → verify `model_callback` returns a `Turn` (does not raise), `Turn.content` contains error info
+  - [x] `test_429_retry_backoff`: mock `httpx.AsyncClient.post` to return 429 three times then 200 → verify `call_tool()` retried with delays (mock `asyncio.sleep`), succeeds on 4th attempt
+  - [x] `test_429_exhausted`: mock `httpx.AsyncClient.post` to always return 429 → verify `call_tool()` raises `RuntimeError` containing `"MCP rate limit exceeded"` after 4 attempts
+  - [x] `test_model_callback_live(mcp_server)`: integration test requiring real server + `ANTHROPIC_API_KEY` — send a message that will NOT trigger tool calls (e.g., a greeting) and verify a `Turn` is returned with `mcp_tools_called=None`
 
 ## Dev Notes
 
@@ -449,7 +449,14 @@ claude-sonnet-4-6
 
 ### Debug Log References
 
+None.
+
 ### Completion Notes List
+
+- **Task 1 (mcp_client.py):** Implemented `McpHttpClient` with async `initialize()` (captures server-assigned session ID from `Mcp-Session-Id` response header), `call_tool()` with 4-attempt 429 retry (delays 1s, 2s, 4s), and `_notify_initialized()` for MCP protocol compliance. Request ID counter increments per call.
+- **Task 2 (chatbot.py):** Implemented `model_callback` with full agentic loop. Added `mcp` package import for `CallToolResult`/`TextContent` — required by DeepEval 3.9+ to properly type `MCPToolCall.result`. `MCP_TOOL_SCHEMAS` hardcoded from production tool registrations. Bug #1884 workaround via `_filter_consecutive_same_role()`.
+- **Task 3 (conftest.py):** Added `mcp_client_factory` session-scoped fixture; depends on `mcp_server` to ensure server is running. Validates `ANTHROPIC_API_KEY` before yielding factory.
+- **Task 4 (test_chatbot.py):** 6 unit tests + 1 integration test. All 6 unit tests pass. Integration test skips gracefully when `ANTHROPIC_API_KEY` is unset. Key discovery: `MCPToolCall.result` must be `mcp.types.CallToolResult` (not a raw string) in DeepEval 3.9+; added `mcp>=1.0.0` dependency to `pyproject.toml`.
 
 ### File List
 
@@ -457,3 +464,6 @@ claude-sonnet-4-6
 - `evals/chatbot.py` (new)
 - `evals/tests/test_chatbot.py` (new)
 - `evals/conftest.py` (modified)
+- `evals/pyproject.toml` (modified — added `mcp>=1.0.0` dependency, registered `integration` pytest mark)
+- `_bmad-output/implementation-artifacts/E5-2-mcp-http-client-and-model-callback.md` (modified — status, tasks, dev record)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified — e5-2 → review)
