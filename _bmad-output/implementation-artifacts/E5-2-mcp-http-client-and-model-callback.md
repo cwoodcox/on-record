@@ -1,6 +1,6 @@
 # Story E5-2: MCP HTTP Client and model_callback
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -126,7 +126,6 @@ async def initialize(self) -> None:
             json=payload,
             timeout=10.0,
         )
-        response.raise_for_status()
         # Server returns its generated session ID in response header
         server_session_id = response.headers.get("mcp-session-id")
         if server_session_id:
