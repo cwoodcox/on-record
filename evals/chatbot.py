@@ -104,11 +104,13 @@ async def model_callback(input: str, turns: list[Turn], thread_id: str) -> Turn:
 
     # Bug #1884: ConversationSimulator (async_mode=True) may produce consecutive
     # same-role turns on the first call. Anthropic API rejects these.
-    filtered_turns = _filter_consecutive_same_role(turns)
+    # We append the current user input BEFORE filtering so the filter also
+    # collapses any collision between the last history turn and the new input.
+    all_turns = list(turns) + [Turn(role="user", content=input)]
+    filtered_turns = _filter_consecutive_same_role(all_turns)
     messages: list[dict] = [
         {"role": t.role, "content": t.content} for t in filtered_turns
     ]
-    messages.append({"role": "user", "content": input})
 
     mcp_calls: list[MCPToolCall] = []
 
