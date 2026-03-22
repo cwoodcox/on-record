@@ -43,3 +43,23 @@ def test_health_check_timeout():
                             RuntimeError, match="MCP server did not become healthy"
                         ):
                             start_mcp_server(port=3001)
+
+
+def test_health_check_invalid_json_body():
+    """start_mcp_server raises RuntimeError when health endpoint returns 200 but wrong JSON body."""
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"status": "degraded"}
+
+    with patch("shutil.which", return_value="/usr/local/bin/node"):
+        with patch("server._dist_entry_exists", return_value=True):
+            with patch("subprocess.Popen") as mock_popen:
+                mock_proc = MagicMock()
+                mock_proc.poll.return_value = None
+                mock_popen.return_value = mock_proc
+                with patch("httpx.get", return_value=mock_response):
+                    with patch("time.sleep"):
+                        with pytest.raises(
+                            RuntimeError, match="MCP server did not become healthy"
+                        ):
+                            start_mcp_server(port=3001)
