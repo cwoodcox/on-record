@@ -54,8 +54,15 @@ def start_mcp_server(port: int = 3001) -> subprocess.Popen:
         try:
             response = httpx.get(f"http://localhost:{port}/health", timeout=2.0)
             if response.status_code == 200:
-                return proc
-        except Exception:
+                body = response.json()
+                if (
+                    body.get("status") == "ok"
+                    and body.get("service") == "on-record-mcp-server"
+                ):
+                    return proc
+        except httpx.RequestError:
+            pass
+        except (ValueError, KeyError):
             pass
 
     proc.kill()
