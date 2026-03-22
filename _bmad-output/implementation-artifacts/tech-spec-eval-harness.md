@@ -2,9 +2,9 @@
 title: 'Research-to-Requirements: Automated Conversation Eval Harness'
 slug: 'research-to-requirements'
 created: '2026-03-21'
-status: 'in-progress'
-stepsCompleted: [1, 2, 3]
-tech_stack: ['python', 'deepeval', 'anthropic-sdk', 'mcp-python-sdk', 'httpx']
+status: 'complete'
+stepsCompleted: [1, 2, 3, 4]
+tech_stack: ['python', 'deepeval', 'anthropic-sdk', 'openai', 'httpx']
 files_to_modify:
   - 'evals/ (new directory — isolated Python eval harness)'
   - 'evals/metrics.py (new — built-in MCP metrics + custom ConversationalGEval rubrics)'
@@ -50,27 +50,28 @@ Build an all-Python conversation evaluation harness using DeepEval's `Conversati
 
 1. **ConversationalGolden scenarios** define personas (Deb, Marcus) with scenario descriptions, user personas, and expected outcomes.
 2. **ConversationSimulator** generates simulated user messages and drives the conversation via a `model_callback`.
-3. **model_callback** wraps the full pipeline: sends user input to Claude API with the system prompt, handles tool calls by proxying them to the local MCP server via HTTP, feeds results back, and returns the final assistant Turn.
-4. **ConversationalGEval metrics** score the resulting transcripts on tone, citation format, editorializing, confirmation gates, etc.
+3. **model_callback** wraps the full pipeline: sends user input to Claude API with the system prompt, handles tool calls by proxying them to the local MCP server via HTTP, collects `MCPToolCall` objects, and returns the final assistant Turn.
+4. **Dual metrics** — built-in MCP metrics (`MCPTaskCompletionMetric`, `KnowledgeRetentionMetric`, `ConversationCompletenessMetric`) score structural/task quality; custom `ConversationalGEval` rubrics score domain-specific behavioral dimensions (tone, citation format, editorializing, confirmation gates, etc.).
 
 No TypeScript orchestrator. No transcript bridge. DeepEval drives the conversation AND scores it — single tool, single language.
 
 ### Scope
 
 **In Scope:**
-- DeepEval ConversationSimulator with model_callback wrapping Claude API + MCP HTTP proxy
-- ConversationalGolden scenarios for happy path, bad address, no bills found, vague concern, scope boundary
-- Custom ConversationalGEval rubrics for all 11 eval dimensions
+- DeepEval ConversationSimulator with model_callback (Variant B) wrapping Claude API + MCP HTTP proxy
+- 10–20 ConversationalGolden scenarios covering happy paths, failure modes, and edge cases
+- Built-in MCP metrics (`MCPTaskCompletionMetric`, `KnowledgeRetentionMetric`, `ConversationCompletenessMetric`)
+- Custom ConversationalGEval rubrics for all 11 domain-specific eval dimensions
 - MCP server lifecycle management (spawn as child process, health-check, teardown)
+- Phased adoption: manual test cases → ConversationSimulator → CI gating readiness
 - Isolated Python directory within the monorepo
 
 **Out of Scope:**
-- CI pipeline integration / gating
+- CI pipeline integration / gating (Phase 3 — tracked but not implemented here)
 - Promptfoo integration
 - Performance benchmarks / latency tracking
-- Cost tracking per eval run
+- Cost tracking per eval run (cost model documented but not automated)
 - Public MCP server deployment
-- TypeScript orchestrator (eliminated — DeepEval handles orchestration)
 
 ## Context for Development
 
@@ -239,7 +240,7 @@ metric = ConversationalGEval(
         "Allow factual statements: 'sponsored HB 42', 'bill passed 45-30'"
     ],
     model=judge,
-    threshold=0.8
+    threshold=0.5  # start at 0.5 per research; tighten to 0.7 once stable
 )
 ```
 
