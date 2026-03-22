@@ -129,7 +129,10 @@ async def model_callback(input: str, turns: list[Turn], thread_id: str) -> Turn:
             )
             break
 
-        # Process tool_use blocks — proxy each call to the MCP server
+        # Process ALL tool_use blocks in this response before re-querying Claude.
+        # The assistant message is appended once; each tool result is a separate
+        # tool_result content block in a single "user" message (Anthropic format).
+        tool_result_blocks: list[dict] = []
         for block in response.content:
             if block.type == "tool_use":
                 is_error = False
@@ -151,19 +154,15 @@ async def model_callback(input: str, turns: list[Turn], thread_id: str) -> Turn:
                         result=call_tool_result,
                     )
                 )
-                # Append assistant response and tool result, then loop back to Claude
-                messages.append({"role": "assistant", "content": response.content})
-                messages.append({
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": block.id,
-                            "content": result_text,
-                        }
-                    ],
+                tool_result_blocks.append({
+                    "type": "tool_result",
+                    "tool_use_id": block.id,
+                    "content": result_text,
                 })
-                break  # Re-query Claude with the accumulated tool result
+
+        if tool_result_blocks:
+            messages.append({"role": "assistant", "content": response.content})
+            messages.append({"role": "user", "content": tool_result_blocks})
 
     return Turn(
         role="assistant",
