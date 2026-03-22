@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3]
+stepsCompleted: [1, 2, 3, 4]
 inputDocuments: []
 workflowType: 'research'
 lastStep: 1
@@ -284,3 +284,135 @@ Example description direction:
 > "Search Utah legislative bills by topic or look up a specific bill by number. Use `query` for freeform topic searches (e.g. 'housing affordability', 'water rights'). Use `billId` to look up a specific bill (e.g. 'HB0042'). Optionally filter by `sponsorId` to limit results to a specific legislator's bills."
 
 _Sources: [arXiv MCP Tool Description Smells](https://arxiv.org/html/2602.14878), [Klavis AI Less is More Patterns](https://www.klavis.ai/blog/less-is-more-mcp-design-patterns-for-ai-agents), [CLAUDE.md - LLM tool descriptions]_
+
+---
+
+## Architectural Patterns and Design
+
+### System Architecture Patterns
+
+The redesign touches three distinct layers of the system. Understanding their boundaries is critical to scoping the change correctly:
+
+```
+┌─────────────────────────────────────────┐
+│  MCP Tool Layer (apps/mcp-server/tools/)│
+│  search-bills.ts — parameter schema,    │
+│  dispatch logic, error handling, retry  │
+├─────────────────────────────────────────┤
+│  Cache Layer (apps/mcp-server/cache/)   │
+│  bills.ts — SQL query construction,     │
+│  FTS5 access, row mapping, guards       │
+├─────────────────────────────────────────┤
+│  Type Contract (packages/types/)        │
+│  SearchBillsResult, Bill — shared       │
+│  between tool layer and consumers       │
+└─────────────────────────────────────────┘
+```
+
+The MCP protocol mandates a **two-handler separation**: a `ListToolsRequestSchema` handler (returns tool definitions + schemas) and a `CallToolRequestSchema` handler (executes tool logic). The `server.tool()` registration in the TypeScript SDK encapsulates both. Changes to the Zod schema automatically update both what the SDK advertises to clients and what the handler validates.
+
+**Architectural principle confirmed**: Each MCP server should have one clear purpose; each tool within it should have one well-scoped operation. The redesigned `search_bills` satisfies this — it is the single entry point for all bill discovery operations, with mode determined by which optional parameters the LLM provides.
+
+_Sources: [MCP Architecture Overview](https://modelcontextprotocol.io/docs/learn/architecture), [MCP Best Practices](https://modelcontextprotocol.info/docs/best-practices/), [Atlan MCP Server Guide](https://atlan.com/know/mcp-server-implementation-guide/)_
+
+### Design Principles and Best Practices
+
+**Parameter dispatch as internal routing, not API surface**: The Toolhost pattern (consolidating operations behind one dispatcher with an `op` parameter) is a recognized MCP pattern but has a UX cost — it pushes routing decisions to the caller. For our case, the mode is *inferred* from which optional parameters are populated, not explicitly named. This is cleaner for LLMs because:
+- Providing `billId` naturally implies "look this up" — no explicit `mode` param needed
+- Providing `query` naturally implies "search for this" — same
+- The tool description guides the LLM to understand when to use each
+
+**Function decomposition in the cache layer**: The current monolithic `searchBillsByTheme(sponsorId, theme)` should be decomposed into:
+1. One public entry point: `searchBills(params: SearchBillsParams): Bill[]`
+2. Two private helpers: `lookupBillById(id, session?)` and `runFtsSearch(params)`
+3. Guards at the entry point before any SQL
+
+This follows the repository pattern principle of a slim public interface with focused internal implementations. The cache layer is a "disposable read index" (not source of truth) — all writes go through `writeBills()`, all reads through `searchBills()` and `getBillsBySponsor()`.
+
+**Better-sqlite3 architectural constraint**: All better-sqlite3 code is confined to `apps/mcp-server/src/cache/` (CLAUDE.md Boundary 4). The tool layer cannot import or instantiate the db directly. This is correctly enforced today via `getActiveSessionId()` being a wrapper in `cache/bills.ts` — the same pattern applies to `searchBills`.
+
+_Sources: [Glassbead Toolhost Pattern](https://glassbead-tc.medium.com/design-patterns-in-mcp-toolhost-pattern-59e887885df3), [Sentry Atomic Repositories](https://blog.sentry.io/atomic-repositories-in-clean-architecture-and-typescript/), [DEV - SQLite as AI Cache](https://dev.to/queelius/the-mcp-pattern-sqlite-as-the-ai-queryable-cache-34g6)_
+
+### FTS5 Content Table Architecture
+
+The existing `bill_fts` is an **external content table** (`content='bills'`). Key architectural implications for the redesign:
+
+- The FTS5 index stores tokens only; column text is retrieved by JOIN back to `bills` — the current JOIN query pattern (per CLAUDE.md) is architecturally correct, not just a preference
+- The `rowid` mapping between `bill_fts` and `bills` is stable because `bills` uses a composite PK `(id, session)` with an implicit rowid that only changes on VACUUM — the hourly refresh uses `INSERT OR REPLACE` which creates new rowids on replace, making the FTS5 rebuild necessary after each write batch (already done)
+- **No schema changes are needed** to the FTS5 table itself — the index already covers `title` and `summary`, which is the right content for topic search. Column weighting (`bm25(bill_fts, 2.0, 1.0)`) could be introduced as an optimization but is not required for correctness
+
+The trigger-based sync pattern (INSERT/UPDATE/DELETE triggers) was not chosen for this project — the rebuild-after-bulk-write approach is correct for a batch-refresh model where all writes happen in a single scheduled transaction.
+
+_Sources: [SQLite FTS5 Docs](https://www.sqlite.org/fts5.html), [FTS5 External Content Tables](https://sqlite.work/optimizing-fts5-external-content-tables-and-vacuum-interactions/), [FTS5 Structure Analysis](https://darksi.de/13.sqlite-fts5-structure/)_
+
+### Scalability and Performance Patterns
+
+This is an embedded SQLite cache on a single-process MCP server — horizontal scaling is not a concern. Performance considerations are:
+
+| Query path | Expected scale | Bottleneck |
+|---|---|---|
+| FTS5 topic search (no sponsor filter) | ~1,000 bills/session, 1-2 sessions | FTS5 BM25 scan, effectively O(matching docs) |
+| FTS5 topic search + sponsor filter | Same, filtered post-MATCH | Negligible — `idx_bills_sponsor_id` speeds the join |
+| Bill ID lookup | Direct PK equality | O(1) — composite PK is indexed |
+
+No new indexes are needed. The `idx_bills_sponsor_id` already serves the optional sponsor filter. Adding a `session` filter uses `idx_bills_session`.
+
+The `LIMIT ?` parameter (defaulting to 5, max configurable) is applied at the SQL level, not in TypeScript `.slice()` — moving the limit into SQL is a correctness improvement: it prevents fetching 1,000 rows and discarding 995.
+
+_Sources: [SQLite FTS5 Docs - bm25](https://www.sqlite.org/fts5.html), [Sling Academy FTS5 Ranking](https://www.slingacademy.com/article/ranking-results-in-sqlite-full-text-search-best-practices/)_
+
+### Data Architecture Patterns
+
+**`SearchBillsResult` redesign decision**: Based on integration pattern analysis (Step 3), the recommended approach is **Option B** — make `legislatorId` optional:
+
+```typescript
+// packages/types/index.ts
+export interface SearchBillsResult {
+  bills: Bill[]
+  legislatorId?: string   // present only when sponsorId filter was applied
+  session: string
+}
+```
+
+Rationale:
+- Backward-compatible: existing consumers (apps/web, system prompt) continue to work without change
+- Semantically correct: `legislatorId` is only meaningful when sponsor filtering was applied
+- The `session` field remains required — essential context since bill IDs repeat across sessions
+
+**`SearchBillsParams` new type** (internal to mcp-server, or in packages/types if needed by tests):
+```typescript
+interface SearchBillsParams {
+  query?: string      // FTS5 topic search term
+  billId?: string     // exact bill ID lookup
+  sponsorId?: string  // optional filter
+  session?: string    // optional session override
+  limit?: number      // defaults to 5
+}
+```
+
+_Sources: [`packages/types/index.ts`], [MCP Spec Output Schema](https://modelcontextprotocol.io/specification/2025-06-18/server/tools), [Repository Pattern TypeScript](https://www.abdou.dev/blog/the-repository-pattern-with-typescript)_
+
+### Migration Architecture
+
+The change is additive at the API surface (new optional params) with one breaking change (`legislatorId` required → optional in result). Migration approach:
+
+**Phase 1 — Cache layer refactor** (internal, no interface change yet):
+- Add `SearchBillsParams` type
+- Implement `searchBills(params)` alongside existing `searchBillsByTheme` (keep old function until tool is updated)
+- Remove `THEME_QUERIES` map inside new function
+
+**Phase 2 — Tool layer update**:
+- Change Zod schema: `legislatorId` → `sponsorId` (optional), add `query` (optional), add `billId` (optional)
+- Update handler to call `searchBills(params)` instead of `searchBillsByTheme`
+- Update `SearchBillsResult` construction: `legislatorId` populated only when `sponsorId` provided
+
+**Phase 3 — Type contract update** (packages/types):
+- Make `SearchBillsResult.legislatorId` optional
+- Remove old `searchBillsByTheme` from cache layer
+
+**Phase 4 — System prompt update**:
+- Update `agent-instructions.md` to reflect new tool parameters and capabilities
+
+This phased approach ensures each step is independently testable and reviewable.
+
+_Sources: [CLAUDE.md - Architectural Rules], [MCP Architecture Overview](https://modelcontextprotocol.io/docs/learn/architecture)_
