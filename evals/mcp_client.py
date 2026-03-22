@@ -23,7 +23,13 @@ class McpHttpClient:
         return self._request_counter
 
     async def initialize(self) -> None:
-        """Send MCP initialize + initialized notification; capture server session ID."""
+        """Send MCP initialize + initialized notification; capture server session ID.
+
+        Raises:
+            RuntimeError: If the server returns a non-2xx status or is unreachable,
+                so that ``get_or_create_client`` can surface the error without crashing
+                the ConversationSimulator.
+        """
         init_payload = {
             "jsonrpc": "2.0",
             "method": "initialize",
@@ -34,22 +40,34 @@ class McpHttpClient:
             },
             "id": self._next_id(),
         }
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self._base_url}/mcp",
-                json=init_payload,
-                timeout=10.0,
-            )
-            response.raise_for_status()
-            server_session_id = response.headers.get("mcp-session-id")
-            if server_session_id:
-                self._session_id = server_session_id
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self._base_url}/mcp",
+                    json=init_payload,
+                    timeout=10.0,
+                )
+                if response.status_code >= 400:
+                    raise RuntimeError(
+                        f"MCP initialize failed: HTTP {response.status_code}"
+                    )
+                server_session_id = response.headers.get("mcp-session-id")
+                if server_session_id:
+                    self._session_id = server_session_id
+        except httpx.TimeoutException as exc:
+            raise RuntimeError(f"MCP initialize timed out: {exc}") from exc
+        except httpx.ConnectError as exc:
+            raise RuntimeError(f"MCP server unreachable: {exc}") from exc
 
         # Send required initialized notification
         await self._notify_initialized()
 
     async def _notify_initialized(self) -> None:
-        """Send the MCP notifications/initialized message (no response expected)."""
+        """Send the MCP notifications/initialized message (no response expected).
+
+        Notifications may return 202/204 or error; all are silently ignored
+        since the server has already acknowledged the session via ``initialize()``.
+        """
         notification = {
             "jsonrpc": "2.0",
             "method": "notifications/initialized",
@@ -59,17 +77,17 @@ class McpHttpClient:
         if self._session_id:
             headers["mcp-session-id"] = self._session_id
 
-        async with httpx.AsyncClient() as client:
-            try:
+        try:
+            async with httpx.AsyncClient() as client:
                 await client.post(
                     f"{self._base_url}/mcp",
                     json=notification,
                     headers=headers,
                     timeout=10.0,
                 )
-            except httpx.HTTPStatusError:
-                # Notifications may return 202 or no-content; ignore errors
-                pass
+        except (httpx.HTTPStatusError, httpx.TimeoutException, httpx.ConnectError):
+            # Notifications are fire-and-forget; errors are non-fatal
+            pass
 
     async def call_tool(self, name: str, arguments: dict) -> Any:
         """Call an MCP tool by name, retrying up to 3 times on HTTP 429.

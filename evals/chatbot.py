@@ -100,7 +100,15 @@ async def model_callback(input: str, turns: list[Turn], thread_id: str) -> Turn:
         Turn(role="assistant", content=<final text>, mcp_tools_called=<list or None>)
     """
     port = int(os.environ.get("PORT", "3001"))
-    mcp_client = await get_or_create_client(thread_id, port=port)
+    try:
+        mcp_client = await get_or_create_client(thread_id, port=port)
+    except Exception as exc:
+        # AC6: surface initialization errors in Turn.content, don't crash the simulator
+        return Turn(
+            role="assistant",
+            content=f"MCP server connection failed: {exc}",
+            mcp_tools_called=None,
+        )
 
     # Bug #1884: ConversationSimulator (async_mode=True) may produce consecutive
     # same-role turns on the first call. Anthropic API rejects these.
