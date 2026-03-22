@@ -1,6 +1,6 @@
 # Story E5-2: MCP HTTP Client and model_callback
 
-Status: in-progress
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -58,15 +58,15 @@ so that DeepEval's `ConversationSimulator` can drive simulated conversations aga
 
 ### Review Follow-ups (AI)
 
-- [ ] [AI-Review][CRITICAL] Logic Error in Bug #1884 Workaround: `_filter_consecutive_same_role` followed by `input` append causes consecutive user turns if filtered list ends in user. [evals/chatbot.py:101-110]
-- [ ] [AI-Review][CRITICAL] Flawed Test Case: `test_bug_1884_workaround` doesn't verify valid roles, only message count. [evals/tests/test_chatbot.py:157]
-- [ ] [AI-Review][HIGH] Broken Multi-tool Support: `model_callback` breaks loop after first `tool_use`, violating multi-tool protocol. [evals/chatbot.py:126-156]
-- [ ] [AI-Review][HIGH] Violation of AC6 (Exception Leak): `initialize()` uses `raise_for_status()`, causing `model_callback` to crash if server is down. [evals/mcp_client.py:46]
-- [ ] [AI-Review][MEDIUM] Inefficient HTTP usage: `McpHttpClient` creates new `httpx.AsyncClient` for every request; no connection pooling. [evals/mcp_client.py:41, 62, 101]
-- [ ] [AI-Review][MEDIUM] Improper JSON-RPC Error Handling: `call_tool` returns empty string on JSON-RPC error instead of the error content. [evals/mcp_client.py:112]
-- [ ] [AI-Review][MEDIUM] Untracked Artifact: `evals/uv.lock` is created but not tracked or in File List. [evals/uv.lock]
-- [ ] [AI-Review][LOW] Dead Error Handling in `_notify_initialized`: `try...except HTTPStatusError` without `raise_for_status()`. [evals/mcp_client.py:70-74]
-- [ ] [AI-Review][LOW] Weak Test Assertions: `test_mcp_error_surfaced_not_raised` doesn't verify error content. [evals/tests/test_chatbot.py:192]
+- [x] [AI-Review][CRITICAL] Logic Error in Bug #1884 Workaround: `_filter_consecutive_same_role` followed by `input` append causes consecutive user turns if filtered list ends in user. [evals/chatbot.py:101-110]
+- [x] [AI-Review][CRITICAL] Flawed Test Case: `test_bug_1884_workaround` doesn't verify valid roles, only message count. [evals/tests/test_chatbot.py:157]
+- [x] [AI-Review][HIGH] Broken Multi-tool Support: `model_callback` breaks loop after first `tool_use`, violating multi-tool protocol. [evals/chatbot.py:126-156]
+- [x] [AI-Review][HIGH] Violation of AC6 (Exception Leak): `initialize()` uses `raise_for_status()`, causing `model_callback` to crash if server is down. [evals/mcp_client.py:46]
+- [x] [AI-Review][MEDIUM] Inefficient HTTP usage: `McpHttpClient` creates new `httpx.AsyncClient` for every request; no connection pooling. [evals/mcp_client.py:41, 62, 101]
+- [x] [AI-Review][MEDIUM] Improper JSON-RPC Error Handling: `call_tool` returns empty string on JSON-RPC error instead of the error content. [evals/mcp_client.py:112]
+- [x] [AI-Review][MEDIUM] Untracked Artifact: `evals/uv.lock` is created but not tracked or in File List. [evals/uv.lock] — N/A: file does not exist on disk or in git history; no action needed.
+- [x] [AI-Review][LOW] Dead Error Handling in `_notify_initialized`: `try...except HTTPStatusError` without `raise_for_status()`. [evals/mcp_client.py:70-74]
+- [x] [AI-Review][LOW] Weak Test Assertions: `test_mcp_error_surfaced_not_raised` doesn't verify error content. [evals/tests/test_chatbot.py:192]
 
 ## Dev Notes
 

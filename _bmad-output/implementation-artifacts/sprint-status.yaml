@@ -128,7 +128,7 @@ development_status:
   # ─── Epic E5: Automated Conversation Eval Harness ───────────────────────────
   epic-e5: in-progress
   e5-1-python-project-scaffold-and-mcp-server-lifecycle: done
-  e5-2-mcp-http-client-and-model-callback: in-progress
+  e5-2-mcp-http-client-and-model-callback: review
   e5-3-manual-test-cases-to-validate-metrics: backlog
   e5-4-conversational-golden-scenarios: backlog
   e5-5-complete-metrics-suite: backlog
