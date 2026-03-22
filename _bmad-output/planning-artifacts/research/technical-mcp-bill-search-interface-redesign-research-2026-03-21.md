@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3, 4]
+stepsCompleted: [1, 2, 3, 4, 5]
 inputDocuments: []
 workflowType: 'research'
 lastStep: 1
@@ -416,3 +416,152 @@ The change is additive at the API surface (new optional params) with one breakin
 This phased approach ensures each step is independently testable and reviewable.
 
 _Sources: [CLAUDE.md - Architectural Rules], [MCP Architecture Overview](https://modelcontextprotocol.io/docs/learn/architecture)_
+
+---
+
+## Implementation Approaches and Technology Adoption
+
+### Technology Adoption Strategies
+
+The redesign adopts an **additive migration** strategy — new capabilities are added as optional parameters, and the existing required-parameter path remains functional until it is explicitly removed. This is the TypeScript community's recommended approach for evolving shared interfaces:
+
+1. Add new optional fields (`field?: type`) — existing callers compile and run unchanged
+2. Mark deprecated fields with `/** @deprecated */` JSDoc — surfaces warnings in IDEs without breaking builds
+3. Remove deprecated fields in a subsequent story after all consumers have migrated
+
+This approach avoids a "big bang" cutover and is particularly important here because `SearchBillsResult` is consumed by both `apps/mcp-server` (the tool itself) and potentially `apps/web` (if it renders search results). Both can be updated incrementally.
+
+The `THEME_QUERIES` map removal is the one genuinely **breaking internal change** — it changes how the FTS5 query is constructed. Mitigation: the new `searchBills` function coexists with the old `searchBillsByTheme` until all callers are migrated (Phase 1 keeps both, Phase 2 removes the old one).
+
+_Sources: [Michael's Coding Spot - TypeScript API Change](https://michaelscodingspot.com/typescript-api-change/), [Saleae - Versioning TypeScript Types](https://blog.saleae.com/versioning-typescript-types/), [Speakeasy - TypeScript Forward Compatibility](https://www.speakeasy.com/blog/typescript-forward-compatibility)_
+
+### Development Workflows and Tooling
+
+All changes stay within the pnpm workspace monorepo. No new packages or dependencies are required — the redesign uses only existing tools: TypeScript 5.7, Zod, better-sqlite3, Vitest 4.0.18.
+
+**File-level deliverables per phase:**
+
+| Phase | Files changed |
+|---|---|
+| 1 — Cache refactor | `apps/mcp-server/src/cache/bills.ts` |
+| 2 — Tool update | `apps/mcp-server/src/tools/search-bills.ts` |
+| 3 — Type contract | `packages/types/index.ts` |
+| 4 — System prompt | `apps/mcp-server/src/system-prompt/agent-instructions.md` (path TBC) |
+
+No new files need to be created. No barrel files. No new packages to install (no `pnpm install` run needed).
+
+ESLint rules already enforce the architectural boundaries (no `console.log`, better-sqlite3 import confinement). The redesigned functions stay within `cache/` and `tools/` — no boundary violations.
+
+_Sources: [CLAUDE.md - Coding Conventions], [pnpm workspaces docs](https://pnpm.io/workspaces)_
+
+### Testing and Quality Assurance
+
+**Tool layer tests (`search-bills.test.ts`):**
+
+The test pattern mocks at the module boundary. With Vitest, `vi.mock` is hoisted — it replaces the cache module before any test code runs:
+
+```typescript
+vi.mock('../cache/bills', () => ({
+  searchBills: vi.fn(),
+  getActiveSessionId: vi.fn().mockReturnValue('2025GS'),
+}))
+```
+
+Per CLAUDE.md: every `mockReturnValue` must be accompanied by `toHaveBeenCalledWith` to verify correct args — `mockReturnValue` returns the same thing regardless of args.
+
+**Error-path test key phrases** (per CLAUDE.md, must be specified in story AC):
+- When neither `query` nor `billId` provided → `nature` should contain `'no search criteria'` (or similar phrase TBD in AC)
+- When FTS5 query fails → existing `'legislature-api'` source error handling applies
+
+**Cache layer tests (`bills.test.ts`):**
+
+Use `new Database(':memory:')` in `beforeEach`, run schema DDL (same SQL as `schema.ts`), seed with known bill rows, close in `afterEach`:
+
+```typescript
+let db: Database.Database
+
+beforeEach(() => {
+  db = new Database(':memory:')
+  db.exec(CREATE_TABLES_SQL)           // same DDL as schema.ts
+  db.exec(`INSERT INTO bill_fts(bill_fts) VALUES('rebuild')`)
+  // seed known bills for query mode tests
+})
+
+afterEach(() => db.close())
+```
+
+FTS5 on `:memory:` works in better-sqlite3 if compiled with `ENABLE_FTS5` — this is already verified in the project (existing bills.ts tests pass). No change needed.
+
+**Test coverage matrix for the redesigned tool:**
+
+| Scenario | Test type | Mock target |
+|---|---|---|
+| `query` only → FTS5 search, no sponsor filter | Unit | `searchBills` mock |
+| `query` + `sponsorId` → filtered FTS5 | Unit | `searchBills` mock |
+| `billId` only → ID lookup | Unit | `searchBills` mock |
+| `billId` + `session` → session-scoped lookup | Unit | `searchBills` mock |
+| Neither `query` nor `billId` → error | Unit | No mock needed |
+| Empty `query` string → error | Unit | No mock needed |
+| FTS5 error → AppError response | Unit | `searchBills` throws |
+| FTS5 with sponsor filter (SQL) | Cache unit | in-memory SQLite |
+| Bill ID lookup (SQL) | Cache unit | in-memory SQLite |
+| Empty MATCH guard | Cache unit | in-memory SQLite |
+
+_Sources: [Vitest Mocking Guide](https://vitest.dev/guide/mocking), [MCPcat Unit Testing MCP Servers](https://mcpcat.io/guides/writing-unit-tests-mcp-servers/), [DEV - Integration Testing SQLite In-Memory](https://dev.to/rukykf/integration-testing-with-nodejs-jest-knex-and-sqlite-in-memory-databases-2ila)_
+
+### Deployment and Operations Practices
+
+No deployment changes. The MCP server runs as a single Node.js process with stdio transport. The cache refresh schedule (hourly cron) is unchanged. The redesigned `searchBills` function is synchronous (better-sqlite3), so no async plumbing changes.
+
+The retry logic in the tool handler (`retryWithDelay(fn, 2, 1000)`) wraps the cache call — unchanged. The cache function never throws on empty results (returns `[]`), so retry is only triggered by unexpected errors.
+
+**Operational risk**: None introduced. All changes are within the MCP server process. No network calls added. Cache warm-up and refresh are unaffected.
+
+_Sources: [CLAUDE.md - NFR17 stale cache], [`apps/mcp-server/src/cache/refresh.ts`]_
+
+### Risk Assessment and Mitigation
+
+| Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|
+| `THEME_QUERIES` removal breaks existing conversations mid-session | Medium | Low | Theme strings pass through as-is to FTS5 — most themes still match naturally |
+| FTS5 syntax error on malformed `query` | Low | Medium | Empty-string guard already exists; catch block returns `[]` on FTS5 error |
+| `legislatorId` optional breaks `apps/web` consumer | Low | Low | Make optional (backward-compatible); web still receives field when sponsor filter used |
+| Zod version mismatch (`v3` vs `v4`) | Low | High | Verify `zod (latest)` resolves to v4 before implementing; check `pnpm why zod` |
+| Test coverage gap on bill ID lookup path | Medium | Medium | Explicitly spec coverage matrix in story AC |
+
+_Sources: [CLAUDE.md - Coding Conventions], [GitHub - Zod version mismatch MCP SDK issue #796](https://github.com/modelcontextprotocol/typescript-sdk/issues/796)_
+
+## Technical Research Recommendations
+
+### Implementation Roadmap
+
+Based on all five research steps, the recommended implementation sequence is:
+
+1. **Cache layer first** — implement `searchBills(params: SearchBillsParams)` with both query modes; write cache-layer unit tests with in-memory SQLite; keep `searchBillsByTheme` temporarily
+2. **Tool layer second** — update Zod schema (optional params), update handler dispatch, update result construction, update tool tests with Vitest mocks
+3. **Type contract third** — make `SearchBillsResult.legislatorId` optional in `packages/types/`; mark `@deprecated`; verify `apps/web` still compiles
+4. **System prompt fourth** — update `agent-instructions.md` to describe new capabilities without enumerating query categories
+5. **Cleanup** — remove `searchBillsByTheme`, remove `THEME_QUERIES` map, update frontmatter
+
+This is a single story (not an epic) — all phases can be implemented and reviewed together in one PR.
+
+### Technology Stack Recommendations
+
+No changes to the technology stack. The existing stack (TypeScript, Zod, better-sqlite3, FTS5, Vitest) fully supports the redesigned interface. Specifically:
+
+- **Zod `.optional()`** handles the schema changes
+- **FTS5 + conditional WHERE** handles the query mode dispatch at SQL level
+- **better-sqlite3 in-memory** handles cache-layer test isolation
+- **Vitest `vi.mock`** handles tool-layer test isolation
+
+### Success Metrics and KPIs
+
+| Metric | Target |
+|---|---|
+| `search_bills` works without `sponsorId` | ✅ Verified by new unit tests |
+| Bill ID lookup returns correct bill | ✅ Verified by cache-layer tests |
+| No regressions on existing sponsor-filtered search | ✅ Verified by updated existing tests |
+| `THEME_QUERIES` map removed | ✅ Code deleted |
+| Tool description contains no enumerated categories | ✅ Code review checklist |
+| All Vitest tests pass | ✅ CI green |
+| `packages/types` compiles without errors across workspace | ✅ `pnpm build` clean |
