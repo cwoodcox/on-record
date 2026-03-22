@@ -33,3 +33,22 @@ def mcp_server():
     yield proc
 
     stop_mcp_server(proc)
+
+
+@pytest.fixture(scope="session")
+def mcp_client_factory(mcp_server):
+    """Session-scoped fixture yielding a factory for McpHttpClient instances.
+
+    Validates that ANTHROPIC_API_KEY is present before any client is created.
+    The factory is backed by chatbot.get_or_create_client, so the same
+    McpHttpClient is reused for the same thread_id across a test session.
+
+    Yields:
+        Callable ``(thread_id: str) -> Awaitable[McpHttpClient]``
+    """
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        pytest.fail("Missing required env var: ANTHROPIC_API_KEY")
+
+    from chatbot import get_or_create_client
+
+    yield get_or_create_client

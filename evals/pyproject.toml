@@ -10,6 +10,7 @@ dependencies = [
     "deepeval>=3.7.0",
     "anthropic>=0.29.0",
     "httpx>=0.28.0",
+    "mcp>=1.0.0",
     "openai",
     "pydantic>=2.11.7",
     "pytest>=8.0.0",
@@ -22,3 +23,6 @@ packages = ["."]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = [
+    "integration: marks tests requiring a live MCP server and ANTHROPIC_API_KEY",
+]
