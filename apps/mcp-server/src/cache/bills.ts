@@ -5,14 +5,14 @@
 // Also exports singleton wrappers for sessions.ts functions (getActiveSessionId) for use from tools/.
 //
 // Architecture note on db access:
-//   - getBillsBySponsor, getBillsBySession, searchBillsByTheme: called from tools/ (outside cache/)
+//   - getBillsBySponsor, getBillsBySession, searchBills: called from tools/ (outside cache/)
 //     which cannot import the db singleton — these functions use the db singleton directly.
 //   - getActiveSessionId: singleton wrapper for getActiveSession(db), callable from tools/.
 //   - writeBills: called exclusively from cache/refresh.ts (inside cache/); receives
 //     db as a parameter for dependency injection and testability.
 import { db } from './db.js'
 import type Database from 'better-sqlite3'
-import type { Bill } from '@on-record/types'
+import type { Bill, SearchBillsParams } from '@on-record/types'
 import { getActiveSession } from './sessions.js'
 
 // ── Row shape returned from SQLite ──────────────────────────────────────────
@@ -80,78 +80,93 @@ export function getBillsBySession(session: string): Bill[] {
   return rows.map(rowToBill)
 }
 
-// Internal constant — not exported. Maps normalized (lowercase) theme keywords
-// and their synonyms to FTS5 OR query strings.
-// Both canonical theme names AND individual synonyms are keys, so input like
-// 'Medicaid' (after normalization to 'medicaid') resolves to the healthcare query.
-const THEME_QUERIES: Record<string, string> = {
-  // Healthcare
-  healthcare: 'healthcare OR health OR insurance OR Medicaid OR prescription',
-  health: 'healthcare OR health OR insurance OR Medicaid OR prescription',
-  insurance: 'healthcare OR health OR insurance OR Medicaid OR prescription',
-  medicaid: 'healthcare OR health OR insurance OR Medicaid OR prescription',
-  prescription: 'healthcare OR health OR insurance OR Medicaid OR prescription',
-  // Education
-  education: 'school OR teacher OR student OR education',
-  school: 'school OR teacher OR student OR education',
-  teacher: 'school OR teacher OR student OR education',
-  student: 'school OR teacher OR student OR education',
-  // Housing
-  housing: 'rent OR landlord OR affordable OR housing',
-  rent: 'rent OR landlord OR affordable OR housing',
-  landlord: 'rent OR landlord OR affordable OR housing',
-  affordable: 'rent OR landlord OR affordable OR housing',
-  // Redistricting
-  redistricting: 'redistricting OR gerrymandering OR district',
-  gerrymandering: 'redistricting OR gerrymandering OR district',
-  'prop 4': 'redistricting OR gerrymandering OR district',
-  district: 'redistricting OR gerrymandering OR district',
-  // Environment
-  environment: 'climate OR pollution OR water OR environment',
-  climate: 'climate OR pollution OR water OR environment',
-  pollution: 'climate OR pollution OR water OR environment',
-  water: 'climate OR pollution OR water OR environment',
-  // Taxes
-  taxes: 'revenue OR budget OR fiscal OR tax OR taxes',
-  tax: 'revenue OR budget OR fiscal OR tax OR taxes',
-  revenue: 'revenue OR budget OR fiscal OR tax OR taxes',
-  budget: 'revenue OR budget OR fiscal OR tax OR taxes',
-  fiscal: 'revenue OR budget OR fiscal OR tax OR taxes',
+/**
+ * Looks up bills by exact bill ID, optionally scoped to a session.
+ * Returns bills sorted by session descending (newest first).
+ * When no session filter is provided, may return multiple rows (bill IDs repeat across sessions).
+ */
+function lookupBillById(id: string, session?: string): Bill[] {
+  if (session !== undefined) {
+    const rows = db
+      .prepare<[string, string], BillRow>(
+        'SELECT id, session, title, summary, status, sponsor_id, vote_result, vote_date FROM bills WHERE id = ? AND session = ? ORDER BY session DESC',
+      )
+      .all(id, session)
+    return rows.map(rowToBill)
+  }
+  const rows = db
+    .prepare<[string], BillRow>(
+      'SELECT id, session, title, summary, status, sponsor_id, vote_result, vote_date FROM bills WHERE id = ? ORDER BY session DESC',
+    )
+    .all(id)
+  return rows.map(rowToBill)
 }
 
 /**
- * Full-text searches the bills cache by issue theme keyword.
- * Expands known theme names and synonyms to FTS5 OR queries for broader matching.
- * Results are filtered to bills sponsored by the given legislator.
- * Returns bills ordered by FTS5 relevance (BM25 rank).
- *
- * @param sponsorId - Legislator ID (e.g. 'RRabbitt')
- * @param theme     - Issue theme keyword (e.g. 'healthcare', 'education', 'water')
+ * Full-text searches the bills cache using FTS5.
+ * Optionally filters by sponsor_id and/or session.
+ * Results are ordered by FTS5 relevance (BM25 rank) with LIMIT applied in SQL.
  */
-export function searchBillsByTheme(sponsorId: string, theme: string): Bill[] {
-  const normalized = theme.trim().toLowerCase()
-  if (normalized === '') return []
+function runFtsSearch(params: SearchBillsParams): Bill[] {
+  const query = params.query ?? ''
+  const limit = Math.min(params.limit ?? 5, 20)
 
-  const ftsQuery = THEME_QUERIES[normalized] ?? theme.trim()
+  const conditions: string[] = ['bill_fts MATCH ?']
+  const args: (string | number)[] = [query]
+
+  if (params.sponsorId !== undefined) {
+    conditions.push('b.sponsor_id = ?')
+    args.push(params.sponsorId)
+  }
+
+  if (params.session !== undefined) {
+    conditions.push('b.session = ?')
+    args.push(params.session)
+  }
+
+  args.push(limit)
+
+  const sql = `
+    SELECT b.id, b.session, b.title, b.summary, b.status, b.sponsor_id, b.vote_result, b.vote_date
+    FROM bill_fts
+    JOIN bills b ON b.rowid = bill_fts.rowid
+    WHERE ${conditions.join(' AND ')}
+    ORDER BY bill_fts.rank
+    LIMIT ?
+  `
 
   try {
-    const rows = db
-      .prepare<[string, string], BillRow>(
-        `SELECT b.id, b.session, b.title, b.summary, b.status, b.sponsor_id, b.vote_result, b.vote_date
-         FROM bill_fts
-         JOIN bills b ON b.rowid = bill_fts.rowid
-         WHERE bill_fts MATCH ?
-           AND b.sponsor_id = ?
-         ORDER BY bill_fts.rank`,
-      )
-      .all(ftsQuery, sponsorId)
-
+    const rows = db.prepare<(string | number)[], BillRow>(sql).all(...args)
     return rows.map(rowToBill)
   } catch {
     // Malformed FTS5 query syntax (e.g. bare operators, unmatched quotes) —
     // return empty results rather than propagating a SQLite error.
     return []
   }
+}
+
+/**
+ * Searches the bills cache using either exact bill ID lookup or FTS5 full-text search.
+ *
+ * Guards:
+ * - Returns [] if billId is provided but is empty string
+ * - Returns [] if neither billId nor query is provided
+ * - Returns [] if query is empty string
+ *
+ * When billId is provided, delegates to lookupBillById (exact match, sorted newest-first).
+ * When query is provided, delegates to runFtsSearch (FTS5 relevance ranking).
+ *
+ * @param params - Search parameters: query, billId, sponsorId, session, limit
+ */
+export function searchBills(params: SearchBillsParams): Bill[] {
+  if (params.billId !== undefined) {
+    if (params.billId === '') return []
+    return lookupBillById(params.billId, params.session)
+  }
+
+  if (params.query === undefined || params.query === '') return []
+
+  return runFtsSearch(params)
 }
 
 /**

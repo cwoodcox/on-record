@@ -77,9 +77,17 @@ export interface LookupLegislatorResult {
   resolvedAddress: string // actual address in MCP response; always '[REDACTED]' in logs
 }
 
+export interface SearchBillsParams {
+  query?: string
+  billId?: string
+  sponsorId?: string
+  session?: string
+  limit?: number
+}
+
 export interface SearchBillsResult {
   bills: Bill[]
-  legislatorId: string
+  legislatorId?: string
   session: string
 }
 

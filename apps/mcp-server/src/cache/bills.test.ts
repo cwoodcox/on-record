@@ -1,5 +1,5 @@
 // apps/mcp-server/src/cache/bills.test.ts
-// Tests for writeBills, getBillsBySponsor, getBillsBySession, getActiveSessionId, searchBillsByTheme using in-memory SQLite.
+// Tests for writeBills, getBillsBySponsor, getBillsBySession, getActiveSessionId, searchBills using in-memory SQLite.
 //
 // Architecture:
 //   - writeBills: receives db as a parameter — use in-memory db directly.
@@ -26,13 +26,13 @@ import type {
   getBillsBySponsor as GetBySponsorFn,
   getBillsBySession as GetBySessionFn,
   writeBills as WriteFn,
-  searchBillsByTheme as SearchFn,
+  searchBills as SearchFn,
   getActiveSessionId as GetActiveSessionIdFn,
 } from './bills.js'
 let getBillsBySponsor: typeof GetBySponsorFn
 let getBillsBySession: typeof GetBySessionFn
 let writeBills: typeof WriteFn
-let searchBillsByTheme: typeof SearchFn
+let searchBills: typeof SearchFn
 let getActiveSessionId: typeof GetActiveSessionIdFn
 
 beforeAll(async () => {
@@ -40,7 +40,7 @@ beforeAll(async () => {
   getBillsBySponsor = mod.getBillsBySponsor
   getBillsBySession = mod.getBillsBySession
   writeBills = mod.writeBills
-  searchBillsByTheme = mod.searchBillsByTheme
+  searchBills = mod.searchBills
   getActiveSessionId = mod.getActiveSessionId
 })
 
@@ -319,150 +319,101 @@ describe('bills cache', () => {
     })
   })
 
-  // ── searchBillsByTheme ───────────────────────────────────────────────────
+  // ── searchBills ──────────────────────────────────────────────────────────
 
-  describe('searchBillsByTheme', () => {
-    it('returns empty array when cache is empty', () => {
-      const result = searchBillsByTheme('leg-001', 'healthcare')
+  describe('searchBills', () => {
+    it('returns empty array when neither query nor billId provided', () => {
+      const result = searchBills({})
       expect(result).toEqual([])
     })
 
-    it('returns matching bills for the correct sponsor', () => {
-      const bill = makeBill({
-        id: 'HB0042',
-        title: 'Public Health Fund Act',
-        summary: 'Establishes insurance coverage requirements',
-        sponsorId: 'leg-001',
-      })
-      writeBills(testDb, [bill])
-      const result = searchBillsByTheme('leg-001', 'healthcare')
+    it('returns empty array when query is empty string', () => {
+      const result = searchBills({ query: '' })
+      expect(result).toEqual([])
+    })
+
+    it('returns empty array when billId is empty string', () => {
+      const result = searchBills({ billId: '' })
+      expect(result).toEqual([])
+    })
+
+    it('query only — FTS5 path, returns matching bills without sponsor filter', () => {
+      writeBills(testDb, [
+        makeBill({ id: 'HB0042', title: 'Healthcare Reform Act', summary: 'Improves health coverage', sponsorId: 'leg-001' }),
+        makeBill({ id: 'HB0043', title: 'Transportation Fund', summary: 'Road improvements', sponsorId: 'leg-002' }),
+      ])
+
+      const result = searchBills({ query: 'healthcare' })
       expect(result).toHaveLength(1)
       expect(result[0]?.id).toBe('HB0042')
     })
 
-    it('does not return bills for a different sponsor', () => {
-      const bill = makeBill({
-        id: 'HB0042',
-        summary: 'Establishes insurance coverage requirements',
-        sponsorId: 'leg-001',
-      })
-      writeBills(testDb, [bill])
-      const result = searchBillsByTheme('leg-002', 'healthcare')
+    it('query + sponsorId — filtered FTS5 returns only matching sponsor bills', () => {
+      writeBills(testDb, [
+        makeBill({ id: 'HB0042', title: 'Healthcare Reform Act', summary: 'Improves health coverage', sponsorId: 'leg-001' }),
+        makeBill({ id: 'HB0043', title: 'Health Fund Act', summary: 'Another health bill', sponsorId: 'leg-002' }),
+      ])
+
+      const result = searchBills({ query: 'health', sponsorId: 'leg-001' })
+      expect(result).toHaveLength(1)
+      expect(result[0]?.id).toBe('HB0042')
+      expect(result[0]?.sponsorId).toBe('leg-001')
+    })
+
+    it('billId only — returns bills sorted newest session first', () => {
+      writeBills(testDb, [
+        makeBill({ id: 'HB0001', session: '2024GS' }),
+        makeBill({ id: 'HB0001', session: '2026GS' }),
+        makeBill({ id: 'HB0001', session: '2025GS' }),
+      ])
+
+      const result = searchBills({ billId: 'HB0001' })
+      expect(result).toHaveLength(3)
+      expect(result[0]?.session).toBe('2026GS')
+      expect(result[1]?.session).toBe('2025GS')
+      expect(result[2]?.session).toBe('2024GS')
+    })
+
+    it('billId + session — session-scoped lookup returns only matching session', () => {
+      writeBills(testDb, [
+        makeBill({ id: 'HB0001', session: '2025GS' }),
+        makeBill({ id: 'HB0001', session: '2026GS' }),
+      ])
+
+      const result = searchBills({ billId: 'HB0001', session: '2025GS' })
+      expect(result).toHaveLength(1)
+      expect(result[0]?.session).toBe('2025GS')
+    })
+
+    it('billId not found — returns empty array', () => {
+      const result = searchBills({ billId: 'HB9999' })
       expect(result).toEqual([])
     })
 
-    it('canonical theme expands to synonyms — healthcare matches insurance in summary', () => {
-      const bill = makeBill({
-        id: 'HB0010',
-        title: 'Budget Act',
-        summary: 'This bill covers insurance premiums for state employees',
-        sponsorId: 'leg-001',
-      })
-      writeBills(testDb, [bill])
-      const result = searchBillsByTheme('leg-001', 'healthcare')
-      expect(result).toHaveLength(1)
-      expect(result[0]?.id).toBe('HB0010')
+    it('malformed FTS5 query returns empty array without throwing', () => {
+      expect(searchBills({ query: 'OR' }).length).toBe(0)
+      expect(searchBills({ query: '"unclosed' }).length).toBe(0)
+      expect(searchBills({ query: '*' }).length).toBe(0)
     })
 
-    it('synonym input expands to full category — insurance matches health in title', () => {
-      const bill = makeBill({
-        id: 'HB0011',
-        title: 'Public health fund',
-        summary: 'A summary about public services',
-        sponsorId: 'leg-001',
-      })
-      writeBills(testDb, [bill])
-      const result = searchBillsByTheme('leg-001', 'insurance')
-      expect(result).toHaveLength(1)
-      expect(result[0]?.id).toBe('HB0011')
+    it('applies default limit of 5 when not specified', () => {
+      const bills = Array.from({ length: 8 }, (_, i) =>
+        makeBill({ id: `HB000${i}`, title: `Health Bill ${i}`, summary: 'Healthcare reform' })
+      )
+      writeBills(testDb, bills)
+
+      const result = searchBills({ query: 'health' })
+      expect(result.length).toBeLessThanOrEqual(5)
     })
 
-    it('synonym input is case-insensitive — Medicaid matches prescription in summary', () => {
-      const bill = makeBill({
-        id: 'HB0012',
-        title: 'Drug Coverage Act',
-        summary: 'Expands prescription drug coverage for low-income residents',
-        sponsorId: 'leg-001',
-      })
-      writeBills(testDb, [bill])
-      const result = searchBillsByTheme('leg-001', 'Medicaid')
-      expect(result).toHaveLength(1)
-      expect(result[0]?.id).toBe('HB0012')
-    })
+    it('respects custom limit — returns no more than specified limit', () => {
+      const bills = Array.from({ length: 8 }, (_, i) =>
+        makeBill({ id: `HB00${i}0`, title: `Health Bill ${i}`, summary: 'Healthcare reform' })
+      )
+      writeBills(testDb, bills)
 
-    it('education synonyms — education matches school in title', () => {
-      const bill = makeBill({
-        id: 'HB0013',
-        title: 'School funding reform',
-        summary: 'Reforms state funding for public schools',
-        sponsorId: 'leg-001',
-      })
-      writeBills(testDb, [bill])
-      const result = searchBillsByTheme('leg-001', 'education')
-      expect(result).toHaveLength(1)
-      expect(result[0]?.id).toBe('HB0013')
-    })
-
-    it('unrecognized theme uses raw term — transportation matches transportation in summary', () => {
-      const bill = makeBill({
-        id: 'HB0014',
-        title: 'Infrastructure Act',
-        summary: 'Funds public transportation improvements statewide',
-        sponsorId: 'leg-001',
-      })
-      writeBills(testDb, [bill])
-      const result = searchBillsByTheme('leg-001', 'transportation')
-      expect(result).toHaveLength(1)
-      expect(result[0]?.id).toBe('HB0014')
-    })
-
-    it.each([
-      ['housing', 'rent', 'Affordable rent assistance program'],
-      ['redistricting', 'gerrymandering', 'Anti-gerrymandering transparency act'],
-      ['environment', 'water', 'Clean water protection standards'],
-      ['taxes', 'fiscal', 'Fiscal responsibility and budget reform'],
-    ])(
-      'theme %s matches synonym %s in title/summary',
-      (theme, _synonym, titleText) => {
-        writeBills(testDb, [
-          makeBill({ id: 'HB9999', title: titleText, sponsorId: 'leg-001' }),
-        ])
-        const result = searchBillsByTheme('leg-001', theme)
-        expect(result.length).toBeGreaterThan(0)
-      },
-    )
-
-    it('empty string theme returns empty array without throwing', () => {
-      expect(searchBillsByTheme('leg-001', '').length).toBe(0)
-    })
-
-    it('whitespace-only theme returns empty array without throwing', () => {
-      expect(searchBillsByTheme('leg-001', '   ').length).toBe(0)
-    })
-
-    it('malformed FTS5 input returns empty array instead of throwing', () => {
-      expect(searchBillsByTheme('leg-001', 'OR').length).toBe(0)
-      expect(searchBillsByTheme('leg-001', '"unclosed').length).toBe(0)
-      expect(searchBillsByTheme('leg-001', '*').length).toBe(0)
-    })
-
-    it('returns only bills matching theme, not all sponsor bills', () => {
-      const healthcareBill = makeBill({
-        id: 'HB0015',
-        title: 'Health Coverage Act',
-        summary: 'Expands Medicaid coverage',
-        sponsorId: 'leg-001',
-      })
-      const transportBill = makeBill({
-        id: 'HB0016',
-        title: 'Transit Funding Act',
-        summary: 'Funds public transportation improvements',
-        sponsorId: 'leg-001',
-      })
-      writeBills(testDb, [healthcareBill, transportBill])
-      const result = searchBillsByTheme('leg-001', 'healthcare')
-      expect(result).toHaveLength(1)
-      expect(result[0]?.id).toBe('HB0015')
+      const result = searchBills({ query: 'health', limit: 3 })
+      expect(result.length).toBeLessThanOrEqual(3)
     })
   })
 
