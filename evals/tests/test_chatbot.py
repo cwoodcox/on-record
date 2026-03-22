@@ -257,20 +257,15 @@ async def test_429_retry_backoff():
             mock_resp.raise_for_status = MagicMock()
         return mock_resp
 
-    mock_inner = MagicMock()
-    mock_inner.post = AsyncMock(side_effect=mock_post)
-    mock_ctx = MagicMock()
-    mock_ctx.__aenter__ = AsyncMock(return_value=mock_inner)
-    mock_ctx.__aexit__ = AsyncMock(return_value=False)
-
     mock_sleep = AsyncMock()
-    with patch("mcp_client.httpx.AsyncClient", return_value=mock_ctx):
-        with patch("mcp_client.asyncio.sleep", mock_sleep):
-            client = McpHttpClient()
-            client._session_id = "test-session"
-            result = await client.call_tool(
-                "lookup_legislator", {"street": "1 Main St", "zone": "SLC"}
-            )
+    with patch("mcp_client.asyncio.sleep", mock_sleep):
+        client = McpHttpClient()
+        client._session_id = "test-session"
+        client._http = MagicMock()
+        client._http.post = AsyncMock(side_effect=mock_post)
+        result = await client.call_tool(
+            "lookup_legislator", {"street": "1 Main St", "zone": "SLC"}
+        )
 
     assert result == "tool-result-ok"
     assert call_count == 4
@@ -286,20 +281,15 @@ async def test_429_exhausted():
         mock_resp.status_code = 429
         return mock_resp
 
-    mock_inner = MagicMock()
-    mock_inner.post = AsyncMock(side_effect=always_429)
-    mock_ctx = MagicMock()
-    mock_ctx.__aenter__ = AsyncMock(return_value=mock_inner)
-    mock_ctx.__aexit__ = AsyncMock(return_value=False)
-
-    with patch("mcp_client.httpx.AsyncClient", return_value=mock_ctx):
-        with patch("mcp_client.asyncio.sleep", AsyncMock()):
-            client = McpHttpClient()
-            client._session_id = "test-session"
-            with pytest.raises(RuntimeError) as exc_info:
-                await client.call_tool(
-                    "lookup_legislator", {"street": "1 Main St", "zone": "SLC"}
-                )
+    with patch("mcp_client.asyncio.sleep", AsyncMock()):
+        client = McpHttpClient()
+        client._session_id = "test-session"
+        client._http = MagicMock()
+        client._http.post = AsyncMock(side_effect=always_429)
+        with pytest.raises(RuntimeError) as exc_info:
+            await client.call_tool(
+                "lookup_legislator", {"street": "1 Main St", "zone": "SLC"}
+            )
 
     assert "MCP rate limit exceeded" in str(exc_info.value)
 

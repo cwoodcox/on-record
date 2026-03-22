@@ -9,18 +9,25 @@ import httpx
 class McpHttpClient:
     """Async HTTP client for the on-record MCP server (StreamableHTTP transport).
 
-    Each instance represents one MCP session. After construction, call
+    Each instance represents one MCP session backed by a single
+    ``httpx.AsyncClient`` for connection pooling.  After construction, call
     ``await client.initialize()`` before any ``call_tool()`` invocations.
+    Call ``await client.close()`` when the session is no longer needed.
     """
 
     def __init__(self, base_url: str = "http://localhost:3001") -> None:
         self._base_url = base_url.rstrip("/")
         self._session_id: str = ""
         self._request_counter: int = 0
+        self._http = httpx.AsyncClient()
 
     def _next_id(self) -> int:
         self._request_counter += 1
         return self._request_counter
+
+    async def close(self) -> None:
+        """Close the underlying HTTP client and release connection pool resources."""
+        await self._http.aclose()
 
     async def initialize(self) -> None:
         """Send MCP initialize + initialized notification; capture server session ID.
@@ -41,19 +48,18 @@ class McpHttpClient:
             "id": self._next_id(),
         }
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    f"{self._base_url}/mcp",
-                    json=init_payload,
-                    timeout=10.0,
+            response = await self._http.post(
+                f"{self._base_url}/mcp",
+                json=init_payload,
+                timeout=10.0,
+            )
+            if response.status_code >= 400:
+                raise RuntimeError(
+                    f"MCP initialize failed: HTTP {response.status_code}"
                 )
-                if response.status_code >= 400:
-                    raise RuntimeError(
-                        f"MCP initialize failed: HTTP {response.status_code}"
-                    )
-                server_session_id = response.headers.get("mcp-session-id")
-                if server_session_id:
-                    self._session_id = server_session_id
+            server_session_id = response.headers.get("mcp-session-id")
+            if server_session_id:
+                self._session_id = server_session_id
         except httpx.TimeoutException as exc:
             raise RuntimeError(f"MCP initialize timed out: {exc}") from exc
         except httpx.ConnectError as exc:
@@ -78,13 +84,12 @@ class McpHttpClient:
             headers["mcp-session-id"] = self._session_id
 
         try:
-            async with httpx.AsyncClient() as client:
-                await client.post(
-                    f"{self._base_url}/mcp",
-                    json=notification,
-                    headers=headers,
-                    timeout=10.0,
-                )
+            await self._http.post(
+                f"{self._base_url}/mcp",
+                json=notification,
+                headers=headers,
+                timeout=10.0,
+            )
         except (httpx.HTTPStatusError, httpx.TimeoutException, httpx.ConnectError):
             # Notifications are fire-and-forget; errors are non-fatal
             pass
@@ -97,7 +102,8 @@ class McpHttpClient:
             arguments: Tool input arguments dict.
 
         Returns:
-            Tool result text string from the first content block.
+            Tool result text string from the first content block, or the
+            JSON-RPC error message if the server returned an error object.
 
         Raises:
             RuntimeError: If all 4 attempts receive HTTP 429 (rate limited).
@@ -119,13 +125,12 @@ class McpHttpClient:
             if delay:
                 await asyncio.sleep(delay)
 
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    f"{self._base_url}/mcp",
-                    json=payload,
-                    headers=headers,
-                    timeout=30.0,
-                )
+            response = await self._http.post(
+                f"{self._base_url}/mcp",
+                json=payload,
+                headers=headers,
+                timeout=30.0,
+            )
 
             if response.status_code == 429:
                 last_exc = RuntimeError(
@@ -135,6 +140,12 @@ class McpHttpClient:
 
             response.raise_for_status()
             result = response.json()
+
+            # JSON-RPC error response — surface the error message
+            if "error" in result:
+                error = result["error"]
+                return f"JSON-RPC error {error.get('code', '?')}: {error.get('message', 'unknown')}"
+
             content_blocks = result.get("result", {}).get("content", [])
             return content_blocks[0]["text"] if content_blocks else ""
 
