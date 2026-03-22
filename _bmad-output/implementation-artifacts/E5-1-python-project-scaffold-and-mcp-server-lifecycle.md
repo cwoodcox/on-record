@@ -1,6 +1,6 @@
 # Story E5-1: Python Project Scaffold and MCP Server Lifecycle
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -239,6 +239,17 @@ Not modified:
 - MCP server entry point: [`apps/mcp-server/src/index.ts`] — startup sequence, `/health` endpoint (line 171)
 - MCP server env schema: [`apps/mcp-server/src/env.ts`] — `PORT`, `UTAH_LEGISLATURE_API_KEY`, `UGRC_API_KEY`
 - DeepEval deepdive research: [`_bmad-output/planning-artifacts/research/technical-deepeval-conversationsimulator-research-2026-03-21.md`]
+
+## Review Findings
+
+Code review completed 2026-03-22. All four AI-flagged issues were addressed during the review cycle:
+
+- **[High] JSON body validation in health poll** — `server.py` now validates both `status` and `service` fields before accepting the server as healthy; non-JSON responses are caught and treated as unhealthy.
+- **[High] Hatchling project config** — `pyproject.toml` corrected with explicit `[tool.hatch.build.targets.wheel]` section to support flat `evals/` layout.
+- **[Medium] Invalid JSON test case** — `test_server_lifecycle.py` includes a test for health check responses with valid HTTP 200 but non-JSON body.
+- **[Medium] Exception narrowing in health poll loop** — `server.py` catches `httpx.HTTPError` and `ValueError` specifically rather than bare `except`.
+
+No additional issues found. All AC met. Story approved.
 
 ## Dev Agent Record
 
