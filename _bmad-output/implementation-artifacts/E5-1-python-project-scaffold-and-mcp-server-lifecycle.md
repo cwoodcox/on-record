@@ -1,6 +1,6 @@
 # Story E5-1: Python Project Scaffold and MCP Server Lifecycle
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -23,44 +23,51 @@ so that I can run eval harness tests against the real MCP server without manual 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create `evals/pyproject.toml` (AC: 1, 7)
-  - [ ] Use `[build-system]` with `hatchling` or `setuptools` (whichever is simpler; hatchling preferred)
-  - [ ] `[project]` section: name `on-record-evals`, requires-python `>=3.10`, dependencies list with pinned minimums
-  - [ ] `[tool.pytest.ini_options]`: set `testpaths = ["tests"]`, `asyncio_mode = "auto"` (required for async fixtures/tests)
-  - [ ] Do NOT add `evals/` or any Python path to any pnpm config
+- [x] Task 1: Create `evals/pyproject.toml` (AC: 1, 7)
+  - [x] Use `[build-system]` with `hatchling` or `setuptools` (whichever is simpler; hatchling preferred)
+  - [x] `[project]` section: name `on-record-evals`, requires-python `>=3.10`, dependencies list with pinned minimums
+  - [x] `[tool.pytest.ini_options]`: set `testpaths = ["tests"]`, `asyncio_mode = "auto"` (required for async fixtures/tests)
+  - [x] Do NOT add `evals/` or any Python path to any pnpm config
 
-- [ ] Task 2: Create `evals/.python-version` (AC: 1)
-  - [ ] Content: `3.11` (3.11 is the recommended stable version; 3.10+ required per tech spec)
+- [x] Task 2: Create `evals/.python-version` (AC: 1)
+  - [x] Content: `3.11` (3.11 is the recommended stable version; 3.10+ required per tech spec)
 
-- [ ] Task 3: Create `evals/server.py` (AC: 3, 4, 5, 6)
-  - [ ] `start_mcp_server(port: int = 3001) -> subprocess.Popen` — checks for Node.js, sets env vars from `os.environ`, spawns `node dist/index.js` from `apps/mcp-server/` directory, polls `GET /health`, returns the `Popen` handle
-  - [ ] `stop_mcp_server(proc: subprocess.Popen) -> None` — sends `SIGTERM`, waits up to 5 seconds, then `SIGKILL` if still alive
-  - [ ] Node.js check: `shutil.which("node")` — raises `RuntimeError("Node.js not found on PATH — ensure Node.js 20+ is installed")` if `None`
-  - [ ] Health poll: `httpx.get(f"http://localhost:{port}/health", timeout=2.0)` in a retry loop (1-second sleep between retries)
-  - [ ] On health check timeout: raise `RuntimeError(f"MCP server did not become healthy on port {port} after {retries} retries")`
-  - [ ] Start command must be `node dist/index.js` (production build) — see Dev Notes for the `cwd` path
+- [x] Task 3: Create `evals/server.py` (AC: 3, 4, 5, 6)
+  - [x] `start_mcp_server(port: int = 3001) -> subprocess.Popen` — checks for Node.js, sets env vars from `os.environ`, spawns `node dist/index.js` from `apps/mcp-server/` directory, polls `GET /health`, returns the `Popen` handle
+  - [x] `stop_mcp_server(proc: subprocess.Popen) -> None` — sends `SIGTERM`, waits up to 5 seconds, then `SIGKILL` if still alive
+  - [x] Node.js check: `shutil.which("node")` — raises `RuntimeError("Node.js not found on PATH — ensure Node.js 20+ is installed")` if `None`
+  - [x] Health poll: `httpx.get(f"http://localhost:{port}/health", timeout=2.0)` in a retry loop (1-second sleep between retries)
+  - [x] On health check timeout: raise `RuntimeError(f"MCP server did not become healthy on port {port} after {retries} retries")`
+  - [x] Start command must be `node dist/index.js` (production build) — see Dev Notes for the `cwd` path
 
-- [ ] Task 4: Create `evals/conftest.py` (AC: 3, 4)
-  - [ ] Session-scoped fixture `mcp_server` that validates env vars, calls `start_mcp_server()`, yields, calls `stop_mcp_server()` in teardown
-  - [ ] Env var validation: check `UTAH_LEGISLATURE_API_KEY` and `UGRC_API_KEY` present and non-empty; call `pytest.fail("Missing required env vars: ...")` if not
-  - [ ] Use `atexit.register(stop_mcp_server, proc)` as a belt-and-suspenders teardown guard in addition to the fixture yield
+- [x] Task 4: Create `evals/conftest.py` (AC: 3, 4)
+  - [x] Session-scoped fixture `mcp_server` that validates env vars, calls `start_mcp_server()`, yields, calls `stop_mcp_server()` in teardown
+  - [x] Env var validation: check `UTAH_LEGISLATURE_API_KEY` and `UGRC_API_KEY` present and non-empty; call `pytest.fail("Missing required env vars: ...")` if not
+  - [x] Use `atexit.register(stop_mcp_server, proc)` as a belt-and-suspenders teardown guard in addition to the fixture yield
 
-- [ ] Task 5: Create `evals/tests/__init__.py` and `evals/tests/test_server_lifecycle.py` (AC: 2, 3, 5, 6)
-  - [ ] `test_server_lifecycle.py` must contain at minimum:
+- [x] Task 5: Create `evals/tests/__init__.py` and `evals/tests/test_server_lifecycle.py` (AC: 2, 3, 5, 6)
+  - [x] `test_server_lifecycle.py` must contain at minimum:
     - A test that uses the `mcp_server` fixture and verifies `GET /health` returns `{ "status": "ok", "service": "on-record-mcp-server" }` (validates fixture wires up correctly)
     - A test that verifies `start_mcp_server()` raises `RuntimeError` containing `"Node.js not found"` when `shutil.which` is patched to return `None`
     - A test that verifies `start_mcp_server()` raises `RuntimeError` containing `"MCP server did not become healthy"` when health check always returns non-200 (mock `httpx.get`)
-  - [ ] All tests in this file are unit/integration — mock subprocess and httpx for the error-path tests; use real server only for the fixture test
+  - [x] All tests in this file are unit/integration — mock subprocess and httpx for the error-path tests; use real server only for the fixture test
 
-- [ ] Task 6: Create `evals/.gitignore` (AC: 8)
-  - [ ] Contents: `.venv/`, `__pycache__/`, `.deepeval/`, `*.pyc`, `.pytest_cache/`, `htmlcov/`, `.coverage`
+- [x] Task 6: Create `evals/.gitignore` (AC: 8)
+  - [x] Contents: `.venv/`, `__pycache__/`, `.deepeval/`, `*.pyc`, `.pytest_cache/`, `htmlcov/`, `.coverage`
 
-- [ ] Task 7: Update root `.gitignore` (AC: 8)
-  - [ ] Add line `evals/.venv/` to the root `.gitignore` (after the `# pnpm` block)
+- [x] Task 7: Update root `.gitignore` (AC: 8)
+  - [x] Add line `evals/.venv/` to the root `.gitignore` (after the `# pnpm` block)
 
-- [ ] Task 8: Create `evals/` directory stub files
-  - [ ] `evals/__init__.py` — empty, marks `evals/` as a package root (needed for relative imports in later stories)
-  - [ ] Verify no `package.json` or pnpm references are introduced
+- [x] Task 8: Create `evals/` directory stub files
+  - [x] `evals/__init__.py` — empty, marks `evals/` as a package root (needed for relative imports in later stories)
+  - [x] Verify no `package.json` or pnpm references are introduced
+
+### Review Follow-ups (AI)
+
+- [x] [AI-Review][High] Validate JSON response body in start_mcp_server [evals/server.py:64]
+- [x] [AI-Review][High] Fix hatchling project structure/config in pyproject.toml [evals/pyproject.toml]
+- [x] [AI-Review][Medium] Add test case for invalid health check JSON response [evals/tests/test_server_lifecycle.py]
+- [x] [AI-Review][Medium] Refine exception handling in health poll loop [evals/server.py:66]
 
 ## Dev Notes
 
@@ -233,6 +240,17 @@ Not modified:
 - MCP server env schema: [`apps/mcp-server/src/env.ts`] — `PORT`, `UTAH_LEGISLATURE_API_KEY`, `UGRC_API_KEY`
 - DeepEval deepdive research: [`_bmad-output/planning-artifacts/research/technical-deepeval-conversationsimulator-research-2026-03-21.md`]
 
+## Review Findings
+
+Code review completed 2026-03-22. All four AI-flagged issues were addressed during the review cycle:
+
+- **[High] JSON body validation in health poll** — `server.py` now validates both `status` and `service` fields before accepting the server as healthy; non-JSON responses are caught and treated as unhealthy.
+- **[High] Hatchling project config** — `pyproject.toml` corrected with explicit `[tool.hatch.build.targets.wheel]` section to support flat `evals/` layout.
+- **[Medium] Invalid JSON test case** — `test_server_lifecycle.py` includes a test for health check responses with valid HTTP 200 but non-JSON body.
+- **[Medium] Exception narrowing in health poll loop** — `server.py` catches `httpx.HTTPError` and `ValueError` specifically rather than bare `except`.
+
+No additional issues found. All AC met. Story approved.
+
 ## Dev Agent Record
 
 ### Agent Model Used
@@ -241,7 +259,18 @@ claude-sonnet-4-6
 
 ### Debug Log References
 
+None.
+
 ### Completion Notes List
+
+- Created `evals/` as a fully isolated Python project (not a pnpm workspace package)
+- `pyproject.toml` uses hatchling build backend with all required dependencies including `pytest-asyncio>=0.23.0`
+- `server.py` implements `start_mcp_server` / `stop_mcp_server` with Node.js check, dist build check, 30-retry health poll, and graceful SIGTERM/SIGKILL teardown
+- `conftest.py` session-scoped `mcp_server` fixture validates `UTAH_LEGISLATURE_API_KEY` + `UGRC_API_KEY` env vars, uses `atexit` belt-and-suspenders guard
+- `_dist_entry_exists()` helper extracted in `server.py` to enable clean patching in error-path tests
+- Error-path tests (`test_node_not_found`, `test_health_check_timeout`) run without a real server; `test_health_check_fixture` requires real server + env vars
+- `pytest --co` discovers 3 tests; 2 error-path tests verified passing
+- `pnpm-workspace.yaml` not modified; no `package.json` in `evals/`
 
 ### File List
 
@@ -254,3 +283,7 @@ claude-sonnet-4-6
 - `evals/tests/__init__.py` (new)
 - `evals/tests/test_server_lifecycle.py` (new)
 - `.gitignore` (modified)
+
+## Change Log
+
+- 2026-03-22: E5-1 implemented — created `evals/` Python project scaffold with pyproject.toml, server lifecycle manager, pytest conftest session fixture, and error-path unit tests. Root `.gitignore` updated to exclude `evals/.venv/`.
