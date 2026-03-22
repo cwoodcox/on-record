@@ -124,3 +124,13 @@ development_status:
   8-2-local-development-setup-verification: backlog
   8-3-public-repository-issue-tracker-and-contributing-guide: backlog
   epic-8-retrospective: optional
+
+  # ─── Epic E5: Automated Conversation Eval Harness ───────────────────────────
+  epic-e5: backlog
+  e5-1-python-project-scaffold-and-mcp-server-lifecycle: backlog
+  e5-2-mcp-http-client-and-model-callback: backlog
+  e5-3-manual-test-cases-to-validate-metrics: backlog
+  e5-4-conversational-golden-scenarios: backlog
+  e5-5-complete-metrics-suite: backlog
+  e5-6-simulated-conversations-and-first-eval-run: backlog
+  epic-e5-retrospective: optional

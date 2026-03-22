@@ -21,7 +21,7 @@ code_patterns:
   - 'MCPToolCall tracking: populate mcp_tools_called on Turn objects for built-in MCP metrics'
   - 'ConversationalGolden defines persona scenarios (Deb, Marcus) with expected_outcome'
   - 'model_callback: Claude API call → tool_use → HTTP POST to MCP → MCPToolCall → return Turn'
-  - 'Built-in metrics: MCPTaskCompletionMetric, KnowledgeRetentionMetric, ConversationCompletenessMetric'
+  - 'Built-in metrics: MultiTurnMCPUseMetric, MCPTaskCompletionMetric, KnowledgeRetentionMetric, ConversationCompletenessMetric'
   - 'Custom metrics: ConversationalGEval with evaluation_steps for domain-specific rubrics'
   - 'AnthropicModel as judge model for DeepEval metrics'
   - 'deepeval test run (not bare pytest) for caching, parallelism, identifier tagging'
@@ -51,7 +51,7 @@ Build an all-Python conversation evaluation harness using DeepEval's `Conversati
 1. **ConversationalGolden scenarios** define personas (Deb, Marcus) with scenario descriptions, user personas, and expected outcomes.
 2. **ConversationSimulator** generates simulated user messages and drives the conversation via a `model_callback`.
 3. **model_callback** wraps the full pipeline: sends user input to Claude API with the system prompt, handles tool calls by proxying them to the local MCP server via HTTP, collects `MCPToolCall` objects, and returns the final assistant Turn.
-4. **Dual metrics** — built-in MCP metrics (`MCPTaskCompletionMetric`, `KnowledgeRetentionMetric`, `ConversationCompletenessMetric`) score structural/task quality; custom `ConversationalGEval` rubrics score domain-specific behavioral dimensions (tone, citation format, editorializing, confirmation gates, etc.).
+4. **Dual metrics** — built-in MCP metrics (`MultiTurnMCPUseMetric`, `MCPTaskCompletionMetric`, `KnowledgeRetentionMetric`, `ConversationCompletenessMetric`) score structural/task quality; custom `ConversationalGEval` rubrics score domain-specific behavioral dimensions (tone, citation format, editorializing, confirmation gates, etc.).
 
 No TypeScript orchestrator. No transcript bridge. DeepEval drives the conversation AND scores it — single tool, single language.
 
@@ -60,7 +60,7 @@ No TypeScript orchestrator. No transcript bridge. DeepEval drives the conversati
 **In Scope:**
 - DeepEval ConversationSimulator with model_callback (Variant B) wrapping Claude API + MCP HTTP proxy
 - 10–20 ConversationalGolden scenarios covering happy paths, failure modes, and edge cases
-- Built-in MCP metrics (`MCPTaskCompletionMetric`, `KnowledgeRetentionMetric`, `ConversationCompletenessMetric`)
+- Built-in MCP metrics (`MultiTurnMCPUseMetric`, `MCPTaskCompletionMetric`, `KnowledgeRetentionMetric`, `ConversationCompletenessMetric`)
 - Custom ConversationalGEval rubrics for all 11 domain-specific eval dimensions
 - MCP server lifecycle management (spawn as child process, health-check, teardown)
 - Phased adoption: manual test cases → ConversationSimulator → CI gating readiness
@@ -92,9 +92,9 @@ No TypeScript orchestrator. No transcript bridge. DeepEval drives the conversati
 
 | File | Purpose |
 | ---- | ------- |
-| `system-prompt/agent-instructions.md` | Finalized 4-step agent instructions — the system prompt under test |
-| `system-prompt/testing-notes.md` | Expected behavior guide — reference for scoring rubrics |
-| `system-prompt/test-runs.md` | Manual test run log (5 runs, 2 personas) — templates for eval scenarios |
+| `system-prompt/agent-instructions.md` | Finalized 4-step agent instructions — the system prompt under test (load from `evals/` as `../system-prompt/agent-instructions.md`) |
+| `system-prompt/testing-notes.md` | Expected behavior guide — reference for scoring rubrics (confirmed present) |
+| `system-prompt/test-runs.md` | Manual test run log (5 runs, 2 personas) — templates for eval scenarios (confirmed present) |
 | `apps/mcp-server/src/index.ts` | MCP server entry point — startup, route handlers, session management |
 | `apps/mcp-server/src/env.ts` | Environment validation schema (PORT, API keys) |
 | `apps/mcp-server/src/tools/legislator-lookup.ts` | `lookup_legislator` tool implementation |
@@ -109,8 +109,8 @@ No TypeScript orchestrator. No transcript bridge. DeepEval drives the conversati
 - **ConversationSimulator over custom orchestrator:** DeepEval handles user message generation, turn management, stopping criteria (via `expected_outcome`), and feeds directly into scoring. No glue code needed.
 - **model_callback as the integration point:** Single async function (`async def model_callback(input, turns, thread_id) -> Turn`) that wraps Claude API + MCP tool proxying. Returns `Turn` with `mcp_tools_called` populated for MCP metrics. This is the only custom code that touches the LLM.
 - **HTTP transport over stdio:** The research doc recommends `stdio` via the Python `mcp` SDK, but our MCP server only supports StreamableHTTP (Hono/`StreamableHTTPServerTransport`). We use `httpx` to POST JSON-RPC to `localhost:3001/mcp` instead. This means we manage our own JSON-RPC framing and `mcp-session-id` header, but avoids modifying the production server.
-- **MCPToolCall tracking:** Each tool invocation inside `model_callback` creates an `MCPToolCall(name, args, result)` object. These are attached to the returned `Turn.mcp_tools_called` so DeepEval's built-in `MultiTurnMCPUseMetric` and `MCPTaskCompletionMetric` can score tool usage automatically.
-- **Dual metric strategy:** Built-in MCP metrics (`MCPTaskCompletionMetric`, `KnowledgeRetentionMetric`, `ConversationCompletenessMetric`) cover structural/task-level quality. Custom `ConversationalGEval` rubrics cover domain-specific behavioral dimensions (warm open, no-editorializing, citation format, etc.). Both layers run on every test case.
+- **MCPToolCall tracking:** Each tool invocation inside `model_callback` creates an `MCPToolCall(name, args, result)` object. These are attached to the returned `Turn.mcp_tools_called` so DeepEval's built-in `MultiTurnMCPUseMetric`, `MCPTaskCompletionMetric`, and other MCP metrics can score tool usage automatically. `MultiTurnMCPUseMetric` is a valid built-in metric (introduced in deepeval 3.7.x) that scores whether the correct MCP primitives and arguments were used across multi-turn interactions.
+- **Dual metric strategy:** Built-in MCP metrics (`MultiTurnMCPUseMetric`, `MCPTaskCompletionMetric`, `KnowledgeRetentionMetric`, `ConversationCompletenessMetric`) cover structural/task-level quality. Custom `ConversationalGEval` rubrics cover domain-specific behavioral dimensions (warm open, no-editorializing, citation format, etc.). Both layers run on every test case.
 - **Local MCP server as child process:** Python `subprocess.Popen` starts the Node server, polls `GET /health` until ready, tears down after eval run.
 - **Phased adoption (from research):** Phase 1: manual `ConversationalTestCase` with hard-coded turns to validate metrics work. Phase 2: `ConversationSimulator` with 10–20 goldens. Phase 3: CI gating via `deepeval test run`.
 - **Hyperparameters logging:** Log `{"model": "...", "system_prompt": "..."}` to `evaluate()` for regression comparison across prompt/model changes. Omit system prompt from Confident AI uploads if sensitive.
@@ -142,9 +142,10 @@ ConversationalTestCase (full transcript with tool call records)
         ↓
    ┌────┴────┐
    │ Built-in MCP metrics          │ Custom ConversationalGEval
-   │ MCPTaskCompletionMetric       │ Warm Open, No-Editorializing,
-   │ KnowledgeRetentionMetric      │ Citation Format, Confirmation Gate,
-   │ ConversationCompletenessMetric │ Validate-Before-Inform, etc.
+   │ MultiTurnMCPUseMetric         │ Warm Open, No-Editorializing,
+   │ MCPTaskCompletionMetric       │ Citation Format, Confirmation Gate,
+   │ KnowledgeRetentionMetric      │ Validate-Before-Inform, etc.
+   │ ConversationCompletenessMetric│
    └──────────────────────────────────────────────────────────┘
 ```
 
@@ -218,7 +219,7 @@ async def model_callback(input: str, turns: list[Turn], thread_id: str) -> Turn:
 
 simulator = ConversationSimulator(
     model_callback=model_callback,
-    simulator_model="gpt-4o",  # default fake-user driver (avoid echo chamber with Claude SUT)
+    simulator_model="gpt-4.1",  # default fake-user driver (avoid echo chamber with Claude SUT)
     async_mode=True,           # concurrent simulations; watch for bug #1884
 )
 test_cases = simulator.simulate(conversational_goldens=[golden], max_user_simulations=8)
@@ -263,7 +264,7 @@ metric = ConversationalGEval(
 **AC:**
 1. `cd evals && uv sync` (or `pip install -e .`) installs all dependencies including `deepeval`, `anthropic`, `httpx`, `openai` (for default `simulator_model`)
 2. `pytest --co` discovers test files without errors
-3. Server fixture starts MCP server, confirms health check passes within 10s, tears down on scope exit
+3. Server fixture starts MCP server, confirms health check passes within 30s (the server performs a blocking warm-up of legislators from an external API on startup), tears down on scope exit. The fixture polls `GET /health` with 1-second intervals up to 30 retries before failing
 4. Server fixture fails fast with clear error if `PORT`, API keys, or Node.js unavailable
 5. No pnpm workspace changes — `evals/` is isolated Python, not a pnpm package
 
@@ -272,19 +273,21 @@ metric = ConversationalGEval(
 **Goal:** Build the `model_callback` function (Variant B — returns `Turn` with `mcp_tools_called`) that ConversationSimulator calls on each turn.
 
 **Deliverables:**
-- `evals/mcp_client.py` — `McpHttpClient` class: manages `mcp-session-id` header, sends JSON-RPC requests via `httpx` to `POST /mcp`, parses responses. One client instance per `thread_id` (concurrent conversations need independent sessions).
+- `evals/mcp_client.py` — `McpHttpClient` class: generates a UUID for `mcp-session-id` on init and sends it in every request header (client-owned session ID per MCP StreamableHTTP spec), sends JSON-RPC requests via `httpx` to `POST /mcp`, parses responses. One client instance per `thread_id` (concurrent conversations need independent sessions).
 - `evals/chatbot.py` — `model_callback(input, turns, thread_id) -> Turn`: builds Claude messages from turn history, calls Claude API, handles agentic tool_use loop, collects `MCPToolCall` objects, returns final `Turn` with `mcp_tools_called`.
 - `evals/conftest.py` update — fixture providing `McpHttpClient` factory keyed by `thread_id`.
 
 **AC:**
-1. `model_callback` reads system prompt from `system-prompt/agent-instructions.md` at startup (not hardcoded)
+1. `model_callback` reads system prompt from `../system-prompt/agent-instructions.md` at startup (relative path from `evals/`; file confirmed to exist at `system-prompt/agent-instructions.md` in repo root). `system-prompt/testing-notes.md` and `system-prompt/test-runs.md` also exist and are the source material for manual test cases in E5-3
 2. `model_callback` accepts `thread_id` parameter and uses it to get/create a per-conversation `McpHttpClient` (one MCP session per conversation, as required for concurrent runs)
 3. Tool call proxying: when Claude returns `tool_use`, callback extracts tool name + args, sends to MCP server via `McpHttpClient`, creates `MCPToolCall(name, args, result)`, feeds `tool_result` back to Claude, loops until no more tool_use blocks
 4. Multi-tool handling: if Claude calls `lookup_legislator` then `search_bills` in sequence within one turn, both are proxied correctly and both appear in `mcp_tools_called`
-5. `McpHttpClient` manages session lifecycle: initializes MCP session on first call (captures `mcp-session-id` from response header), reuses session across calls within a conversation
+5. `McpHttpClient` generates a UUID for `mcp-session-id` on initialization and sends it in every request header. In MCP StreamableHTTP, the client is responsible for generating and owning the session ID — the server does not generate or return one. Each `McpHttpClient` instance (one per `thread_id`) has its own UUID, ensuring concurrent conversations use independent sessions
 6. Errors from MCP server (4xx, 5xx, timeout) are surfaced in the Turn content, not swallowed — the LLM should see the error and respond appropriately
 7. `model_callback` returns `Turn(role="assistant", content=<final text>, mcp_tools_called=[...])` — no tool_use blocks leak into the Turn content
 8. Conversation history is reconstructed from `turns` on every call (stateless callback design per research recommendation)
+9. `model_callback` filters consecutive same-role turns from the `turns` history before building the Anthropic messages list, as a workaround for ConversationSimulator bug #1884 which can generate duplicate initial user messages in async_mode
+10. If the MCP server returns a 429 response, `McpHttpClient.call_tool()` retries with exponential backoff (1s, 2s, 4s) up to 3 times before raising. This prevents concurrent eval runs from permanently failing due to transient rate limit hits
 
 #### Phase 1 — Story E5-3: Manual Test Cases to Validate Metrics
 
@@ -298,7 +301,8 @@ metric = ConversationalGEval(
 
 **AC:**
 1. At least 3 hard-coded test cases with turns from actual manual test runs (Runs 1, 2, 3)
-2. Built-in metrics (`MCPTaskCompletionMetric`, `KnowledgeRetentionMetric`, `ConversationCompletenessMetric`) are configured with initial threshold 0.5
+1a. For hard-coded test cases, `mcp_tools_called` on assistant `Turn` objects must be populated with synthetic `MCPToolCall` objects derived from the tool call blocks visible in the manual test transcripts. For example, if the transcript shows a `lookup_legislator` call with known arguments (street, zone) and result (legislator name, district), create `MCPToolCall(name="lookup_legislator", args={...}, result={...})` for that turn. This is required because built-in MCP metrics need `mcp_tools_called` to score tool usage — without it they will produce misleading zero-tool scores.
+2. Built-in metrics (`MultiTurnMCPUseMetric`, `MCPTaskCompletionMetric`, `KnowledgeRetentionMetric`, `ConversationCompletenessMetric`) are configured with initial threshold 0.5
 3. At least 3 custom ConversationalGEval metrics implemented (warm open, no-editorializing, citation format)
 4. All metrics produce scores and reasons — no crashes, no empty results
 5. Manual test case that's known-good (Run 2) passes all metrics; manual test case with known gap (Run 3 — Gemini skipped validation) shows lower score on validate-before-inform metric
@@ -318,7 +322,21 @@ metric = ConversationalGEval(
 3. `user_description` includes persona emotional state, address, and communication preferences (so the simulated user provides them naturally when prompted)
 4. Failure-mode goldens included: bad address (non-Utah), zero-result (legislator with no matching bills), scope boundary (voting record question)
 5. Goldens are importable from `evals/goldens.py` — no JSON files, pure Python for IDE support and type checking
-6. Each golden has a `tag` in `additional_metadata` for metric routing (e.g., `{"tag": "happy-path"}`, `{"tag": "zero-result"}`)
+6. Each golden has a `tag` in `additional_metadata` for metric routing. The full tag taxonomy is:
+
+| Tag | Scenario | Custom Metrics Applied |
+| --- | -------- | ---------------------- |
+| `happy-path-email` | Deb or Marcus happy path, email delivery | All 11 custom metrics |
+| `happy-path-sms` | Deb or Marcus happy path, SMS delivery | All 11 except Draft Format (email-specific length check replaced with SMS check) |
+| `bad-address` | Non-Utah or unresolvable address entered | Tool Parameter Correctness, Scope Boundary, Zero-Result Fallback |
+| `zero-result` | Legislator found but no matching bills | Zero-Result Fallback, No-Editorializing, Confirmation Gate (skips Citation Format, Draft Format) |
+| `scope-boundary` | Constituent asks about voting record | Scope Boundary, No-Editorializing (skips Draft Format, Citation Format) |
+| `confirmation-gate` | Constituent responds ambiguously ("OK", "I guess") | Confirmation Gate, Validate-Before-Inform |
+| `revision-loop` | Constituent requests a draft revision | Revision Loop, Citation Format, Draft Format, No-Editorializing |
+| `vague-concern` | Marcus-style vague concern needing redirect | Warm Open, Validate-Before-Inform, Theme Inference, Tool Parameter Correctness |
+| `multi-tool` | Conversation requires both tools in sequence | Tool Parameter Correctness, MCPTaskCompletionMetric (all built-in metrics) |
+| `formal-email` | Constituent requests formal tone email | Draft Format, Citation Format, No-Editorializing |
+| `conversational-sms` | Constituent requests conversational SMS | Draft Format, No-Editorializing |
 
 #### Phase 2 — Story E5-5: Complete Metrics Suite
 
@@ -330,10 +348,10 @@ metric = ConversationalGEval(
 
 **AC:**
 1. All 11 eval dimensions have a corresponding ConversationalGEval metric
-2. Built-in metrics (`MCPTaskCompletionMetric`, `KnowledgeRetentionMetric`, `ConversationCompletenessMetric`) run on ALL scenarios
+2. Built-in metrics (`MultiTurnMCPUseMetric`, `MCPTaskCompletionMetric`, `KnowledgeRetentionMetric`, `ConversationCompletenessMetric`) run on ALL scenarios
 3. Each custom metric has `criteria`, `evaluation_steps` (3–6 steps), and uses `AnthropicModel` as judge
 4. Initial thresholds set conservatively: 0.5 for all metrics (research recommends starting at 0.5, tightening to 0.7 once stable)
-5. `get_metrics_for_scenario()` maps scenario tags to applicable custom metrics (e.g., "zero-result" skips citation format; "scope-boundary" skips draft format)
+5. `get_metrics_for_scenario()` maps scenario tags to applicable custom metrics using the tag taxonomy table defined in Story E5-4 AC #6 (e.g., `zero-result` skips Citation Format; `scope-boundary` skips Draft Format and Citation Format; `happy-path-email` runs all 11 custom metrics)
 6. Metrics are importable and composable — tests import what they need
 
 #### Phase 2 — Story E5-6: Simulated Conversations and First Eval Run
@@ -355,8 +373,7 @@ metric = ConversationalGEval(
 6. `deepeval test run -k "deb"` runs only Deb scenarios; `-k "marcus"` runs only Marcus
 7. Hyperparameters logged: `{"model": "claude-sonnet-4-6", "system_prompt": SYSTEM_PROMPT}` for regression comparison
 8. `max_concurrent` set to 5 initially (conservative, avoid rate limits); `max_user_simulations=8`
-9. Bug #1884 workaround: filter consecutive duplicate-role turns in `model_callback` if `async_mode=True`
-10. README documents: prerequisites, env vars, how to run, how to add new scenarios/metrics, cost expectations (~$0.40–0.80/full run)
+9. README documents: prerequisites, env vars, how to run, how to add new scenarios/metrics, cost expectations (~$0.40–0.80/full run)
 
 ### Acceptance Criteria (Harness-Level)
 
@@ -364,7 +381,7 @@ metric = ConversationalGEval(
 2. **Single command run:** `cd evals && deepeval test run tests/` executes the full eval suite (server lifecycle, conversation simulation, scoring).
 3. **MCP server lifecycle:** Server starts automatically, health-checks, and tears down — no manual setup required.
 4. **model_callback fidelity:** Claude API calls use the real `agent-instructions.md` system prompt. Tool calls are proxied to the real MCP server via HTTP. `MCPToolCall` objects tracked on every Turn. No mocks in the default test path.
-5. **Dual metric coverage:** Built-in MCP metrics (`MCPTaskCompletionMetric`, `KnowledgeRetentionMetric`, `ConversationCompletenessMetric`) + all 11 custom ConversationalGEval rubrics. Each happy-path scenario evaluated by both layers.
+5. **Dual metric coverage:** Built-in MCP metrics (`MultiTurnMCPUseMetric`, `MCPTaskCompletionMetric`, `KnowledgeRetentionMetric`, `ConversationCompletenessMetric`) + all 11 custom ConversationalGEval rubrics. Each happy-path scenario evaluated by both layers.
 6. **Pass rate:** Happy path scenarios (Deb email, Marcus SMS) pass all applicable metrics at their defined thresholds on 4 of 5 runs — matching the manual testing standard.
 7. **Extensibility:** Adding a new scenario = adding a ConversationalGolden + tagging it. Adding a new metric = adding a definition + updating `get_metrics_for_scenario()`. No framework changes needed.
 8. **No monorepo pollution:** `evals/` doesn't affect `pnpm install`, `pnpm build`, or `pnpm test` in the main workspace.
@@ -375,7 +392,7 @@ metric = ConversationalGEval(
 ### Dependencies
 
 **Python (entire harness):**
-- `deepeval>=1.0.0` — ConversationSimulator + ConversationalGEval + MCP metrics + dashboard
+- `deepeval>=3.7.0` — minimum version that ships ConversationSimulator with MCPToolCall tracking, MultiTurnMCPUseMetric, MCPTaskCompletionMetric, AnthropicModel judge, and built-in MCP metrics (confirmed via PyPI and third-party registry snapshots; 3.7.0 is the earliest confirmed version containing all required components)
 - `anthropic>=0.29.0` — Claude API client (model_callback SUT) + AnthropicModel judge for DeepEval metrics
 - `openai` — required for default `simulator_model` (GPT-4.1 drives fake user turns)
 - `httpx>=0.28.0` — async HTTP client for MCP server tool call proxying (StreamableHTTP)
@@ -413,8 +430,8 @@ The eval harness IS the testing strategy — it replaces the manual test protoco
 - Prior research doc covers DeepEval, promptfoo, and custom approaches — DeepEval selected for this phase.
 - Deep-dive research doc (`technical-deepeval-conversationsimulator-research-2026-03-21.md`) is the authoritative reference for implementation details, API signatures, and risk mitigations.
 - **HTTP vs stdio transport:** Research recommends stdio via Python `mcp` SDK, but our server only supports StreamableHTTP. We use `httpx` with JSON-RPC framing and `mcp-session-id` header management. This is more work than `session.call_tool()` but avoids modifying the production server.
-- **model_callback signature ambiguity:** Research identified two variants in DeepEval docs. We use Variant B (`input, turns, thread_id -> Turn`) for MCPToolCall tracking. Verify exact parameter names against deepeval source at implementation time.
-- **Known bug #1884:** ConversationSimulator may generate two initial user messages when `async_mode=True`. Workaround: filter consecutive same-role turns in `model_callback`.
+- **model_callback signature (confirmed):** DeepEval source (confirmed via docs and PyPI v3.7+) uses `async def model_callback(input: str, turns: list[Turn], thread_id: str) -> Turn`. All three parameters are required when using Variant B for MCPToolCall tracking. The `input` parameter receives the current user message string; `turns` is the prior conversation history as `List[Turn]`; `thread_id` is a string identifying the concurrent conversation for session isolation.
+- **Known bug #1884:** ConversationSimulator may generate two initial user messages when `async_mode=True`. Workaround is specified in Story E5-2 AC #9: filter consecutive same-role turns in `model_callback` before building the Anthropic messages list.
 - **Simulator model:** Default GPT-4.1 avoids echo chamber with Claude SUT. Can switch to Anthropic but research warns against same-model SUT + simulator.
 - **Rate limits:** MCP server rate limit (60 req/min) and Anthropic API tier limits both relevant. Set `max_concurrent=5` initially; MCP rate limit shouldn't be hit with sequential tool calls per conversation.
 - **Cost:** ~$0.40–0.80 per full run (20 goldens, 6 turns). Use `-c` cache flag and `max_user_simulations=3` during dev to reduce costs.
