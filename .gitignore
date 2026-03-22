@@ -29,6 +29,9 @@ build/
 # pnpm
 .pnpm-store/
 
+# evals Python venv
+evals/.venv/
+
 # Test artifacts
 coverage/
 playwright-report/
