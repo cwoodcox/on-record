@@ -12,6 +12,11 @@ REPO_ROOT = pathlib.Path(__file__).parent.parent  # evals/ → repo root
 MCP_SERVER_DIR = REPO_ROOT / "apps" / "mcp-server"
 
 
+def _dist_entry_exists() -> bool:
+    """Return True if the MCP server dist entry point exists."""
+    return (MCP_SERVER_DIR / "dist" / "index.js").exists()
+
+
 def start_mcp_server(port: int = 3001) -> subprocess.Popen:
     """Start the MCP server and wait for it to become healthy.
 
@@ -30,8 +35,7 @@ def start_mcp_server(port: int = 3001) -> subprocess.Popen:
             "Node.js not found on PATH — ensure Node.js 20+ is installed"
         )
 
-    dist_entry = MCP_SERVER_DIR / "dist" / "index.js"
-    if not dist_entry.exists():
+    if not _dist_entry_exists():
         raise RuntimeError(
             f"MCP server not built — run 'pnpm build' from {MCP_SERVER_DIR}"
         )
