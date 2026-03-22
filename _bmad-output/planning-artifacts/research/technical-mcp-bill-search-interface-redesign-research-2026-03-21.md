@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3, 4, 5]
+stepsCompleted: [1, 2, 3, 4, 5, 6]
 inputDocuments: []
 workflowType: 'research'
 lastStep: 1
@@ -22,7 +22,11 @@ source_verification: true
 
 ## Research Overview
 
-[Research overview and methodology will be appended here]
+This document is the output of a structured 6-step technical research workflow examining how to redesign the `search_bills` MCP tool in the on-record application. The research covers MCP tool interface design best practices, SQLite FTS5 query patterns, TypeScript cache layer architecture, and migration strategies for the on-record codebase.
+
+The core finding is that the current `search_bills` tool has two correctable design problems: it requires a `legislatorId` parameter (preventing general bill discovery), and it uses a hard-coded `THEME_QUERIES` expansion map (an enumeration anti-pattern that constrains LLM reasoning). Both problems are solvable within the existing technology stack — no new dependencies, no schema changes, no infrastructure changes. The fix is additive optional parameters at the Zod schema level, a function decomposition in the cache layer, and a type contract update in `packages/types`.
+
+See the **Research Synthesis** section at the end of this document for the executive summary, key decisions, and complete implementation roadmap.
 
 ---
 
@@ -565,3 +569,78 @@ No changes to the technology stack. The existing stack (TypeScript, Zod, better-
 | Tool description contains no enumerated categories | ✅ Code review checklist |
 | All Vitest tests pass | ✅ CI green |
 | `packages/types` compiles without errors across workspace | ✅ `pnpm build` clean |
+
+---
+
+## Research Synthesis
+
+### Executive Summary
+
+The `search_bills` MCP tool requires a targeted redesign to remove two design flaws that were introduced during initial implementation and are now explicitly flagged in CLAUDE.md. The first flaw is the mandatory `legislatorId` parameter, which prevents the LLM from searching any bill unless it already knows a specific legislator — making the tool unable to answer a constituent's question like "what bills are there about housing affordability?" without first running `lookup_legislator`. The second flaw is the `THEME_QUERIES` hard-coded expansion map, which enumerates a fixed taxonomy of themes (healthcare, education, housing, etc.) in a way that causes LLMs to treat those as the only valid inputs, contradicting CLAUDE.md's explicit rule against enumerating valid values in tool descriptions.
+
+Both flaws are correctable with a focused refactor that stays entirely within the existing technology stack. The redesigned tool accepts an optional `query` (freeform FTS5 topic search), an optional `billId` (direct bill number lookup), and an optional `sponsorId` filter. The FTS5 query is passed through directly without expansion — simpler, more capable, and LLM-friendly. No new dependencies, no SQLite schema changes, no infrastructure changes. The change is a single implementable story.
+
+MCP community best practices (confirmed by the Nov 2025 MCP spec, the Feb 2026 arXiv paper on tool description smells, and Arcade.dev's 54 MCP tool patterns) validate this direction: atomic tools with optional filters and freeform descriptions outperform tools with enumerated parameters and required identifiers. The agent story for this tool should be: "Given a constituent's concern, search for relevant bills — optionally filtered to a specific legislator." That story requires `query` to be the primary input, with `sponsorId` as a secondary filter, not a gating requirement.
+
+**Key Technical Findings:**
+
+- FTS5 already supports optional SQL filters cleanly via conditional `AND b.sponsor_id = ?` — no schema change needed
+- Bill ID lookup is a separate query path (direct `WHERE id = ?`) that can be dispatched from the same tool entry point
+- The `THEME_QUERIES` map removal simplifies both implementation and tests — freeform strings pass directly to FTS5
+- `SearchBillsResult.legislatorId` should become optional (backward-compatible `field?: type` change)
+- `LIMIT` should move from TypeScript `.slice(5)` into SQL `LIMIT ?` — correctness improvement
+- Zod version (v3 vs v4) must be verified before implementation — known SDK incompatibility risk
+
+**Technical Recommendations:**
+
+1. Implement `searchBills(params: SearchBillsParams)` with two internal query modes; keep `searchBillsByTheme` temporarily during transition
+2. Make all tool parameters optional (Zod `.optional()`), with at-least-one validation in the handler
+3. Remove `THEME_QUERIES` map entirely — pass `query` directly to FTS5 MATCH
+4. Make `SearchBillsResult.legislatorId` optional in `packages/types/`, mark `@deprecated` with JSDoc
+5. Rewrite tool description to describe intent (freeform search, optional sponsor filter) without enumerating categories
+
+### Table of Contents
+
+1. [Technical Research Scope Confirmation](#technical-research-scope-confirmation)
+2. [Technology Stack Analysis](#technology-stack-analysis) — MCP SDK, Zod schemas, SQLite FTS5, better-sqlite3
+3. [Integration Patterns Analysis](#integration-patterns-analysis) — Tool↔cache interface, query mode dispatch, dynamic WHERE construction, type contract, test boundary
+4. [Architectural Patterns and Design](#architectural-patterns-and-design) — System layers, function decomposition, FTS5 content table, migration phases
+5. [Implementation Approaches and Technology Adoption](#implementation-approaches-and-technology-adoption) — Adoption strategy, file deliverables, test coverage matrix, risk table
+6. [Technical Research Recommendations](#technical-research-recommendations) — Implementation roadmap, stack recommendations, success metrics
+
+### Technical Research Conclusion
+
+#### Summary of Key Technical Findings
+
+| Area | Finding |
+|---|---|
+| MCP tool design | Optional parameters with freeform descriptions; no enumerated categories |
+| FTS5 query patterns | Conditional WHERE clauses; pass query directly; BM25 JOIN pattern preserved |
+| Cache layer | Decompose into `searchBills(params)` with two private query-mode helpers |
+| Type contract | `SearchBillsResult.legislatorId` → optional; `SearchBillsParams` new internal type |
+| Testing | Tool layer: `vi.mock` at module boundary; cache layer: `:memory:` SQLite with schema seed |
+| Migration | Additive optional params; coexist old/new functions during transition; 4-phase cleanup |
+| Risk | Zod v3/v4 mismatch is highest-probability risk; verify with `pnpm why zod` first |
+
+#### Strategic Technical Impact
+
+This redesign unlocks a key use case that the current tool blocks: general legislative content discovery. A constituent asking "what bills are about water rights?" or "is there a bill numbered SB0112?" can now be answered directly, without requiring a prior legislator lookup. The LLM gains the flexibility to use the tool as a first-pass discovery mechanism, not just as a sponsor-scoped filter.
+
+The removal of `THEME_QUERIES` also removes ongoing maintenance burden — new themes, synonyms, and topic areas no longer require code changes.
+
+#### Next Steps
+
+This research supports creating a **story** using `bmad-bmm-create-story` with the following inputs:
+- Epic: Bill search and discovery capability improvements
+- AC derived from the test coverage matrix in the Implementation Approaches section
+- Error key phrases for `toContain` assertions to be specified in the story AC
+- File deliverables: `cache/bills.ts`, `tools/search-bills.ts`, `packages/types/index.ts`, system prompt file
+
+---
+
+**Research Completion Date:** 2026-03-22
+**Research Period:** 2026-03-21 to 2026-03-22
+**Source Verification:** All technical claims cited with current sources
+**Confidence Level:** High — findings grounded in existing codebase analysis + verified against current MCP spec, SQLite FTS5 docs, and TypeScript community practices
+
+_This technical research document provides the evidence base for specifying and implementing the `search_bills` tool redesign story in the on-record project._
