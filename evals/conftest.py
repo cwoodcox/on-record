@@ -46,8 +46,14 @@ def mcp_client_factory(mcp_server):
     Yields:
         Callable ``(thread_id: str) -> Awaitable[McpHttpClient]``
     """
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        pytest.fail("Missing required env var: ANTHROPIC_API_KEY")
+    provider = os.environ.get("EVAL_LLM_PROVIDER", "openai").lower()
+    key_map = {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY"}
+    required_key = key_map.get(provider, f"{provider.upper()}_API_KEY")
+    if not os.environ.get(required_key):
+        pytest.fail(
+            f"Missing required env var: {required_key} "
+            f"(EVAL_LLM_PROVIDER={provider})"
+        )
 
     from chatbot import get_or_create_client
 

@@ -1,20 +1,25 @@
-"""Chatbot bridge: wires Claude API ↔ MCP server for DeepEval ConversationSimulator."""
+"""Chatbot bridge: wires LLM provider + MCP server for DeepEval ConversationSimulator.
+
+Provider selection is controlled by EVAL_LLM_PROVIDER env var (default: "openai").
+Model name is controlled by EVAL_LLM_MODEL env var (default depends on provider).
+"""
 
 import os
 import pathlib
 
-import anthropic
-from deepeval.test_case import MCPToolCall, Turn
-from mcp.types import CallToolResult, TextContent
+from deepeval.test_case import Turn
 
 from mcp_client import McpHttpClient
+from providers import get_provider
+from providers.base import LLMProvider
 
 REPO_ROOT = pathlib.Path(__file__).parent.parent
 SYSTEM_PROMPT = (REPO_ROOT / "system-prompt" / "agent-instructions.md").read_text()
 
-# Hardcoded Anthropic tool schemas derived from production MCP tool registrations.
+# Hardcoded tool schemas derived from production MCP tool registrations.
 # Do NOT fetch dynamically — schemas are stable and dynamic fetching requires a
 # live server at import time.
+# Canonical format: name, description, input_schema (provider-agnostic JSON Schema).
 MCP_TOOL_SCHEMAS = [
     {
         "name": "lookup_legislator",
@@ -66,8 +71,16 @@ MCP_TOOL_SCHEMAS = [
     },
 ]
 
-_anthropic = anthropic.Anthropic()  # uses ANTHROPIC_API_KEY from env
+_provider: LLMProvider | None = None
 _clients: dict[str, McpHttpClient] = {}
+
+
+def _get_provider() -> LLMProvider:
+    """Return the module-level provider, creating it on first use."""
+    global _provider
+    if _provider is None:
+        _provider = get_provider(SYSTEM_PROMPT, MCP_TOOL_SCHEMAS)
+    return _provider
 
 
 async def get_or_create_client(thread_id: str, port: int = 3001) -> McpHttpClient:
@@ -96,7 +109,7 @@ def _filter_consecutive_same_role(turns: list[Turn]) -> list[Turn]:
 
 
 async def model_callback(input: str, turns: list[Turn], thread_id: str) -> Turn:
-    """DeepEval model_callback: drives the Claude ↔ MCP agentic loop for one simulator turn.
+    """DeepEval model_callback: drives the LLM + MCP agentic loop for one simulator turn.
 
     Args:
         input: The latest user message from the ConversationSimulator.
@@ -110,7 +123,7 @@ async def model_callback(input: str, turns: list[Turn], thread_id: str) -> Turn:
     try:
         mcp_client = await get_or_create_client(thread_id, port=port)
     except Exception as exc:
-        # AC6: surface initialization errors in Turn.content, don't crash the simulator
+        # Surface initialization errors in Turn.content, don't crash the simulator
         return Turn(
             role="assistant",
             content=f"MCP server connection failed: {type(exc).__name__}: {exc}",
@@ -118,66 +131,19 @@ async def model_callback(input: str, turns: list[Turn], thread_id: str) -> Turn:
         )
 
     # Bug #1884: ConversationSimulator (async_mode=True) may produce consecutive
-    # same-role turns on the first call. Anthropic API rejects these.
-    # We append the current user input BEFORE filtering so the filter also
-    # collapses any collision between the last history turn and the new input.
+    # same-role turns on the first call. Filter them before passing to the provider.
     all_turns = list(turns) + [Turn(role="user", content=input)]
     filtered_turns = _filter_consecutive_same_role(all_turns)
-    messages: list[dict] = [
-        {"role": t.role, "content": t.content} for t in filtered_turns
-    ]
 
-    mcp_calls: list[MCPToolCall] = []
+    # Remove the current input from filtered turns — the provider will add it back
+    # as part of its message formatting.
+    current_input_turn = filtered_turns.pop()
+    current_input_text = current_input_turn.content
 
-    while True:
-        response = _anthropic.messages.create(
-            model="claude-sonnet-4-6",
-            system=SYSTEM_PROMPT,
-            messages=messages,
-            tools=MCP_TOOL_SCHEMAS,  # type: ignore[arg-type]
-            max_tokens=2048,
-        )
-
-        if response.stop_reason == "end_turn":
-            final_text = next(
-                (b.text for b in response.content if b.type == "text"), ""
-            )
-            break
-
-        # Process ALL tool_use blocks in this response before re-querying Claude.
-        # The assistant message is appended once; each tool result is a separate
-        # tool_result content block in a single "user" message (Anthropic format).
-        tool_result_blocks: list[dict] = []
-        for block in response.content:
-            if block.type == "tool_use":
-                is_error = False
-                try:
-                    result = await mcp_client.call_tool(block.name, block.input)
-                    result_text = str(result)
-                except Exception as exc:
-                    result_text = f"Tool error: {exc}"
-                    is_error = True
-
-                call_tool_result = CallToolResult(
-                    content=[TextContent(type="text", text=result_text)],
-                    isError=is_error,
-                )
-                mcp_calls.append(
-                    MCPToolCall(
-                        name=block.name,
-                        args=block.input,
-                        result=call_tool_result,
-                    )
-                )
-                tool_result_blocks.append({
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": result_text,
-                })
-
-        if tool_result_blocks:
-            messages.append({"role": "assistant", "content": response.content})
-            messages.append({"role": "user", "content": tool_result_blocks})
+    provider = _get_provider()
+    final_text, mcp_calls = await provider.run_agentic_loop(
+        filtered_turns, current_input_text, mcp_client
+    )
 
     return Turn(
         role="assistant",
