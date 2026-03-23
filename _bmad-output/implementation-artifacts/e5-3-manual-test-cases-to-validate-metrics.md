@@ -1,6 +1,6 @@
 # Story E5.3: Manual Test Cases to Validate Metrics
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -26,30 +26,30 @@ so that I can validate the eval stack (metrics scoring, test structure, `deepeva
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create `evals/metrics.py` (AC: 2, 3)
-  - [ ] Import built-in metrics: `from deepeval.metrics import MultiTurnMCPUseMetric, MCPTaskCompletionMetric, KnowledgeRetentionMetric, ConversationCompletenessMetric`
-  - [ ] Import judge model: `from deepeval.models import AnthropicModel`
-  - [ ] Define `_judge = AnthropicModel(model="claude-sonnet-4-6", temperature=0)` module-level
-  - [ ] Define `BUILT_IN_METRICS` list: all 4 built-in metrics at `threshold=0.5`
-  - [ ] Define `WARM_OPEN` (`ConversationalGEval`) — see Dev Notes for criteria + evaluation_steps
-  - [ ] Define `VALIDATE_BEFORE_INFORM` (`ConversationalGEval`) — see Dev Notes
-  - [ ] Define `NO_EDITORIALIZING` (`ConversationalGEval`) — see Dev Notes
-  - [ ] Define `CITATION_FORMAT` (`ConversationalGEval`) — see Dev Notes
-  - [ ] Define `CUSTOM_METRICS` list: `[WARM_OPEN, VALIDATE_BEFORE_INFORM, NO_EDITORIALIZING, CITATION_FORMAT]`
-  - [ ] Define `ALL_METRICS = BUILT_IN_METRICS + CUSTOM_METRICS`
-  - [ ] Export all metric objects and lists at module level
+- [x] Task 1: Create `evals/metrics.py` (AC: 2, 3)
+  - [x] Import built-in metrics: `from deepeval.metrics import MultiTurnMCPUseMetric, MCPTaskCompletionMetric, KnowledgeRetentionMetric, ConversationCompletenessMetric`
+  - [x] Import judge model: `from deepeval.models import AnthropicModel`
+  - [x] Define `_judge = AnthropicModel(model="claude-sonnet-4-6", temperature=0)` module-level
+  - [x] Define `BUILT_IN_METRICS` list: all 4 built-in metrics at `threshold=0.5`
+  - [x] Define `WARM_OPEN` (`ConversationalGEval`) — see Dev Notes for criteria + evaluation_steps
+  - [x] Define `VALIDATE_BEFORE_INFORM` (`ConversationalGEval`) — see Dev Notes
+  - [x] Define `NO_EDITORIALIZING` (`ConversationalGEval`) — see Dev Notes
+  - [x] Define `CITATION_FORMAT` (`ConversationalGEval`) — see Dev Notes
+  - [x] Define `CUSTOM_METRICS` list: `[WARM_OPEN, VALIDATE_BEFORE_INFORM, NO_EDITORIALIZING, CITATION_FORMAT]`
+  - [x] Define `ALL_METRICS = BUILT_IN_METRICS + CUSTOM_METRICS`
+  - [x] Export all metric objects and lists at module level
 
-- [ ] Task 2: Create `evals/tests/test_manual_cases.py` (AC: 1, 1a, 4, 5, 6)
-  - [ ] Import: `ConversationalTestCase, Turn, MCPToolCall` from `deepeval.test_case`; `mcp.types`; `json`; `assert_test` from `deepeval`; all metrics from `metrics`
-  - [ ] Add module-level skip guard: `pytestmark = pytest.mark.skipif(not os.environ.get("ANTHROPIC_API_KEY"), reason="ANTHROPIC_API_KEY required")`
-  - [ ] Define `_make_lookup_result(payload: dict) -> mcp.types.CallToolResult` helper (wraps dict as `TextContent`)
-  - [ ] Define `_make_search_result(payload: dict) -> mcp.types.CallToolResult` helper
-  - [ ] Construct `TEST_CASE_DEB_EDUCATION`: Deb/Herriman/Gemini conversation (from conversation 1.txt) — partial happy path, zero-result fallback on direct theme, HB0568 found via "education" search, bill selection via acknowledgment — see Dev Notes for full turn sequence and MCPToolCall data
-  - [ ] Construct `TEST_CASE_MARCUS_HOUSING`: Marcus/Draper/Gemini conversation (from conversation 2.txt) — full happy path: housing bill HB0068 found after multi-search, SMS draft generated, revision applied — the **known-good** test case — see Dev Notes for full turn sequence and MCPToolCall data
-  - [ ] Construct `TEST_CASE_DEB_VALIDATE_SKIP`: Synthetic Deb conversation modeled on test-runs.md Run 3 behavioral gap — agent skips empathetic acknowledgment and pivots directly to address solicitation — the **known-gap** test case — see Dev Notes for turn sequence
-  - [ ] Define `test_deb_education()`: runs `TEST_CASE_DEB_EDUCATION` against `BUILT_IN_METRICS + [WARM_OPEN, CITATION_FORMAT]`
-  - [ ] Define `test_marcus_housing_happy_path()`: runs `TEST_CASE_MARCUS_HOUSING` against `ALL_METRICS`
-  - [ ] Define `test_deb_validate_skip()`: runs `TEST_CASE_DEB_VALIDATE_SKIP` against `[VALIDATE_BEFORE_INFORM]`; verify this scores lower than Marcus on `ValidateBeforeInform`
+- [x] Task 2: Create `evals/tests/test_manual_cases.py` (AC: 1, 1a, 4, 5, 6)
+  - [x] Import: `ConversationalTestCase, Turn, MCPToolCall` from `deepeval.test_case`; `mcp.types`; `json`; `assert_test` from `deepeval`; all metrics from `metrics`
+  - [x] Add module-level skip guard: `pytestmark = pytest.mark.skipif(not os.environ.get("ANTHROPIC_API_KEY"), reason="ANTHROPIC_API_KEY required")`
+  - [x] Define `_make_lookup_result(payload: dict) -> mcp.types.CallToolResult` helper (wraps dict as `TextContent`)
+  - [x] Define `_make_search_result(payload: dict) -> mcp.types.CallToolResult` helper
+  - [x] Construct `TEST_CASE_DEB_EDUCATION`: Deb/Herriman/Gemini conversation (from conversation 1.txt) — partial happy path, zero-result fallback on direct theme, HB0568 found via "education" search, bill selection via acknowledgment — see Dev Notes for full turn sequence and MCPToolCall data
+  - [x] Construct `TEST_CASE_MARCUS_HOUSING`: Marcus/Draper/Gemini conversation (from conversation 2.txt) — full happy path: housing bill HB0068 found after multi-search, SMS draft generated, revision applied — the **known-good** test case — see Dev Notes for full turn sequence and MCPToolCall data
+  - [x] Construct `TEST_CASE_DEB_VALIDATE_SKIP`: Synthetic Deb conversation modeled on test-runs.md Run 3 behavioral gap — agent skips empathetic acknowledgment and pivots directly to address solicitation — the **known-gap** test case — see Dev Notes for turn sequence
+  - [x] Define `test_deb_education()`: runs `TEST_CASE_DEB_EDUCATION` against `BUILT_IN_METRICS + [WARM_OPEN, CITATION_FORMAT]`
+  - [x] Define `test_marcus_housing_happy_path()`: runs `TEST_CASE_MARCUS_HOUSING` against `ALL_METRICS`
+  - [x] Define `test_deb_validate_skip()`: runs `TEST_CASE_DEB_VALIDATE_SKIP` against `[VALIDATE_BEFORE_INFORM]`; verify this scores lower than Marcus on `ValidateBeforeInform`
 
 ## Dev Notes
 
@@ -514,6 +514,18 @@ claude-sonnet-4-6
 
 ### Debug Log References
 
+- `AnthropicModel` eagerly builds the Anthropic client at `__init__` time (calls `require_secret_api_key`). Module-level instantiation in `metrics.py` therefore requires `ANTHROPIC_API_KEY` at import time. Resolved by using `pytest.skip(allow_module_level=True)` as the FIRST statement in `test_manual_cases.py` (before the `from metrics import ...` line), so the entire module is skipped cleanly in CI when the key is absent. `pytestmark` is also present for documentation, though it applies per-test rather than preventing the import.
+- `deepeval test run` (not bare `pytest`) required for correct caching and output. Tests use `assert_test()` per spec.
+
 ### Completion Notes List
 
+- Created `evals/metrics.py`: 4 built-in DeepEval MCP metrics (`MultiTurnMCPUseMetric`, `MCPTaskCompletionMetric`, `KnowledgeRetentionMetric`, `ConversationCompletenessMetric`) + 4 custom `ConversationalGEval` metrics (`WarmOpen`, `ValidateBeforeInform`, `NoEditorializing`, `CitationFormat`). All custom metrics use `AnthropicModel(model="claude-sonnet-4-6", temperature=0)` as judge, threshold 0.5. Exports `BUILT_IN_METRICS`, `CUSTOM_METRICS`, `ALL_METRICS`, and individual metric objects.
+- Created `evals/tests/test_manual_cases.py`: 3 `ConversationalTestCase` objects from manual transcripts (conversations 1 & 2) and synthetic Run 3 gap case. All `MCPToolCall.result` values typed as `mcp.types.CallToolResult` (AC1a). Module-level skip guard (`pytest.skip(allow_module_level=True)`) prevents import failure in CI when `ANTHROPIC_API_KEY` absent. 3 test functions using `assert_test()` for `deepeval test run` compatibility.
+- 23 existing non-integration tests pass; no regressions. `test_manual_cases.py` skips cleanly without API key.
+
 ### File List
+
+- `evals/metrics.py` (new)
+- `evals/tests/test_manual_cases.py` (new)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified — status transitions)
+- `_bmad-output/implementation-artifacts/e5-3-manual-test-cases-to-validate-metrics.md` (modified — task checkboxes, Dev Agent Record, status)
