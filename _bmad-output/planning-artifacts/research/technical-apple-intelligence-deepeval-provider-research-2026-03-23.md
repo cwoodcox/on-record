@@ -382,3 +382,171 @@ test_cases = simulator.simulate(goldens=goldens, max_turns=10)
 _Source: [DeepEval — Conversation Simulator](https://deepeval.com/docs/conversation-simulator)_
 _Source: [DeepEval — Chatbot Evaluation Quickstart](https://deepeval.com/docs/getting-started-chatbots)_
 _Source: [python-apple-fm-sdk — Basic Usage](https://apple.github.io/python-apple-fm-sdk/basic_usage.html)_
+
+---
+
+## Architectural Patterns
+
+### ConversationSimulator API Reference (Confirmed)
+
+**Constructor:**
+
+| Parameter | Type | Default | Notes |
+|---|---|---|---|
+| `model_callback` | `async (input, turns?, thread_id?) → Turn` | required | Your chatbot under test |
+| `simulator_model` | `str` or `DeepEvalBaseLLM` | `"gpt-4.1"` | The judge/user-simulator LLM |
+| `async_mode` | `bool` | `True` | Concurrent conversation simulation |
+| `max_concurrent` | `int` | `100` | Max parallel conversations |
+
+**`simulate()` method:**
+
+| Parameter | Type | Default | Notes |
+|---|---|---|---|
+| `conversational_goldens` | `List[ConversationalGolden]` | required | Scenario definitions |
+| `max_user_simulations` | `int` | `10` | Max user-assistant cycles per conversation |
+
+A conversation stops early when the `expected_outcome` in a `ConversationalGolden` is reached (evaluated by `simulator_model`). If no `expected_outcome`, it runs to `max_user_simulations`.
+
+**`on_simulation_complete` hook** — fires as each `ConversationalTestCase` completes, before all simulations finish. Useful for streaming results or early abort.
+
+_Source: [DeepEval — Conversation Simulator](https://deepeval.com/docs/conversation-simulator)_
+
+---
+
+### Session Lifecycle Strategy
+
+**Decision: one `LanguageModelSession` per `thread_id`, created lazily.**
+
+Apple's `LanguageModelSession` is stateful — it maintains a Transcript of all prior turns. This maps directly to DeepEval's `thread_id` concept. The correct architecture is:
+
+```python
+_sessions: dict[str, fm.LanguageModelSession] = {}
+
+def _get_or_create_session(thread_id: str) -> fm.LanguageModelSession:
+    if thread_id not in _sessions:
+        model = fm.SystemLanguageModel()
+        _sessions[thread_id] = fm.LanguageModelSession(
+            model,
+            instructions="System prompt here..."
+        )
+    return _sessions[thread_id]
+```
+
+**Do not reconstruct context from `turns`** — the Apple session already tracks its own transcript, and reconstructing from `turns` would duplicate history and confuse the model.
+
+**Concavity:** `ConversationSimulator` defaults to `async_mode=True` with up to 100 concurrent conversations. Apple's `LanguageModelSession` can only process **one request at a time** per instance — concurrent calls to the same session raise `rateLimited`. Since each conversation has a unique `thread_id` with its own session instance, concurrency across conversations is safe. Set `max_concurrent` to a conservative value (e.g., `5`) during initial testing.
+
+---
+
+### Context Window Overflow Strategy
+
+Apple's model has a fixed **4096-token context window** per session. Long conversations will eventually overflow. Two recovery options:
+
+**Option A — Hard reset (simple, loses context):**
+```python
+except fm.ExceededContextWindowSizeError:
+    # Discard the saturated session, start fresh
+    _sessions.pop(thread_id, None)
+    session = _get_or_create_session(thread_id)
+    response = await session.respond(input)
+    return Turn(role="assistant", content=str(response))
+```
+
+**Option B — Partial preservation (complex, retains instructions + last turn):**
+Carry forward the system instructions and the most recent assistant turn into a fresh session. This requires accessing the session transcript — check whether `python-apple-fm-sdk` exposes it (Swift's `LanguageModelSession.transcript` property exists; Python binding availability TBD).
+
+**Recommendation for evaluation use:** Option A is sufficient. DeepEval's `max_user_simulations` defaults to 10 turns; at typical constituent query lengths, 4096 tokens is unlikely to be hit. Add a test assertion that verifies `len(turns) < 10` when overflow does occur.
+
+---
+
+### Guardrail Violation Strategy
+
+Apple's guardrails scan for safety policy violations and raise `GuardrailViolationError`. In evaluation context this is a signal worth capturing, not hiding.
+
+```python
+except fm.GuardrailViolationError as e:
+    # Surface the refusal as a Turn so the evaluator can score it
+    return Turn(
+        role="assistant",
+        content=f"[GUARDRAIL_VIOLATION: {e}]"
+    )
+```
+
+Evaluators like **Role Adherence** and **Conversation Completeness** will score a guardrail refusal differently from a helpful response — which is the desired behavior. It tests whether the chatbot correctly refuses inappropriate constituent queries.
+
+---
+
+### Determinism Configuration
+
+Apple's model samples by default. For reproducible eval runs, configure greedy decoding via `GenerationOptions`:
+
+```python
+# Swift API — Python SDK GenerationOptions availability TBD
+options = fm.GenerationOptions(temperature=0.0)  # greedy
+response = await session.respond(input, options=options)
+```
+
+**Check python-apple-fm-sdk docs** for whether `GenerationOptions` is exposed in the Python bindings — the Swift API has it but Python binding parity is not confirmed. If unavailable, document this as a known non-determinism source and run each scenario 3× and take the modal result.
+
+_Source: [python-apple-fm-sdk GitHub](https://github.com/apple/python-apple-fm-sdk)_
+_Source: [Apple Developer — exceededContextWindowSize](https://developer.apple.com/documentation/foundationmodels/languagemodelsession/generationerror/exceededcontextwindowsize(_:))_
+_Source: [Apple Developer Forums — guardrailViolation](https://developer.apple.com/forums/thread/792908)_
+
+---
+
+### CI/CD Strategy
+
+Apple Intelligence is macOS 26 + Apple Silicon only — it cannot run on Linux CI runners. Strategies:
+
+| Strategy | Tradeoff |
+|---|---|
+| `pytest.mark.skipif(not apple_available)` guard | Tests silently skip on Linux; no CI gate |
+| Dedicated macOS GitHub Actions runner (`macos-15-xlarge`) | Expensive; Apple Intelligence requires on-device setup beyond base runner |
+| Local-only eval harness, results committed as artifacts | Manual; breaks CI automation goal |
+| Mock callback for CI, real callback locally | CI tests the harness wiring; real evals run separately |
+
+**Recommended pattern:** ship a `APPLE_INTELLIGENCE_AVAILABLE` environment variable gate. The callback detects availability via `fm.SystemLanguageModel().is_available()` and either runs the real model or raises `pytest.skip()` with a message. This keeps tests portable without silent failures.
+
+```python
+import pytest
+import apple_fm_sdk as fm
+
+def check_apple_intelligence():
+    model = fm.SystemLanguageModel()
+    available, reason = model.is_available()
+    if not available:
+        pytest.skip(f"Apple Intelligence unavailable: {reason}")
+```
+
+---
+
+### Scenario Design for on-record
+
+`ConversationalGolden` fields for constituent services chatbot scenarios:
+
+```python
+ConversationalGolden(
+    user_description="A Utah resident concerned about a local zoning change",
+    scenario=(
+        "The constituent wants to find out which state representative "
+        "covers their address and whether any related bills are active."
+    ),
+    expected_outcome=(
+        "The chatbot correctly identifies the house and senate districts, "
+        "names the representative, and surfaces at least one relevant bill."
+    ),
+)
+```
+
+Scenario categories to cover:
+1. **Happy path** — valid address → district lookup → representative → bills
+2. **Ambiguous address** — partial address, city only, ZIP-only
+3. **Out-of-state address** — graceful decline
+4. **No active bills** — correct "nothing found" response without hallucination
+5. **Off-topic query** — guardrail / scope refusal
+6. **Multi-turn follow-up** — "who is my senator?" → "what bills are they sponsoring?"
+
+Metrics to apply: **Knowledge Retention** (does the chatbot remember the address across turns?), **Conversation Completeness** (does it actually answer the constituent's need?), **Turn Relevancy** (are responses on-topic?), **Role Adherence** (does it stay within constituent services scope?).
+
+_Source: [DeepEval — Chatbot Evaluation Quickstart](https://deepeval.com/docs/getting-started-chatbots)_
+_Source: [DeepEval — Conversation Simulator](https://deepeval.com/docs/conversation-simulator)_
