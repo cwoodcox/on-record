@@ -29,10 +29,10 @@ _judge = AnthropicModel(model="claude-sonnet-4-6", temperature=0)
 # ---------------------------------------------------------------------------
 
 BUILT_IN_METRICS = [
-    MultiTurnMCPUseMetric(threshold=0.5),
-    MCPTaskCompletionMetric(threshold=0.5),
-    KnowledgeRetentionMetric(threshold=0.5),
-    ConversationCompletenessMetric(threshold=0.5),
+    MultiTurnMCPUseMetric(threshold=0.5, model=_judge),
+    MCPTaskCompletionMetric(threshold=0.5, model=_judge),
+    KnowledgeRetentionMetric(threshold=0.5, model=_judge),
+    ConversationCompletenessMetric(threshold=0.5, model=_judge),
 ]
 
 # ---------------------------------------------------------------------------
