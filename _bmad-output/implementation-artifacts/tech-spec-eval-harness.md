@@ -10,7 +10,12 @@ files_to_modify:
   - 'evals/metrics.py (new — built-in MCP metrics + custom ConversationalGEval rubrics)'
   - 'evals/goldens.py (new — ConversationalGolden scenario definitions, 10–20 scenarios)'
   - 'evals/tests/ (new — pytest test files that run simulations + scoring)'
-  - 'evals/chatbot.py (new — model_callback wrapping Claude API + MCP tool proxying)'
+  - 'evals/chatbot.py (updated — model_callback delegating to pluggable LLMProvider)'
+  - 'evals/providers/ (new — LLMProvider base class + Anthropic and OpenAI concrete implementations)'
+  - 'evals/providers/base.py (new — LLMProvider abstract base class)'
+  - 'evals/providers/anthropic_provider.py (new — AnthropicProvider concrete implementation)'
+  - 'evals/providers/openai_provider.py (new — OpenAIProvider concrete implementation)'
+  - 'evals/providers/__init__.py (new — get_provider() factory, reads EVAL_LLM_PROVIDER env var)'
   - 'evals/mcp_client.py (new — MCP HTTP client for StreamableHTTP tool calls)'
   - 'evals/server.py (new — MCP server lifecycle: spawn, health-check, teardown)'
 code_patterns:
@@ -20,7 +25,9 @@ code_patterns:
   - 'model_callback signature: async (input, turns, thread_id) -> Turn with mcp_tools_called'
   - 'MCPToolCall tracking: populate mcp_tools_called on Turn objects for built-in MCP metrics'
   - 'ConversationalGolden defines persona scenarios (Deb, Marcus) with expected_outcome'
-  - 'model_callback: Claude API call → tool_use → HTTP POST to MCP → MCPToolCall → return Turn'
+  - 'model_callback: delegates to LLMProvider.run_agentic_loop(filtered_turns, input, mcp_client) → (final_text, mcp_calls) → Turn'
+  - 'LLMProvider strategy pattern: base class + AnthropicProvider / OpenAIProvider; selected via EVAL_LLM_PROVIDER env var (default: openai)'
+  - 'Canonical tool schemas in chatbot.py (name, description, input_schema); each provider transforms to its native API format'
   - 'Built-in metrics: MultiTurnMCPUseMetric, MCPTaskCompletionMetric, KnowledgeRetentionMetric, ConversationCompletenessMetric'
   - 'Custom metrics: ConversationalGEval with evaluation_steps for domain-specific rubrics'
   - 'AnthropicModel as judge model for DeepEval metrics'
@@ -50,7 +57,7 @@ Build an all-Python conversation evaluation harness using DeepEval's `Conversati
 
 1. **ConversationalGolden scenarios** define personas (Deb, Marcus) with scenario descriptions, user personas, and expected outcomes.
 2. **ConversationSimulator** generates simulated user messages and drives the conversation via a `model_callback`.
-3. **model_callback** wraps the full pipeline: sends user input to Claude API with the system prompt, handles tool calls by proxying them to the local MCP server via HTTP, collects `MCPToolCall` objects, and returns the final assistant Turn.
+3. **model_callback** wraps the full pipeline: delegates to a pluggable `LLMProvider` (Anthropic or OpenAI, selected via `EVAL_LLM_PROVIDER`), handles tool calls by proxying them to the local MCP server via HTTP, collects `MCPToolCall` objects, and returns the final assistant Turn.
 4. **Dual metrics** — built-in MCP metrics (`MultiTurnMCPUseMetric`, `MCPTaskCompletionMetric`, `KnowledgeRetentionMetric`, `ConversationCompletenessMetric`) score structural/task quality; custom `ConversationalGEval` rubrics score domain-specific behavioral dimensions (tone, citation format, editorializing, confirmation gates, etc.).
 
 No TypeScript orchestrator. No transcript bridge. DeepEval drives the conversation AND scores it — single tool, single language.
@@ -58,7 +65,7 @@ No TypeScript orchestrator. No transcript bridge. DeepEval drives the conversati
 ### Scope
 
 **In Scope:**
-- DeepEval ConversationSimulator with model_callback (Variant B) wrapping Claude API + MCP HTTP proxy
+- DeepEval ConversationSimulator with model_callback (Variant B) wrapping pluggable LLM provider + MCP HTTP proxy
 - 10–20 ConversationalGolden scenarios covering happy paths, failure modes, and edge cases
 - Built-in MCP metrics (`MultiTurnMCPUseMetric`, `MCPTaskCompletionMetric`, `KnowledgeRetentionMetric`, `ConversationCompletenessMetric`)
 - Custom ConversationalGEval rubrics for all 11 domain-specific eval dimensions
@@ -107,8 +114,9 @@ No TypeScript orchestrator. No transcript bridge. DeepEval drives the conversati
 
 - **All-Python architecture:** DeepEval's ConversationSimulator drives conversations AND scores them. Eliminates the TypeScript orchestrator, transcript bridge, and cross-language boundary. The MCP server is just an HTTP endpoint — Python calls it with `httpx`.
 - **ConversationSimulator over custom orchestrator:** DeepEval handles user message generation, turn management, stopping criteria (via `expected_outcome`), and feeds directly into scoring. No glue code needed.
-- **model_callback as the integration point:** Single async function (`async def model_callback(input, turns, thread_id) -> Turn`) that wraps Claude API + MCP tool proxying. Returns `Turn` with `mcp_tools_called` populated for MCP metrics. This is the only custom code that touches the LLM.
+- **model_callback as the integration point:** Single async function (`async def model_callback(input, turns, thread_id) -> Turn`) that delegates to a pluggable `LLMProvider` + MCP tool proxying. Returns `Turn` with `mcp_tools_called` populated for MCP metrics. This is the only custom code that touches the LLM.
 - **HTTP transport over stdio:** The research doc recommends `stdio` via the Python `mcp` SDK, but our MCP server only supports StreamableHTTP (Hono/`StreamableHTTPServerTransport`). We use `httpx` to POST JSON-RPC to `localhost:3001/mcp` instead. This means we manage our own JSON-RPC framing and `mcp-session-id` header, but avoids modifying the production server.
+- **Pluggable LLM provider (Strategy pattern):** `model_callback` originally hardcoded the Anthropic Claude API. A billing constraint required switching to OpenAI. Rather than a one-time swap, the implementation extracts an `LLMProvider` base class (`evals/providers/base.py`) with `AnthropicProvider` and `OpenAIProvider` concrete implementations. Provider selection is via `EVAL_LLM_PROVIDER` env var (default: `openai`); model name via `EVAL_LLM_MODEL`. `MCP_TOOL_SCHEMAS` stays in canonical format in `chatbot.py`; each provider transforms to its native format at init. `model_callback`, `_filter_consecutive_same_role`, and the MCP client pool are shared across providers. Adding a third provider (e.g., Gemini) = one new file + one factory registration in `providers/__init__.py`.
 - **MCPToolCall tracking:** Each tool invocation inside `model_callback` creates an `MCPToolCall(name, args, result)` object. These are attached to the returned `Turn.mcp_tools_called` so DeepEval's built-in `MultiTurnMCPUseMetric`, `MCPTaskCompletionMetric`, and other MCP metrics can score tool usage automatically. `MultiTurnMCPUseMetric` is a valid built-in metric (introduced in deepeval 3.7.x) that scores whether the correct MCP primitives and arguments were used across multi-turn interactions.
 - **Dual metric strategy:** Built-in MCP metrics (`MultiTurnMCPUseMetric`, `MCPTaskCompletionMetric`, `KnowledgeRetentionMetric`, `ConversationCompletenessMetric`) cover structural/task-level quality. Custom `ConversationalGEval` rubrics cover domain-specific behavioral dimensions (warm open, no-editorializing, citation format, etc.). Both layers run on every test case.
 - **Local MCP server as child process:** Python `subprocess.Popen` starts the Node server, polls `GET /health` until ready, tears down after eval run.
@@ -130,7 +138,10 @@ ConversationSimulator                       │
         ↓ generates user message            │
   model_callback(input, turns, thread_id)   │
         │                                   │
-        ├──→ Claude API ──→ tool_use? ──yes─┘
+        ├──→ LLM Provider ──→ tool_use/   ──yes─┘
+        │    (Anthropic or    function_call?
+        │     OpenAI; set via
+        │     EVAL_LLM_PROVIDER)
         │         ↓              │
         │    agentic loop   MCPToolCall(name, args, result)
         │         ↓              │
@@ -178,7 +189,7 @@ ConversationalTestCase (full transcript with tool call records)
 
 **ConversationSimulator + model_callback (Variant B — with MCPToolCall tracking):**
 ```python
-from deepeval.test_case import Turn, MCPToolCall
+from deepeval.test_case import Turn
 from deepeval.simulator import ConversationSimulator
 from deepeval.dataset import ConversationalGolden
 
@@ -188,39 +199,29 @@ golden = ConversationalGolden(
     user_description="Deb, a parent in Herriman UT whose daughter's school lost 3 teachers due to budget cuts.",
 )
 
+# model_callback delegates to the pluggable LLMProvider (AnthropicProvider or OpenAIProvider).
+# Provider selected via EVAL_LLM_PROVIDER env var (default: "openai").
+# Model selected via EVAL_LLM_MODEL env var (default: "gpt-4.1" for openai, "claude-sonnet-4-6" for anthropic).
 async def model_callback(input: str, turns: list[Turn], thread_id: str) -> Turn:
-    messages = build_anthropic_messages(turns)  # convert List[Turn] → Anthropic format
-    messages.append({"role": "user", "content": input})
-    mcp_calls: list[MCPToolCall] = []
-
-    # Agentic loop — handle sequential tool_use blocks
-    while True:
-        response = anthropic_client.messages.create(
-            model="claude-sonnet-4-6",
-            system=SYSTEM_PROMPT,  # loaded from agent-instructions.md
-            messages=messages,
-            tools=mcp_tool_schemas,  # from MCP server's tool definitions
-            max_tokens=2048,
-        )
-        if response.stop_reason == "end_turn":
-            final_text = next(b.text for b in response.content if b.type == "text")
-            break
-        for block in response.content:
-            if block.type == "tool_use":
-                result = await mcp_client.call_tool(block.name, block.input)  # httpx POST
-                mcp_calls.append(MCPToolCall(name=block.name, args=block.input, result=result))
-                messages.append({"role": "assistant", "content": response.content})
-                messages.append({"role": "user", "content": [
-                    {"type": "tool_result", "tool_use_id": block.id, "content": str(result)}
-                ]})
-                break
-
+    mcp_client = await get_or_create_client(thread_id)
+    filtered_turns = _filter_consecutive_same_role(list(turns))  # bug #1884 workaround
+    provider = _get_provider()  # AnthropicProvider or OpenAIProvider
+    final_text, mcp_calls = await provider.run_agentic_loop(
+        filtered_turns, input, mcp_client
+    )
     return Turn(role="assistant", content=final_text, mcp_tools_called=mcp_calls or None)
+
+# Each provider's run_agentic_loop handles its own:
+#   - Message format conversion (Turn history → Anthropic messages / OpenAI messages)
+#   - LLM API call (anthropic.messages.create / openai.chat.completions.create)
+#   - Tool response parsing (tool_use blocks / tool_calls list)
+#   - MCP proxying via McpHttpClient → MCPToolCall construction
+#   - Agentic loop until final text response
 
 simulator = ConversationSimulator(
     model_callback=model_callback,
-    simulator_model="gpt-4.1",  # default fake-user driver (avoid echo chamber with Claude SUT)
-    async_mode=True,           # concurrent simulations; watch for bug #1884
+    simulator_model="gpt-4.1",  # fake-user driver (GPT-4.1 avoids echo chamber with Claude SUT)
+    async_mode=True,            # concurrent simulations; watch for bug #1884
 )
 test_cases = simulator.simulate(conversational_goldens=[golden], max_user_simulations=8)
 ```
@@ -274,7 +275,7 @@ metric = ConversationalGEval(
 
 **Deliverables:**
 - `evals/mcp_client.py` — `McpHttpClient` class: generates a UUID for `mcp-session-id` on init and sends it in every request header (client-owned session ID per MCP StreamableHTTP spec), sends JSON-RPC requests via `httpx` to `POST /mcp`, parses responses. One client instance per `thread_id` (concurrent conversations need independent sessions).
-- `evals/chatbot.py` — `model_callback(input, turns, thread_id) -> Turn`: builds Claude messages from turn history, calls Claude API, handles agentic tool_use loop, collects `MCPToolCall` objects, returns final `Turn` with `mcp_tools_called`.
+- `evals/chatbot.py` — `model_callback(input, turns, thread_id) -> Turn`: delegates to `LLMProvider.run_agentic_loop()`, collects `MCPToolCall` objects, returns final `Turn` with `mcp_tools_called`. Provider-specific agentic loop (LLM call + tool parsing + MCP proxying) lives in `evals/providers/`.
 - `evals/conftest.py` update — fixture providing `McpHttpClient` factory keyed by `thread_id`.
 
 **AC:**
@@ -371,7 +372,7 @@ metric = ConversationalGEval(
 4. Conversation transcripts printed to stdout on failure for debugging
 5. Full eval run (2 happy-path conversations, ~8 turns each) completes in under 5 minutes
 6. `deepeval test run -k "deb"` runs only Deb scenarios; `-k "marcus"` runs only Marcus
-7. Hyperparameters logged: `{"model": "claude-sonnet-4-6", "system_prompt": SYSTEM_PROMPT}` for regression comparison
+7. Hyperparameters logged: `{"model": EVAL_LLM_MODEL, "system_prompt": SYSTEM_PROMPT}` for regression comparison (model name sourced from `EVAL_LLM_MODEL` env var)
 8. `max_concurrent` set to 5 initially (conservative, avoid rate limits); `max_user_simulations=8`
 9. README documents: prerequisites, env vars, how to run, how to add new scenarios/metrics, cost expectations (~$0.40–0.80/full run)
 
@@ -380,7 +381,7 @@ metric = ConversationalGEval(
 1. **Isolated Python:** `evals/` has its own `pyproject.toml` and virtual environment. No changes to pnpm workspace, no TypeScript in `evals/`.
 2. **Single command run:** `cd evals && deepeval test run tests/` executes the full eval suite (server lifecycle, conversation simulation, scoring).
 3. **MCP server lifecycle:** Server starts automatically, health-checks, and tears down — no manual setup required.
-4. **model_callback fidelity:** Claude API calls use the real `agent-instructions.md` system prompt. Tool calls are proxied to the real MCP server via HTTP. `MCPToolCall` objects tracked on every Turn. No mocks in the default test path.
+4. **model_callback fidelity:** LLM provider calls use the real `agent-instructions.md` system prompt (loaded at startup). Tool calls are proxied to the real MCP server via HTTP. `MCPToolCall` objects tracked on every Turn. No mocks in the default test path.
 5. **Dual metric coverage:** Built-in MCP metrics (`MultiTurnMCPUseMetric`, `MCPTaskCompletionMetric`, `KnowledgeRetentionMetric`, `ConversationCompletenessMetric`) + all 11 custom ConversationalGEval rubrics. Each happy-path scenario evaluated by both layers.
 6. **Pass rate:** Happy path scenarios (Deb email, Marcus SMS) pass all applicable metrics at their defined thresholds on 4 of 5 runs — matching the manual testing standard.
 7. **Extensibility:** Adding a new scenario = adding a ConversationalGolden + tagging it. Adding a new metric = adding a definition + updating `get_metrics_for_scenario()`. No framework changes needed.
@@ -393,16 +394,18 @@ metric = ConversationalGEval(
 
 **Python (entire harness):**
 - `deepeval>=3.7.0` — minimum version that ships ConversationSimulator with MCPToolCall tracking, MultiTurnMCPUseMetric, MCPTaskCompletionMetric, AnthropicModel judge, and built-in MCP metrics (confirmed via PyPI and third-party registry snapshots; 3.7.0 is the earliest confirmed version containing all required components)
-- `anthropic>=0.29.0` — Claude API client (model_callback SUT) + AnthropicModel judge for DeepEval metrics
-- `openai` — required for default `simulator_model` (GPT-4.1 drives fake user turns)
+- `anthropic>=0.29.0` — Anthropic SDK; used by `AnthropicProvider` (SUT when `EVAL_LLM_PROVIDER=anthropic`) and `AnthropicModel` judge for DeepEval metrics
+- `openai` — OpenAI SDK; used by `OpenAIProvider` (default SUT, `EVAL_LLM_PROVIDER=openai`) and for default `simulator_model` (GPT-4.1 drives fake user turns)
 - `httpx>=0.28.0` — async HTTP client for MCP server tool call proxying (StreamableHTTP)
 - `pydantic>=2.11.7` — data validation (DeepEval dependency)
 - `pytest>=8.0.0` — test runner (via `deepeval test run` wrapper)
 
 **Infrastructure:**
 - MCP server env vars: `UTAH_LEGISLATURE_API_KEY`, `UGRC_API_KEY`
-- `ANTHROPIC_API_KEY` — for model_callback (SUT) and AnthropicModel judge
-- `OPENAI_API_KEY` — for default `simulator_model` (GPT-4.1 fake user). Can be overridden to Anthropic but risks echo chamber.
+- `EVAL_LLM_PROVIDER` — `openai` or `anthropic` (default: `openai`). Selects the SUT LLM provider for `model_callback`.
+- `EVAL_LLM_MODEL` — model name for the SUT (default: `gpt-4.1` for openai, `claude-sonnet-4-6` for anthropic).
+- `OPENAI_API_KEY` — required when `EVAL_LLM_PROVIDER=openai` (default). Also required for `simulator_model` (GPT-4.1 fake user turns).
+- `ANTHROPIC_API_KEY` — required when `EVAL_LLM_PROVIDER=anthropic` for the SUT. Also currently required for `AnthropicModel` judge (E5-5 metrics) — see note below on judge configurability.
 - Node.js runtime for MCP server child process
 
 ### Testing Strategy
@@ -433,6 +436,8 @@ The eval harness IS the testing strategy — it replaces the manual test protoco
 - **model_callback signature (confirmed):** DeepEval source (confirmed via docs and PyPI v3.7+) uses `async def model_callback(input: str, turns: list[Turn], thread_id: str) -> Turn`. All three parameters are required when using Variant B for MCPToolCall tracking. The `input` parameter receives the current user message string; `turns` is the prior conversation history as `List[Turn]`; `thread_id` is a string identifying the concurrent conversation for session isolation.
 - **Known bug #1884:** ConversationSimulator may generate two initial user messages when `async_mode=True`. Workaround is specified in Story E5-2 AC #9: filter consecutive same-role turns in `model_callback` before building the Anthropic messages list.
 - **Simulator model:** Default GPT-4.1 avoids echo chamber with Claude SUT. Can switch to Anthropic but research warns against same-model SUT + simulator.
-- **Rate limits:** MCP server rate limit (60 req/min) and Anthropic API tier limits both relevant. Set `max_concurrent=5` initially; MCP rate limit shouldn't be hit with sequential tool calls per conversation.
+- **Rate limits:** MCP server rate limit (60 req/min) and API tier limits for whichever SUT provider is active. Set `max_concurrent=5` initially; MCP rate limit shouldn't be hit with sequential tool calls per conversation.
+- **Pluggable SUT provider:** `model_callback` delegates to `LLMProvider` (see `evals/providers/`). The SUT provider (`EVAL_LLM_PROVIDER`) is independent of the DeepEval judge — they are configured separately. The `simulator_model` (fake user) is also independent.
+- **Judge model configurability (known gap):** E5-5 metrics hardcode `AnthropicModel` as the judge. If Anthropic billing is unresolved before E5-5 starts, a correct-course pass will be needed to add judge configurability (e.g., `EVAL_JUDGE_PROVIDER` / `EVAL_JUDGE_MODEL` env vars, similar to the SUT provider pattern). Track before creating the E5-5 story.
 - **Cost:** ~$0.40–0.80 per full run (20 goldens, 6 turns). Use `-c` cache flag and `max_user_simulations=3` during dev to reduce costs.
 - **Threshold tuning:** Start all metrics at 0.5 (research recommendation). Tighten to 0.7 once scores stabilize. Never chase single-point scores — use score averaging over 2–3 runs.
