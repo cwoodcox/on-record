@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3]
+stepsCompleted: [1, 2, 3, 4, 5]
 inputDocuments: []
 workflowType: 'research'
 lastStep: 3
@@ -674,3 +674,221 @@ If Apple Intelligence SUT is desired, it warrants its own callback module (`eval
 
 _Source: [python-apple-fm-sdk — Basic Usage](https://apple.github.io/python-apple-fm-sdk/basic_usage.html)_
 _Source: [Apple Developer — Foundation Models](https://developer.apple.com/documentation/foundationmodels)_
+
+---
+
+## Implementation Approaches and Technology Adoption
+
+### Technology Adoption Strategies
+
+Apple's Foundation Models framework is **newly opened to third-party developers** as of WWDC 2025. This places the integration squarely in the "early adopter" window — high reward for moving quickly, but with the caveat that APIs, the Python SDK, and tooling are still stabilizing.
+
+The recommended adoption posture for on-record is **additive, not replacing**: the Claude-based MCP callback remains the primary production path. Apple Intelligence is introduced as a secondary, comparative evaluation path. This mirrors the broader 2025 consensus on on-device vs. cloud LLMs — hybrid routing by use case, not wholesale replacement.
+
+The Python SDK (`apple-fm-sdk`) installs via pip but requires macOS 26 + Xcode 26 to build its native extension. Treat it as a **developer-machine-only dependency** (not in production `requirements.txt`; add to a `requirements-eval.txt` or optional `[eval]` extras group).
+
+_Source: [Apple Newsroom — Foundation Models framework](https://www.apple.com/newsroom/2025/09/apples-foundation-models-framework-unlocks-new-intelligent-app-experiences/)_
+_Source: [apple/python-apple-fm-sdk](https://github.com/apple/python-apple-fm-sdk)_
+
+---
+
+### Development Workflows and Tooling
+
+**Local development machine requirements:**
+
+| Requirement | Detail |
+|---|---|
+| macOS 26 (Tahoe) | Minimum OS version |
+| Apple Silicon (M1+) | Required for on-device inference |
+| Apple Intelligence enabled | System Setting → Apple Intelligence & Siri |
+| Xcode 26+ | Required to build the Python SDK native extension |
+| Python 3.10+ | `apple-fm-sdk` minimum Python version |
+
+**Recommended dev workflow:**
+
+1. Maintain a `requirements-eval.txt` (or `pyproject.toml` optional `[eval]` group) with `apple-fm-sdk`, `deepeval`, and `pytest-asyncio`
+2. Use a dedicated `evals/` directory for all simulation code — isolated from production code
+3. Use `fm.SystemLanguageModel().is_available()` as an availability gate at module import time; if unavailable, `pytest.skip()` with a clear reason string
+4. Run `deepeval test run evals/` locally on Apple Silicon; omit from default `pnpm test` CI step
+
+The Foundation Models framework's **Xcode playground** (available in Xcode 26's new Foundation Models Playground tool) is valuable for rapid prompt iteration before encoding a system prompt in the Python callback.
+
+_Source: [Apple Developer — Foundation Models framework](https://developer.apple.com/documentation/FoundationModels)_
+_Source: [DeepEval — Getting Started](https://deepeval.com/docs/getting-started)_
+
+---
+
+### Testing and Quality Assurance
+
+**Eval test structure (pytest-compatible):**
+
+```python
+# evals/test_apple_chatbot.py
+import pytest
+from evals.apple_chatbot import apple_intelligence_callback, check_apple_intelligence
+from deepeval.conversation_simulator import ConversationSimulator
+from deepeval import evaluate
+from deepeval.metrics import KnowledgeRetentionMetric, RoleAdherenceMetric
+
+@pytest.fixture(autouse=True)
+def require_apple_intelligence():
+    check_apple_intelligence()  # pytest.skip() if unavailable
+
+@pytest.mark.asyncio
+async def test_constituent_scenarios():
+    simulator = ConversationSimulator(
+        model_callback=apple_intelligence_callback,
+        simulator_model="gpt-4.1",
+        async_mode=True,
+        max_concurrent=5,
+    )
+    test_cases = simulator.simulate(goldens=GOLDENS, max_user_simulations=10)
+    results = evaluate(
+        test_cases=test_cases,
+        metrics=[KnowledgeRetentionMetric(), RoleAdherenceMetric()],
+    )
+    assert results.confident_score >= 0.7
+```
+
+**Scenario coverage targets** (minimum viable eval set):
+
+| Category | # Goldens | Key metrics |
+|---|---|---|
+| Happy path (address → rep → bills) | 5 | Conversation Completeness, Turn Relevancy |
+| Ambiguous/partial address | 3 | Role Adherence, Knowledge Retention |
+| Out-of-state address | 2 | Role Adherence |
+| No active bills | 2 | Conversation Completeness (no hallucination) |
+| Off-topic / guardrail trigger | 3 | Role Adherence |
+| Multi-turn follow-up | 5 | Knowledge Retention |
+
+**Total: ~20 goldens** — consistent with DeepEval's recommendation to simulate from at least 20 goldens for statistical meaningfulness.
+
+_Source: [DeepEval — Conversation Simulator](https://deepeval.com/docs/conversation-simulator)_
+_Source: [DeepEval — Chatbot Evaluation Quickstart](https://deepeval.com/docs/getting-started-chatbots)_
+
+---
+
+### Deployment and Operations Practices
+
+This integration is **evaluation-only** — it does not affect production deployment. Key operational considerations:
+
+**Eval execution model:**
+- Run on-demand locally before significant prompt or system-prompt changes
+- Not gated in CI (Apple Silicon hardware not available on GitHub-hosted runners)
+- Gate with `CI` environment variable check: `pytest.mark.skipif(os.getenv("CI") == "true", reason="Apple Intelligence eval — local only")`
+
+**Result persistence:**
+- DeepEval can push results to Confident AI's cloud dashboard for historical tracking — useful for comparing Apple Intelligence vs. Claude across eval runs over time
+- Alternatively, serialize `ConversationalTestCase` results to JSON and commit as artifacts for manual diff
+
+**macOS GitHub Actions runners:**
+- `macos-15-xlarge` (Apple Silicon) is available in GitHub Actions but does not have Apple Intelligence enabled out of the box — setting it up requires OS-level configuration that is not automatable in a standard runner
+- Treat Apple Intelligence evals as a **local quality gate**, not a CI gate
+
+_Source: [pytest-evals — GitHub](https://github.com/AlmogBaku/pytest-evals)_
+_Source: [Langfuse — LLM Testing Guide](https://langfuse.com/blog/2025-10-21-testing-llm-applications)_
+
+---
+
+### Team Organization and Skills
+
+**Required skills for this integration:**
+
+| Skill | Who needs it | Notes |
+|---|---|---|
+| Python async (`asyncio`, `pytest-asyncio`) | Eval author | Callback is fully async |
+| DeepEval API (`ConversationSimulator`, metrics) | Eval author | Docs are clear; learning curve is low |
+| Apple Foundation Models concepts | Eval author | `LanguageModelSession`, `is_available()`, error types |
+| Prompt engineering | Everyone | Apple's ~3B model is instruction-following but less capable than Claude on complex tasks |
+| macOS 26 + Xcode 26 setup | Eval author's machine | One-time setup per developer machine |
+
+No new team members required. This is a single-developer addition to the existing evals module, estimated at 1–2 story points to implement the callback and initial golden set.
+
+---
+
+### Cost Optimization and Resource Management
+
+**On-device inference cost: $0.** Apple's Foundation Models framework runs entirely on-device with no API fees, no token metering, and no external network calls. This is the integration's clearest operational advantage over the Claude-based callback (which requires Anthropic API credits per eval run).
+
+**Tradeoff summary for on-record:**
+
+| Factor | Apple Intelligence (SUT) | Claude + MCP (SUT) |
+|---|---|---|
+| Inference cost | $0 | Anthropic API credits per run |
+| Eval judge cost | GPT-4.1 API (same for both) | GPT-4.1 API (same for both) |
+| Hardware dependency | Apple Silicon Mac required | Any machine with internet |
+| CI automation | Not viable (hardware gate) | Fully viable |
+| Context: tool use | No (Apple model can't call MCP) | Yes (full tool pipeline) |
+| Privacy | Fully on-device | Data sent to Anthropic API |
+
+**For high-frequency eval runs** (e.g., iterating on system prompts), the zero-cost Apple inference is a meaningful saving. For infrequent milestone evals, the Claude-based callback's CI-automation advantage outweighs the cost.
+
+_Source: [On-Device LLM or Cloud API — Medium](https://medium.com/data-science-collective/on-device-llm-or-cloud-api-a-practical-checklist-for-product-owners-and-architects-30386f00f148)_
+_Source: [Apple Newsroom — Foundation Models framework](https://www.apple.com/newsroom/2025/09/apples-foundation-models-framework-unlocks-new-intelligent-app-experiences/)_
+
+---
+
+### Risk Assessment and Mitigation
+
+| Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|
+| SDK API breaking changes (beta) | Medium | Medium | Pin `apple-fm-sdk` to a specific version; review release notes before upgrading |
+| Apple Intelligence disabled / unavailable on dev machine | Low | Low | `is_available()` guard + `pytest.skip()` — no test failure, just skip |
+| Model output quality insufficient for constituent services scenarios | Medium | Medium | Run pilot with 5 goldens before full 20-golden suite; accept that Apple's 3B model will score lower than Claude on complex multi-step tasks |
+| Eval non-determinism despite greedy sampling | Low | Low | `SamplingMode.greedy()` confirmed available; document that model version updates may change greedy output |
+| Context window overflow in long conversations | Low | Low | `ExceededContextWindowSizeError` handler with hard-reset already designed |
+| Guardrail false positives on legitimate constituent queries | Low | Medium | Capture as `[GUARDRAIL_VIOLATION: ...]` Turn; evaluate separately; refine system prompt |
+| GPT-4.1 judge cost for 20 scenarios × 10 turns = 200 evaluations | Low | Low | DeepEval caches metric results; re-runs only re-evaluate on changed test cases |
+
+_Source: [Apple Developer — Foundation Models](https://developer.apple.com/documentation/foundationmodels)_
+_Source: [Apple ML Research — Foundation Models 2025 Updates](https://machinelearning.apple.com/research/apple-foundation-models-2025-updates)_
+
+---
+
+## Technical Research Recommendations
+
+### Implementation Roadmap
+
+**Phase 1 — Setup (0.5 days):**
+- Install `apple-fm-sdk` on dev machine with macOS 26 + Xcode 26
+- Verify availability with `fm.SystemLanguageModel().is_available()`
+- Confirm `GenerationOptions(sampling=SamplingMode.greedy())` works end-to-end in a standalone script
+
+**Phase 2 — Callback module (0.5 days):**
+- Create `evals/apple_chatbot.py` with the `apple_intelligence_callback` function and `check_apple_intelligence()` fixture helper
+- Unit test the callback with a single `ConversationalGolden` (happy path)
+- Confirm session lifecycle (thread_id keying), error handling (overflow + guardrail), and greedy output
+
+**Phase 3 — Golden set (1 day):**
+- Author 20 `ConversationalGolden` instances covering the 6 scenario categories above
+- Run full simulation and inspect raw `ConversationalTestCase` outputs before adding metrics
+- Tune system prompt based on observed model behaviour
+
+**Phase 4 — Metrics + baseline (0.5 days):**
+- Apply `KnowledgeRetentionMetric`, `ConversationCompletenessMetric`, `TurnRelevancyMetric`, `RoleAdherenceMetric`
+- Record baseline scores for Apple Intelligence vs. Claude on the same goldens
+- Document findings as a reference benchmark in `evals/README.md`
+
+### Technology Stack Recommendations
+
+- **`apple-fm-sdk`** (latest stable): official Apple SDK — use in `requirements-eval.txt`, not main `requirements.txt`
+- **`deepeval`** (existing): no version changes needed — the `ConversationSimulator` API is already in use
+- **`pytest-asyncio`** (existing): callback is async; ensure `asyncio_mode = "auto"` in `pytest.ini` or `pyproject.toml`
+- **Do NOT add**: `VibeBridge`, `LiteLLM`, or any HTTP server layer — the direct SDK path is simpler and has lower failure modes
+
+### Skill Development Requirements
+
+No new skills required beyond reviewing:
+1. [python-apple-fm-sdk Basic Usage](https://apple.github.io/python-apple-fm-sdk/basic_usage.html) — 15 min read
+2. [DeepEval Conversation Simulator](https://deepeval.com/docs/conversation-simulator) — 10 min read
+3. [DeepEval Chatbot Evaluation Quickstart](https://deepeval.com/docs/getting-started-chatbots) — 10 min read
+
+### Success Metrics and KPIs
+
+| Metric | Target | Measurement |
+|---|---|---|
+| `KnowledgeRetentionMetric` score | ≥ 0.7 | DeepEval confident score across 20 goldens |
+| `RoleAdherenceMetric` score | ≥ 0.8 | Model stays in constituent services scope |
+| `ConversationCompletenessMetric` | ≥ 0.65 | Answers constituent's actual need |
+| Guardrail violation rate | < 10% on legitimate queries | Count `[GUARDRAIL_VIOLATION]` turns |
+| Apple vs. Claude delta | Documented | Comparative benchmark table in `evals/README.md` |
