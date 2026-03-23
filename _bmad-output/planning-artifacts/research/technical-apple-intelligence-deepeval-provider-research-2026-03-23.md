@@ -1,8 +1,8 @@
 ---
-stepsCompleted: [1, 2, 3, 4, 5]
+stepsCompleted: [1, 2, 3, 4, 5, 6]
 inputDocuments: []
 workflowType: 'research'
-lastStep: 3
+lastStep: 6
 research_type: 'technical'
 research_topic: 'Apple Intelligence on-device model as the chatbot under test in DeepEval conversation simulation'
 research_goals: 'Understand the interface and implementation approach for using Apple Intelligence as the chatbot under test (system being evaluated) in DeepEvals ConversationSimulator — not as the evaluation judge LLM'
@@ -12,17 +12,69 @@ web_research_enabled: true
 source_verification: true
 ---
 
-# Research Report: Technical
+# Apple Intelligence as Chatbot Under Test: Integrating On-Device Foundation Models with DeepEval's ConversationSimulator
 
 **Date:** 2026-03-23
 **Author:** Corey
-**Research Type:** technical
+**Research Type:** Technical
 
 ---
 
 ## Research Overview
 
-This report investigates the technical feasibility and implementation approach for integrating Apple Intelligence's on-device Foundation Model as a local LLM provider within the DeepEval Python evaluation framework. Research uses current web data with multi-source verification and confidence levels where noted.
+This report investigates how Apple Intelligence's on-device Foundation Model — introduced to third-party developers at WWDC 2025 — can be wired into DeepEval's `ConversationSimulator` as the **chatbot under test** (SUT) rather than as the evaluation judge. The key architectural insight uncovered during research is that this integration does not require subclassing `DeepEvalBaseLLM` at all; Apple Intelligence only needs to satisfy a single async callback interface, making the integration significantly simpler than initially scoped.
+
+The research covers the full integration surface: technology stack (Swift Foundation Models framework bridged to Python via Apple's official `python-apple-fm-sdk`), the correct `ConversationSimulator` callback pattern, session lifecycle management, error handling for context overflow and guardrail violations, determinism configuration, CI/CD constraints, and a practical implementation roadmap. It also captures a strategic framing: Apple Intelligence as SUT evaluates a fundamentally different capability than the existing Claude+MCP callback — on-device natural language quality without tool use — making it a valuable comparative benchmark rather than a replacement.
+
+All technical claims are verified against current public sources (Apple Developer Documentation, apple/python-apple-fm-sdk GitHub, DeepEval documentation). Confidence levels are noted where SDK behaviour is inferred from Swift API parity rather than confirmed Python binding documentation.
+
+---
+
+## Executive Summary
+
+Apple's Foundation Models framework, opened to third-party developers at WWDC 2025, provides a Swift-native API for on-device LLM inference on Apple Silicon devices running macOS 26+. For the on-record project, the relevant integration is using Apple Intelligence as the **chatbot under test** in DeepEval's `ConversationSimulator` — not as the evaluation judge. This distinction is critical: it eliminates the need for `DeepEvalBaseLLM` subclassing, Pydantic schema bridging, and sync/async shimming. Apple's model only needs to satisfy a single async callback that accepts a string input and returns a `Turn`.
+
+The official `python-apple-fm-sdk` (published by Apple on GitHub) provides the Python bridge. Its async `session.respond()` method maps directly to the callback interface. `GenerationOptions(sampling=SamplingMode.greedy())` is confirmed available in the Python bindings for deterministic evaluation runs. Session state maps cleanly to DeepEval's `thread_id` concept via a `dict[str, LanguageModelSession]`. The three error conditions requiring handling — context window overflow, guardrail violations, and model unavailability — all have straightforward, low-risk mitigation patterns.
+
+The integration cannot run in CI (Apple Silicon hardware gate) but is zero-cost to run locally. It evaluates a different quality dimension than the existing Claude+MCP callback: Apple's ~3B model's natural language conversational ability without tool use, versus the full production stack. The recommended posture is to ship it as a secondary comparative eval module (`evals/apple_chatbot.py`) rather than replacing the existing Claude-based callback, with a 2.5-day implementation estimate and a 20-golden scenario set targeting Knowledge Retention ≥ 0.7 and Role Adherence ≥ 0.8.
+
+**Key Technical Findings:**
+
+- Apple's `python-apple-fm-sdk` is the correct bridge — no HTTP server, no subprocess, no `DeepEvalBaseLLM` subclass required
+- `model_callback` async signature is a natural fit for the SDK's async `session.respond()` — no `asyncio.run()` shim needed
+- `SamplingMode.greedy()` confirmed available in Python bindings — deterministic evals are achievable
+- Context window is 4096 tokens; `ExceededContextWindowSizeError` must be caught and session hard-reset
+- Guardrail violations should be surfaced as `[GUARDRAIL_VIOLATION: ...]` Turn content for metric scoring
+- `max_concurrent=5` recommended (conservative) — each `LanguageModelSession` processes one request at a time
+- Apple Intelligence as SUT tests on-device NL quality only — MCP tool capabilities are **not** exercised
+
+**Technical Recommendations:**
+
+1. Create `evals/apple_chatbot.py` as a standalone callback module — isolated from production code
+2. Use `fm.SystemLanguageModel().is_available()` + `pytest.skip()` as the availability gate — never hard-fail
+3. Pin `apple-fm-sdk` version in `requirements-eval.txt` — SDK is still early and may have breaking changes
+4. Use `GenerationOptions(sampling=SamplingMode.greedy())` globally in the callback for reproducible runs
+5. Run on same 20 goldens as the Claude+MCP callback to produce a valid comparative benchmark
+
+---
+
+## Table of Contents
+
+1. [Technical Research Scope Confirmation](#technical-research-scope-confirmation)
+2. [Technology Stack Analysis](#technology-stack-analysis)
+3. [Integration Patterns Analysis](#integration-patterns-analysis)
+4. [Correct Integration Pattern: ConversationSimulator Callback](#correct-integration-pattern-conversationsimulator-callback)
+5. [Architectural Patterns](#architectural-patterns)
+6. [Open Questions Resolved](#open-questions-resolved)
+7. [Implementation Approaches and Technology Adoption](#implementation-approaches-and-technology-adoption)
+8. [Summary and Recommendations](#summary-and-recommendations)
+
+---
+
+**Research Completion Date:** 2026-03-23
+**Research Period:** Comprehensive current analysis (WWDC 2025 — March 2026)
+**Source Verification:** All technical claims cited with current sources
+**Technical Confidence Level:** High — based on multiple authoritative sources; noted exceptions where Swift API parity is assumed but not confirmed in Python bindings
 
 ---
 
