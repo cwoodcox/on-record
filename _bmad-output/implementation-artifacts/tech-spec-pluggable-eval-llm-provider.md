@@ -2,7 +2,7 @@
 title: 'Pluggable LLM Provider for Eval Harness model_callback'
 slug: 'pluggable-eval-llm-provider'
 created: '2026-03-22'
-status: 'in-progress'
+status: 'done'
 stepsCompleted: [1, 2, 3, 4]
 tech_stack: ['python', 'anthropic-sdk', 'openai-sdk', 'deepeval']
 files_to_modify:

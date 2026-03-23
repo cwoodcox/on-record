@@ -129,7 +129,7 @@ development_status:
   epic-e5: in-progress
   e5-1-python-project-scaffold-and-mcp-server-lifecycle: done
   e5-2-mcp-http-client-and-model-callback: done
-  pluggable-eval-llm-provider: in-progress
+  pluggable-eval-llm-provider: done
   e5-3-manual-test-cases-to-validate-metrics: backlog
   e5-4-conversational-golden-scenarios: backlog
   e5-5-complete-metrics-suite: backlog
