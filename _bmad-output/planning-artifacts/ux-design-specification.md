@@ -4,7 +4,7 @@ inputDocuments:
   - '_bmad-output/planning-artifacts/prd.md'
 ---
 
-# UX Design Specification write-your-legislator
+# UX Design Specification On Record
 
 **Author:** Corey
 **Date:** 2026-02-21

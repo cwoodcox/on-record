@@ -3,7 +3,7 @@
 
 ## Project Configuration
 
-- **Project**: write-your-legislator
+- **Project**: On Record
 - **User**: Corey
 - **Communication Language**: English
 - **Document Output Language**: English

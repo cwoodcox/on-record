@@ -3,7 +3,7 @@
 # Version: 6.0.4
 # Date: 2026-03-11T05:12:31.289Z
 
-project_name: write-your-legislator
+project_name: On Record
 user_skill_level: intermediate
 planning_artifacts: "{project-root}/_bmad-output/planning-artifacts"
 implementation_artifacts: "{project-root}/_bmad-output/implementation-artifacts"

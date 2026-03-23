@@ -10,7 +10,7 @@ inputDocuments:
   - '_bmad-output/planning-artifacts/architecture.md'
   - '_bmad-output/planning-artifacts/ux-design-specification.md'
 workflowType: 'epics-and-stories'
-project_name: 'write-your-legislator'
+project_name: 'On Record'
 user_name: 'Corey'
 date: '2026-02-23'
 ---
