@@ -268,7 +268,7 @@ async def test_429_retry_backoff():
     mock_sleep = AsyncMock()
     with patch("mcp_client.asyncio.sleep", mock_sleep):
         client = McpHttpClient()
-        client._session_id = "test-session"
+        client._session = MagicMock()  # mark as initialized
         client._http = MagicMock()
         client._http.post = AsyncMock(side_effect=mock_post)
         result = await client.call_tool(
@@ -291,7 +291,7 @@ async def test_429_exhausted():
 
     with patch("mcp_client.asyncio.sleep", AsyncMock()):
         client = McpHttpClient()
-        client._session_id = "test-session"
+        client._session = MagicMock()  # mark as initialized
         client._http = MagicMock()
         client._http.post = AsyncMock(side_effect=always_429)
         with pytest.raises(RuntimeError) as exc_info:

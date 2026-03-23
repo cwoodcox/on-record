@@ -79,6 +79,13 @@ async def get_or_create_client(thread_id: str, port: int = 3001) -> McpHttpClien
     return _clients[thread_id]
 
 
+async def close_all_clients() -> None:
+    """Close all active MCP clients and clear the pool."""
+    for client in _clients.values():
+        await client.close()
+    _clients.clear()
+
+
 def _filter_consecutive_same_role(turns: list[Turn]) -> list[Turn]:
     """Remove consecutive same-role turns (workaround for ConversationSimulator bug #1884)."""
     filtered: list[Turn] = []
@@ -106,7 +113,7 @@ async def model_callback(input: str, turns: list[Turn], thread_id: str) -> Turn:
         # AC6: surface initialization errors in Turn.content, don't crash the simulator
         return Turn(
             role="assistant",
-            content=f"MCP server connection failed: {exc}",
+            content=f"MCP server connection failed: {type(exc).__name__}: {exc}",
             mcp_tools_called=None,
         )
 
