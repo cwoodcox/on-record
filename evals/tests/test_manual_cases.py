@@ -15,6 +15,7 @@ import mcp.types
 import pytest
 from deepeval import assert_test
 from deepeval.test_case import ConversationalTestCase, MCPToolCall, Turn
+from deepeval.test_case.mcp import MCPServer
 
 # Skip entire module when API key is absent — must come before metrics import
 # because AnthropicModel (used in metrics.py) requires ANTHROPIC_API_KEY at init time.
@@ -46,6 +47,61 @@ def _make_search_result(payload: dict) -> mcp.types.CallToolResult:
         content=[mcp.types.TextContent(type="text", text=json.dumps(payload))],
         isError=False,
     )
+
+
+# ---------------------------------------------------------------------------
+# MCP server definition — required by MultiTurnMCPUseMetric / MCPTaskCompletionMetric
+# ---------------------------------------------------------------------------
+
+_ON_RECORD_MCP_SERVER = MCPServer(
+    server_name="on-record",
+    available_tools=[
+        mcp.types.Tool(
+            name="lookup_legislator",
+            description=(
+                "Identifies a constituent's Utah House and Senate legislators from their home address "
+                "via GIS lookup. Returns structured JSON with legislator name, chamber, district, "
+                "email, and phone contact information."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "street": {
+                        "type": "string",
+                        "description": 'Street portion only: number and street name. Example: "123 S State St"',
+                    },
+                    "zone": {
+                        "type": "string",
+                        "description": 'City name or 5-digit ZIP code. Example: "Salt Lake City" or "84111"',
+                    },
+                },
+                "required": ["street", "zone"],
+            },
+        ),
+        mcp.types.Tool(
+            name="search_bills",
+            description=(
+                "Searches bills sponsored by a Utah legislator by issue theme. Returns up to 5 bills "
+                "from the SQLite cache matching the theme and legislator. Returns structured JSON with "
+                "bill ID, title, summary, status, vote result, vote date, and session."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "legislatorId": {
+                        "type": "string",
+                        "description": 'Legislator ID from lookup_legislator output (e.g. "RRabbitt")',
+                    },
+                    "theme": {
+                        "type": "string",
+                        "description": "Freeform search term derived from the constituent's stated concern.",
+                    },
+                },
+                "required": ["legislatorId", "theme"],
+            },
+        ),
+    ],
+)
 
 
 # ---------------------------------------------------------------------------
@@ -199,7 +255,8 @@ TEST_CASE_DEB_EDUCATION = ConversationalTestCase(
             ),
             mcp_tools_called=None,
         ),
-    ]
+    ],
+    mcp_servers=[_ON_RECORD_MCP_SERVER],
 )
 
 # ---------------------------------------------------------------------------
@@ -393,7 +450,8 @@ TEST_CASE_MARCUS_HOUSING = ConversationalTestCase(
             ),
             mcp_tools_called=None,
         ),
-    ]
+    ],
+    mcp_servers=[_ON_RECORD_MCP_SERVER],
 )
 
 # ---------------------------------------------------------------------------
