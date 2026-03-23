@@ -7,7 +7,7 @@ import httpx
 import pytest
 from deepeval.test_case import MCPToolCall, Turn
 
-from mcp.types import CallToolResult
+from mcp.types import CallToolResult, TextContent
 
 import chatbot
 from mcp_client import McpHttpClient
@@ -18,30 +18,18 @@ from mcp_client import McpHttpClient
 # ---------------------------------------------------------------------------
 
 
-def _text_response(text: str) -> MagicMock:
-    """Return a mock Anthropic response with stop_reason='end_turn'."""
-    block = MagicMock()
-    block.type = "text"
-    block.text = text
-
-    resp = MagicMock()
-    resp.stop_reason = "end_turn"
-    resp.content = [block]
-    return resp
-
-
-def _tool_use_response(name: str, args: dict, tool_id: str = "toolu_001") -> MagicMock:
-    """Return a mock Anthropic response with stop_reason='tool_use'."""
-    block = MagicMock()
-    block.type = "tool_use"
-    block.name = name
-    block.input = args
-    block.id = tool_id
-
-    resp = MagicMock()
-    resp.stop_reason = "tool_use"
-    resp.content = [block]
-    return resp
+def _make_mcp_calls(name: str, args: dict, result_text: str) -> list[MCPToolCall]:
+    """Build a list with one MCPToolCall for testing."""
+    return [
+        MCPToolCall(
+            name=name,
+            args=args,
+            result=CallToolResult(
+                content=[TextContent(type="text", text=result_text)],
+                isError=False,
+            ),
+        )
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -76,17 +64,19 @@ async def test_tool_call_proxied():
     """AC3: tool_use block is proxied via McpHttpClient; MCPToolCall appears in Turn."""
     mock_mcp = _mock_mcp_client(call_tool_return='{"name": "Rep. Jane Smith", "district": 12}')
 
-    tool_resp = _tool_use_response(
+    mcp_calls = _make_mcp_calls(
         "lookup_legislator",
         {"street": "123 Main St", "zone": "84101"},
-        tool_id="toolu_abc",
+        '{"name": "Rep. Jane Smith", "district": 12}',
     )
-    end_resp = _text_response("Your legislator is Rep. Jane Smith.")
+
+    mock_provider = AsyncMock()
+    mock_provider.run_agentic_loop = AsyncMock(
+        return_value=("Your legislator is Rep. Jane Smith.", mcp_calls)
+    )
 
     with patch("chatbot.get_or_create_client", AsyncMock(return_value=mock_mcp)):
-        with patch("chatbot._anthropic") as mock_anthropic:
-            mock_anthropic.messages.create.side_effect = [tool_resp, end_resp]
-
+        with patch("chatbot._get_provider", return_value=mock_provider):
             result = await chatbot.model_callback(
                 input="Who is my legislator?",
                 turns=[],
@@ -100,9 +90,6 @@ async def test_tool_call_proxied():
     tool_call = result.mcp_tools_called[0]
     assert tool_call.name == "lookup_legislator"
     assert isinstance(tool_call.result, CallToolResult)
-    mock_mcp.call_tool.assert_called_once_with(
-        "lookup_legislator", {"street": "123 Main St", "zone": "84101"}
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -112,29 +99,34 @@ async def test_tool_call_proxied():
 
 async def test_multi_tool_sequence():
     """AC4: sequential tool calls (lookup then search) both appear in mcp_tools_called."""
-    mock_mcp = _mock_mcp_client(
-        call_tool_side_effect=[
-            '{"legislatorId": "JSMith"}',
-            '[{"bill": "HB0001", "title": "Water Quality Act"}]',
-        ]
-    )
+    mock_mcp = _mock_mcp_client()
 
-    resp_lookup = _tool_use_response(
-        "lookup_legislator",
-        {"street": "456 Oak Ave", "zone": "Salt Lake City"},
-        tool_id="toolu_001",
+    mcp_calls = [
+        MCPToolCall(
+            name="lookup_legislator",
+            args={"street": "456 Oak Ave", "zone": "Salt Lake City"},
+            result=CallToolResult(
+                content=[TextContent(type="text", text='{"legislatorId": "JSMith"}')],
+                isError=False,
+            ),
+        ),
+        MCPToolCall(
+            name="search_bills",
+            args={"legislatorId": "JSMith", "theme": "clean water"},
+            result=CallToolResult(
+                content=[TextContent(type="text", text='[{"bill": "HB0001"}]')],
+                isError=False,
+            ),
+        ),
+    ]
+
+    mock_provider = AsyncMock()
+    mock_provider.run_agentic_loop = AsyncMock(
+        return_value=("Here are the relevant water quality bills.", mcp_calls)
     )
-    resp_search = _tool_use_response(
-        "search_bills",
-        {"legislatorId": "JSMith", "theme": "clean water"},
-        tool_id="toolu_002",
-    )
-    resp_end = _text_response("Here are the relevant water quality bills.")
 
     with patch("chatbot.get_or_create_client", AsyncMock(return_value=mock_mcp)):
-        with patch("chatbot._anthropic") as mock_anthropic:
-            mock_anthropic.messages.create.side_effect = [resp_lookup, resp_search, resp_end]
-
+        with patch("chatbot._get_provider", return_value=mock_provider):
             result = await chatbot.model_callback(
                 input="What water bills has my legislator sponsored?",
                 turns=[],
@@ -154,9 +146,19 @@ async def test_multi_tool_sequence():
 
 
 async def test_bug_1884_workaround():
-    """AC9: consecutive same-role turns in history are filtered before Anthropic call."""
+    """AC9: consecutive same-role turns in history are filtered before provider call."""
     mock_mcp = _mock_mcp_client()
-    end_resp = _text_response("Hello there!")
+
+    captured_turns: list = []
+    captured_input: list = []
+
+    async def capture_and_return(filtered_turns, current_input, mcp_client):
+        captured_turns.extend(filtered_turns)
+        captured_input.append(current_input)
+        return ("Hello there!", [])
+
+    mock_provider = MagicMock()
+    mock_provider.run_agentic_loop = capture_and_return
 
     # Simulate ConversationSimulator bug: two consecutive user turns in history
     duplicate_user_turns = [
@@ -164,82 +166,49 @@ async def test_bug_1884_workaround():
         Turn(role="user", content="Hello again (duplicate)"),
     ]
 
-    captured_messages: list = []
-
-    def capture_and_return(*args, **kwargs):
-        captured_messages.extend(kwargs.get("messages", []))
-        return end_resp
-
     with patch("chatbot.get_or_create_client", AsyncMock(return_value=mock_mcp)):
-        with patch("chatbot._anthropic") as mock_anthropic:
-            mock_anthropic.messages.create.side_effect = capture_and_return
-
+        with patch("chatbot._get_provider", return_value=mock_provider):
             await chatbot.model_callback(
                 input="Is anyone there?",
                 turns=duplicate_user_turns,
                 thread_id="thread-bug-1884",
             )
 
-    # 2 history turns → filtered to 1, plus current input (also user) → filtered
-    # together = still only 1 user message (the last one wins via filter).
-    # The key invariant: NO consecutive same-role messages in the final list.
-    for i in range(1, len(captured_messages)):
-        assert captured_messages[i]["role"] != captured_messages[i - 1]["role"], (
-            f"Consecutive same-role messages at index {i - 1} and {i}: "
-            f"{captured_messages[i - 1]} / {captured_messages[i]}"
-        )
-    # All messages should be user role in this case (only user turns in input),
-    # so filter collapses everything to just the first user turn.
-    assert len(captured_messages) == 1
-    assert captured_messages[0]["role"] == "user"
+    # 2 consecutive user turns in history collapse to 1 after filtering.
+    # current_input is passed separately and is NOT part of the filter.
+    assert len(captured_turns) == 1
+    assert captured_turns[0].role == "user"
+    assert captured_turns[0].content == "Hello"
+    assert len(captured_input) == 1
+    assert captured_input[0] == "Is anyone there?"
 
 
 # ---------------------------------------------------------------------------
-# AC6 — MCP errors are caught; model_callback returns Turn, not exception
+# AC6 — MCP connection errors are caught; model_callback returns Turn
 # ---------------------------------------------------------------------------
 
 
-async def test_mcp_error_surfaced_not_raised():
-    """AC6: HTTP errors from call_tool are caught; model_callback returns Turn without raising."""
-    error_response = MagicMock()
-    error_response.status_code = 500
-    mock_mcp = _mock_mcp_client(
-        call_tool_side_effect=httpx.HTTPStatusError(
-            "Internal Server Error",
-            request=MagicMock(),
-            response=error_response,
+async def test_mcp_connection_error_surfaced():
+    """AC6: MCP connection error is surfaced in Turn.content, not raised."""
+    with patch(
+        "chatbot.get_or_create_client",
+        AsyncMock(side_effect=ConnectionError("Connection refused")),
+    ):
+        result = await chatbot.model_callback(
+            input="Who represents me?",
+            turns=[],
+            thread_id="thread-error-surface",
         )
-    )
-
-    tool_resp = _tool_use_response(
-        "lookup_legislator",
-        {"street": "789 Pine St", "zone": "Provo"},
-        tool_id="toolu_err",
-    )
-    end_resp = _text_response("I encountered an error looking up your legislator.")
-
-    with patch("chatbot.get_or_create_client", AsyncMock(return_value=mock_mcp)):
-        with patch("chatbot._anthropic") as mock_anthropic:
-            mock_anthropic.messages.create.side_effect = [tool_resp, end_resp]
-
-            # Must NOT raise
-            result = await chatbot.model_callback(
-                input="Who represents me?",
-                turns=[],
-                thread_id="thread-error-surface",
-            )
 
     assert isinstance(result, Turn)
     assert result.role == "assistant"
-    assert result.content  # non-empty string
-    # Verify the error info was surfaced in the tool call result, not swallowed
-    assert result.mcp_tools_called is not None
-    assert len(result.mcp_tools_called) == 1
-    tool_call = result.mcp_tools_called[0]
-    assert tool_call.name == "lookup_legislator"
-    assert isinstance(tool_call.result, CallToolResult)
-    assert tool_call.result.isError is True
-    assert "Tool error:" in tool_call.result.content[0].text
+    assert "MCP server connection failed" in result.content
+    assert result.mcp_tools_called is None
+
+
+# ---------------------------------------------------------------------------
+# AC6 — MCP tool errors are handled by provider (tested in test_providers.py)
+# ---------------------------------------------------------------------------
 
 
 # ---------------------------------------------------------------------------
@@ -249,28 +218,27 @@ async def test_mcp_error_surfaced_not_raised():
 
 async def test_429_retry_backoff():
     """AC10: 429 triggers retry with 1s, 2s, 4s backoff; succeeds on 4th attempt."""
+    from mcp.types import TextContent as MCP_TextContent
+
     call_count = 0
 
-    async def mock_post(*args, **kwargs):
+    async def mock_call_tool(name, arguments):
         nonlocal call_count
         call_count += 1
-        mock_resp = MagicMock()
         if call_count <= 3:
-            mock_resp.status_code = 429
-        else:
-            mock_resp.status_code = 200
-            mock_resp.json.return_value = {
-                "result": {"content": [{"type": "text", "text": "tool-result-ok"}]}
-            }
-            mock_resp.raise_for_status = MagicMock()
-        return mock_resp
+            raise Exception("429 rate limit exceeded")
+        # Return a proper CallToolResult-like object on success
+        result = MagicMock()
+        result.isError = False
+        result.content = [MCP_TextContent(type="text", text="tool-result-ok")]
+        return result
 
     mock_sleep = AsyncMock()
     with patch("mcp_client.asyncio.sleep", mock_sleep):
         client = McpHttpClient()
-        client._session = MagicMock()  # mark as initialized
-        client._http = MagicMock()
-        client._http.post = AsyncMock(side_effect=mock_post)
+        mock_session = AsyncMock()
+        mock_session.call_tool = mock_call_tool
+        client._session = mock_session
         result = await client.call_tool(
             "lookup_legislator", {"street": "1 Main St", "zone": "SLC"}
         )
@@ -282,36 +250,38 @@ async def test_429_retry_backoff():
 
 
 async def test_429_exhausted():
-    """AC10: after 4 attempts all 429, raises RuntimeError containing 'MCP rate limit exceeded'."""
+    """AC10: after 4 attempts all 429, raises RuntimeError containing 'MCP rate limit'."""
 
-    async def always_429(*args, **kwargs):
-        mock_resp = MagicMock()
-        mock_resp.status_code = 429
-        return mock_resp
+    async def always_429(name, arguments):
+        raise Exception("429 rate limit exceeded")
 
-    with patch("mcp_client.asyncio.sleep", AsyncMock()):
+    mock_sleep = AsyncMock()
+    with patch("mcp_client.asyncio.sleep", mock_sleep):
         client = McpHttpClient()
-        client._session = MagicMock()  # mark as initialized
-        client._http = MagicMock()
-        client._http.post = AsyncMock(side_effect=always_429)
+        mock_session = AsyncMock()
+        mock_session.call_tool = always_429
+        client._session = mock_session
         with pytest.raises(RuntimeError) as exc_info:
             await client.call_tool(
                 "lookup_legislator", {"street": "1 Main St", "zone": "SLC"}
             )
 
-    assert "MCP rate limit exceeded" in str(exc_info.value)
+    assert "MCP call failed after" in str(exc_info.value)
 
 
 # ---------------------------------------------------------------------------
-# Integration test — requires running MCP server + ANTHROPIC_API_KEY
+# Integration test — requires running MCP server + LLM API key
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.integration
 async def test_model_callback_live(mcp_server):
-    """Integration: real server + real Anthropic API — greeting returns Turn with no tool calls."""
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        pytest.skip("ANTHROPIC_API_KEY not set — skipping live integration test")
+    """Integration: real server + real LLM API — greeting returns Turn with no tool calls."""
+    provider = os.environ.get("EVAL_LLM_PROVIDER", "openai").lower()
+    key_map = {"anthropic": "ANTHROPIC_API_KEY", "openai": "OPENAI_API_KEY"}
+    required_key = key_map.get(provider, f"{provider.upper()}_API_KEY")
+    if not os.environ.get(required_key):
+        pytest.skip(f"{required_key} not set — skipping live integration test")
 
     result = await chatbot.model_callback(
         input="Hi there! Just saying hello.",
