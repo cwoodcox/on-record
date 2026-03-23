@@ -174,13 +174,13 @@ async def test_bug_1884_workaround():
                 thread_id="thread-bug-1884",
             )
 
-    # 2 history user turns + 1 current user input = 3 user turns
-    # Filter collapses all consecutive user turns to 1.
-    # The filtered_turns passed to provider should have 0 history turns
-    # (the single remaining user turn becomes current_input).
-    assert len(captured_turns) == 0
+    # 2 consecutive user turns in history collapse to 1 after filtering.
+    # current_input is passed separately and is NOT part of the filter.
+    assert len(captured_turns) == 1
+    assert captured_turns[0].role == "user"
+    assert captured_turns[0].content == "Hello"
     assert len(captured_input) == 1
-    assert captured_input[0] == "Hello"
+    assert captured_input[0] == "Is anyone there?"
 
 
 # ---------------------------------------------------------------------------

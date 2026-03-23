@@ -1,11 +1,24 @@
 """Anthropic Claude provider for the eval harness agentic loop."""
 
+from typing import cast
+
 import anthropic
+from anthropic.types import ToolParam
 from deepeval.test_case import MCPToolCall, Turn
 from mcp.types import CallToolResult, TextContent
 
 from mcp_client import McpHttpClient
 from providers.base import LLMProvider
+
+
+def _extract_tool_result_text(result: object) -> str:
+    """Extract text from an MCPToolCall result, handling both CallToolResult and str."""
+    if isinstance(result, CallToolResult):
+        for block in result.content:
+            if isinstance(block, TextContent):
+                return block.text
+        return str(result)
+    return str(result)
 
 
 class AnthropicProvider(LLMProvider):
@@ -20,6 +33,7 @@ class AnthropicProvider(LLMProvider):
     def __init__(self, model: str, system_prompt: str, tool_schemas: list[dict]) -> None:
         super().__init__(model, system_prompt, tool_schemas)
         self._client = anthropic.Anthropic()
+        self._tools: list[ToolParam] = cast(list[ToolParam], tool_schemas)
 
     async def run_agentic_loop(
         self,
@@ -33,10 +47,25 @@ class AnthropicProvider(LLMProvider):
         API until a final text response (stop_reason == "end_turn") is produced.
         """
         # Build Anthropic-format messages from filtered turns + current input
-        all_turns = list(filtered_turns) + [Turn(role="user", content=current_input)]
-        messages: list[dict] = [
-            {"role": t.role, "content": t.content} for t in all_turns
-        ]
+        messages: list[dict] = []
+        for t in filtered_turns:
+            if t.role == "assistant" and t.mcp_tools_called:
+                # Reconstruct tool use/result messages from history
+                messages.append({"role": "assistant", "content": [
+                    {"type": "tool_use", "id": f"call_{i}", "name": call.name, "input": call.args}
+                    for i, call in enumerate(t.mcp_tools_called)
+                ]})
+                messages.append({"role": "user", "content": [
+                    {"type": "tool_result", "tool_use_id": f"call_{i}",
+                     "content": _extract_tool_result_text(call.result)}
+                    for i, call in enumerate(t.mcp_tools_called)
+                ]})
+                if t.content:
+                    messages.append({"role": "assistant", "content": t.content})
+            else:
+                messages.append({"role": t.role, "content": t.content})
+
+        messages.append({"role": "user", "content": current_input})
 
         mcp_calls: list[MCPToolCall] = []
 
@@ -45,7 +74,7 @@ class AnthropicProvider(LLMProvider):
                 model=self.model,
                 system=self.system_prompt,
                 messages=messages,
-                tools=self.tool_schemas,  # type: ignore[arg-type]
+                tools=self._tools,
                 max_tokens=2048,
             )
 
@@ -62,7 +91,7 @@ class AnthropicProvider(LLMProvider):
                     is_error = False
                     try:
                         result = await mcp_client.call_tool(block.name, block.input)
-                        result_text = str(result)
+                        result_text = result
                     except Exception as exc:
                         result_text = f"Tool error: {exc}"
                         is_error = True

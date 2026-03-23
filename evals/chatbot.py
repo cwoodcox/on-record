@@ -131,19 +131,21 @@ async def model_callback(input: str, turns: list[Turn], thread_id: str) -> Turn:
         )
 
     # Bug #1884: ConversationSimulator (async_mode=True) may produce consecutive
-    # same-role turns on the first call. Filter them before passing to the provider.
-    all_turns = list(turns) + [Turn(role="user", content=input)]
-    filtered_turns = _filter_consecutive_same_role(all_turns)
-
-    # Remove the current input from filtered turns — the provider will add it back
-    # as part of its message formatting.
-    current_input_turn = filtered_turns.pop()
-    current_input_text = current_input_turn.content
+    # same-role turns on the first call. Filter history only (without current input)
+    # to avoid pop() incorrectly removing a collapsed turn instead of current input.
+    filtered_turns = _filter_consecutive_same_role(list(turns))
 
     provider = _get_provider()
-    final_text, mcp_calls = await provider.run_agentic_loop(
-        filtered_turns, current_input_text, mcp_client
-    )
+    try:
+        final_text, mcp_calls = await provider.run_agentic_loop(
+            filtered_turns, input, mcp_client
+        )
+    except Exception as exc:
+        return Turn(
+            role="assistant",
+            content=f"LLM provider error: {type(exc).__name__}: {exc}",
+            mcp_tools_called=None,
+        )
 
     return Turn(
         role="assistant",

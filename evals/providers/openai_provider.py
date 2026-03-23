@@ -10,6 +10,16 @@ from mcp_client import McpHttpClient
 from providers.base import LLMProvider
 
 
+def _extract_tool_result_text(result: object) -> str:
+    """Extract text from an MCPToolCall result, handling both CallToolResult and str."""
+    if isinstance(result, CallToolResult):
+        for block in result.content:
+            if isinstance(block, TextContent):
+                return block.text
+        return str(result)
+    return str(result)
+
+
 class OpenAIProvider(LLMProvider):
     """LLM provider using the OpenAI Chat Completions API.
 
@@ -47,9 +57,26 @@ class OpenAIProvider(LLMProvider):
         final response (finish_reason == "stop").
         """
         # Build OpenAI-format messages: system prompt first, then history + current input
-        all_turns = list(filtered_turns) + [Turn(role="user", content=current_input)]
         messages: list[dict] = [{"role": "system", "content": self.system_prompt}]
-        messages.extend({"role": t.role, "content": t.content} for t in all_turns)
+
+        for t in filtered_turns:
+            if t.role == "assistant" and t.mcp_tools_called:
+                # Reconstruct tool call/result messages from history
+                tool_calls_list = [
+                    {"id": f"call_{i}", "type": "function",
+                     "function": {"name": call.name, "arguments": json.dumps(call.args)}}
+                    for i, call in enumerate(t.mcp_tools_called)
+                ]
+                messages.append({"role": "assistant", "tool_calls": tool_calls_list, "content": None})
+                for i, call in enumerate(t.mcp_tools_called):
+                    result_text = _extract_tool_result_text(call.result)
+                    messages.append({"role": "tool", "tool_call_id": f"call_{i}", "content": result_text})
+                if t.content:
+                    messages.append({"role": "assistant", "content": t.content})
+            else:
+                messages.append({"role": t.role, "content": t.content})
+
+        messages.append({"role": "user", "content": current_input})
 
         mcp_calls: list[MCPToolCall] = []
 
@@ -87,7 +114,7 @@ class OpenAIProvider(LLMProvider):
                             result = await mcp_client.call_tool(
                                 tool_call.function.name, args
                             )
-                            result_text = str(result)
+                            result_text = result
                         except Exception as exc:
                             result_text = f"Tool error: {exc}"
                             is_error = True
