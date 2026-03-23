@@ -550,3 +550,127 @@ Metrics to apply: **Knowledge Retention** (does the chatbot remember the address
 
 _Source: [DeepEval — Chatbot Evaluation Quickstart](https://deepeval.com/docs/getting-started-chatbots)_
 _Source: [DeepEval — Conversation Simulator](https://deepeval.com/docs/conversation-simulator)_
+
+---
+
+## Open Questions Resolved
+
+### GenerationOptions in Python SDK — CONFIRMED AVAILABLE
+
+`generation_options.py` exists in `src/apple_fm_sdk/` and is fully exposed. The `respond()` method accepts an `options: Optional[GenerationOptions]` keyword argument. Confirmed API:
+
+```python
+from apple_fm_sdk import GenerationOptions, SamplingMode
+
+# Greedy (deterministic) — recommended for eval runs
+options = GenerationOptions(sampling=SamplingMode.greedy())
+
+# Temperature-controlled
+options = GenerationOptions(temperature=0.3)
+
+# Token limit
+options = GenerationOptions(maximum_response_tokens=512)
+
+response = await session.respond(prompt, options=options)
+```
+
+`SamplingMode.greedy()` — always selects the most likely token; deterministic for the same model version. Note: model updates from Apple may change greedy output even with the same prompt.
+
+`SamplingMode.random(top, probability_threshold, seed)` — top-k or top-p with optional seed for reproducible random sampling.
+
+The `options` parameter applies per-request and overrides session-level defaults.
+
+**Implication for eval harness:** Use `GenerationOptions(sampling=SamplingMode.greedy())` in the callback. No workaround needed.
+
+_Source: [python-apple-fm-sdk — generation_options.py](https://github.com/apple/python-apple-fm-sdk/blob/main/src/apple_fm_sdk/generation_options.py)_
+_Source: [python-apple-fm-sdk — session.py](https://github.com/apple/python-apple-fm-sdk/blob/main/src/apple_fm_sdk/session.py)_
+
+---
+
+## Summary and Recommendations
+
+### Feasibility Verdict
+
+**Feasible on qualifying hardware.** Apple Intelligence as the chatbot under test in DeepEval's `ConversationSimulator` is a clean, low-friction integration. The Python SDK's async `respond()` method maps directly to the callback interface. No bridging, no schema injection, no `DeepEvalBaseLLM` subclassing required.
+
+### Complete Callback Implementation
+
+```python
+import apple_fm_sdk as fm
+from deepeval.test_case import Turn
+from deepeval.conversation_simulator import ConversationSimulator
+
+_sessions: dict[str, fm.LanguageModelSession] = {}
+_greedy = fm.GenerationOptions(sampling=fm.SamplingMode.greedy())
+
+async def apple_intelligence_callback(
+    input: str,
+    turns: list[Turn],
+    thread_id: str,
+) -> Turn:
+    # Availability guard
+    model = fm.SystemLanguageModel()
+    available, reason = model.is_available()
+    if not available:
+        import pytest
+        pytest.skip(f"Apple Intelligence unavailable: {reason}")
+
+    # Session lifecycle: one stateful session per conversation
+    if thread_id not in _sessions:
+        _sessions[thread_id] = fm.LanguageModelSession(
+            model,
+            instructions="You are a constituent services chatbot...",
+        )
+    session = _sessions[thread_id]
+
+    try:
+        response = await session.respond(input, options=_greedy)
+        return Turn(role="assistant", content=str(response))
+    except fm.ExceededContextWindowSizeError:
+        _sessions.pop(thread_id, None)  # hard reset, lose context
+        session = fm.LanguageModelSession(model, instructions="...")
+        _sessions[thread_id] = session
+        response = await session.respond(input, options=_greedy)
+        return Turn(role="assistant", content=str(response))
+    except fm.GuardrailViolationError as e:
+        return Turn(role="assistant", content=f"[GUARDRAIL_VIOLATION: {e}]")
+
+simulator = ConversationSimulator(
+    model_callback=apple_intelligence_callback,
+    simulator_model="gpt-4.1",   # judge/user-simulator — NOT Apple
+    async_mode=True,
+    max_concurrent=5,             # conservative; each session is single-threaded
+)
+```
+
+### Key Constraints Summary
+
+| Constraint | Detail |
+|---|---|
+| Hardware | macOS 26 + Apple Silicon + Apple Intelligence enabled |
+| Python SDK | `pip install apple-fm-sdk` — Beta, macOS-only |
+| Context window | 4096 tokens per session — guard with `ExceededContextWindowSizeError` |
+| Concurrency | One request/session at a time — use `max_concurrent=5` |
+| Determinism | `SamplingMode.greedy()` — deterministic within a model version |
+| CI | Cannot run on Linux; gate with `pytest.skip()` via `is_available()` |
+| Evaluation judge | Must remain external (GPT-4.1, Claude) — Apple model is SUT only |
+
+### Differences vs Current Claude-Based Callback (E5-2)
+
+The existing `model_callback` in `evals/chatbot.py` uses **Claude** as the chatbot under test (via Anthropic API + MCP tool proxying). Apple Intelligence as the SUT is a fundamentally different architecture:
+
+- **No MCP tool proxying** — Apple's on-device model cannot call the MCP server. It receives only the text input and produces text output.
+- **No Anthropic API** — entirely local, no API key, no latency from network calls.
+- **No tool schema injection** — `MCP_TOOL_SCHEMAS` and `MCPToolCall` tracking are specific to the Claude-based callback.
+- **Different system prompt handling** — instructions are passed at `LanguageModelSession` init, not per-message.
+
+**Practical implication:** Apple Intelligence as SUT evaluates a *different thing* than the Claude-based callback. It tests whether Apple's model can act as a general constituent services chatbot given only natural language — without the MCP tool infrastructure. This is a valid and interesting evaluation, but it is not equivalent to the full on-record chatbot stack.
+
+### Recommendation
+
+For the E5 eval harness, the primary SUT should remain **Claude + MCP** (the actual production stack). Apple Intelligence as SUT is a **secondary / comparative eval** — useful for benchmarking Apple's model's conversational quality against Claude's on the same scenarios, without tool use.
+
+If Apple Intelligence SUT is desired, it warrants its own callback module (`evals/apple_chatbot.py`) and its own set of goldens that do not require `mcp_tools_called` tracking. The existing `evals/chatbot.py` remains the primary callback unchanged.
+
+_Source: [python-apple-fm-sdk — Basic Usage](https://apple.github.io/python-apple-fm-sdk/basic_usage.html)_
+_Source: [Apple Developer — Foundation Models](https://developer.apple.com/documentation/foundationmodels)_
