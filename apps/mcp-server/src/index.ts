@@ -47,22 +47,17 @@ const transports = new Map<string, StreamableHTTPServerTransport>()
 // ── Response drain helper ───────────────────────────────────────────────────
 // @hono/node-server checks `outgoing.writableEnded` before writing the Hono
 // Response to the socket. StreamableHTTPServerTransport.handleRequest() calls
-// writeHead() to start the response (and keeps the socket open for SSE) but
-// does not call end() until the client disconnects. Returning from the Hono
-// handler before the socket is finished causes ERR_HTTP_HEADERS_SENT because
-// @hono/node-server tries to writeHead() a second time.
+// writeHead() to start the response but does not call end() until the response
+// is complete (POST) or the client disconnects (GET SSE). Returning from the
+// Hono handler before the socket is finished causes ERR_HTTP_HEADERS_SENT
+// because @hono/node-server tries to writeHead() a second time.
 // Fix: await the 'finish' or 'close' event so writableEnded is true before
-// Hono's response pipeline runs. For SSE connections this correctly holds the
-// handler coroutine open for the lifetime of the stream.
+// Hono's response pipeline runs. OS TCP keepalive handles leaked connections.
 function drainResponse(res: ServerResponse): Promise<void> {
   if (res.writableEnded) return Promise.resolve()
   return new Promise<void>((resolve) => {
-    // 30-second timeout guards against leaked coroutines when neither 'finish'
-    // nor 'close' fires (e.g., broken connection / framework edge case).
-    const timeout = setTimeout(resolve, 30_000)
-    const done = () => { clearTimeout(timeout); resolve() }
-    res.on('finish', done)
-    res.on('close', done)
+    res.on('finish', resolve)
+    res.on('close', resolve)
   })
 }
 
@@ -130,7 +125,8 @@ app.post('/mcp', async (c) => {
 
   await transport.handleRequest(nodeEnv.incoming, nodeEnv.outgoing, body)
   await drainResponse(nodeEnv.outgoing)
-  return new Response(null, { status: 200 })
+  // Transport already wrote the response — tell Hono to skip its response pipeline.
+  return new Response(null, { headers: { 'x-hono-already-sent': '1' } })
 })
 
 app.get('/mcp', async (c) => {
@@ -144,7 +140,7 @@ app.get('/mcp', async (c) => {
   const nodeEnv = c.env as { incoming: IncomingMessage; outgoing: ServerResponse }
   await transport.handleRequest(nodeEnv.incoming, nodeEnv.outgoing)
   await drainResponse(nodeEnv.outgoing)
-  return new Response(null, { status: 200 })
+  return new Response(null, { headers: { 'x-hono-already-sent': '1' } })
 })
 
 app.delete('/mcp', async (c) => {
@@ -158,7 +154,7 @@ app.delete('/mcp', async (c) => {
   const nodeEnv = c.env as { incoming: IncomingMessage; outgoing: ServerResponse }
   await transport.handleRequest(nodeEnv.incoming, nodeEnv.outgoing)
   await drainResponse(nodeEnv.outgoing)
-  return new Response(null, { status: 200 })
+  return new Response(null, { headers: { 'x-hono-already-sent': '1' } })
 })
 
 // ── Global error handlers ──────────────────────────────────────────────────
