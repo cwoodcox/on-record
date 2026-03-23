@@ -4,8 +4,8 @@ inputDocuments: []
 workflowType: 'research'
 lastStep: 3
 research_type: 'technical'
-research_topic: 'Apple Intelligence local model as a provider in the DeepEval project'
-research_goals: 'Understand feasibility, architecture, and implementation approach for integrating Apple Intelligence as a local LLM provider within the DeepEval evaluation framework'
+research_topic: 'Apple Intelligence on-device model as the chatbot under test in DeepEval conversation simulation'
+research_goals: 'Understand the interface and implementation approach for using Apple Intelligence as the chatbot under test (system being evaluated) in DeepEvals ConversationSimulator — not as the evaluation judge LLM'
 user_name: 'Corey'
 date: '2026-03-23'
 web_research_enabled: true
@@ -293,3 +293,92 @@ _Source: [Apple Developer Docs — Writing Tools](https://developer.apple.com/do
 
 _Source: [apple/python-apple-fm-sdk — Getting Started](https://apple.github.io/python-apple-fm-sdk/getting_started.html)_
 _Source: [Apple Developer — Foundation Models Docs](https://developer.apple.com/documentation/foundationmodels)_
+
+---
+
+## Scope Correction: Chatbot Under Test, Not Evaluation Judge
+
+> **Research correction (2026-03-23):** Earlier sections of this document assumed Apple Intelligence would be used as the *evaluation judge* (i.e., replacing GPT-4 as the LLM that scores metrics). The actual use case is different: Apple Intelligence is the **chatbot under test** — the system whose responses are being evaluated. The evaluation judge remains a capable external model (e.g., GPT-4, Claude).
+>
+> This changes the integration surface entirely. `DeepEvalBaseLLM` subclassing is **not required**. The relevant API is `ConversationSimulator` and its `model_callback` interface.
+
+---
+
+## Correct Integration Pattern: ConversationSimulator Callback
+
+### How DeepEval's ConversationSimulator Works
+
+`ConversationSimulator` drives a multi-turn dialogue between a synthetic user (powered by the evaluation LLM) and the **chatbot under test** (Apple Intelligence). It produces `ConversationalTestCase` objects that are then scored by conversational metrics (Knowledge Retention, Turn Relevancy, Role Adherence, etc.) — all using the evaluation LLM, not Apple's model.
+
+The chatbot under test is wired in via a single **async callback function**:
+
+```python
+async def model_callback(input: str, turns: List[Turn], thread_id: str) -> Turn:
+    res = await your_llm_app(input, turns, thread_id)
+    return Turn(role="assistant", content=res)
+```
+
+This is the **only interface Apple Intelligence needs to satisfy** — return a string response given a string input.
+
+_Source: [DeepEval — Conversation Simulator](https://deepeval.com/docs/conversation-simulator)_
+
+---
+
+### The Integration: Apple Intelligence as `model_callback`
+
+The implementation is straightforward:
+
+1. **One `LanguageModelSession` per `thread_id`** — Apple's sessions are stateful and maintain multi-turn context natively. Store sessions in a dict keyed by `thread_id`.
+2. **In the callback**, call `await session.respond(input)` and return the response string wrapped in `Turn`.
+3. **No Pydantic schema bridging needed** — the callback returns plain text; DeepEval's evaluation metrics handle structured extraction separately using the judge LLM.
+
+Conceptual implementation:
+
+```python
+import apple_fm_sdk as fm
+from deepeval.test_case import Turn
+from deepeval.conversation_simulator import ConversationSimulator
+
+sessions: dict[str, fm.LanguageModelSession] = {}
+
+async def apple_intelligence_callback(
+    input: str,
+    turns: list[Turn],
+    thread_id: str
+) -> Turn:
+    if thread_id not in sessions:
+        model = fm.SystemLanguageModel.default
+        sessions[thread_id] = fm.LanguageModelSession(
+            model,
+            instructions="You are a constituent services chatbot..."
+        )
+    session = sessions[thread_id]
+    response = await session.respond(input)
+    return Turn(role="assistant", content=response.content)
+
+simulator = ConversationSimulator(model_callback=apple_intelligence_callback)
+test_cases = simulator.simulate(goldens=goldens, max_turns=10)
+```
+
+### Why This Is Much Simpler Than Path A
+
+| Concern | Path A (judge LLM) | Correct path (chatbot under test) |
+|---|---|---|
+| `DeepEvalBaseLLM` subclass | Required | **Not required** |
+| Pydantic schema bridging | Hard — dynamic schema injection | **Not applicable** |
+| Async/sync mismatch | Requires `asyncio.run()` shim | **Natural** — callback is `async` |
+| Structured output | Needed for metric extraction | **Not needed** — judge handles that |
+| Complexity | High | **Low** |
+
+### Remaining Constraints
+
+- **macOS 26 + Apple Silicon required** — the callback only runs on a qualifying dev machine; cannot run in CI on Linux runners
+- **Apple Intelligence must be enabled** on the machine
+- **Context window limit** — `exceededContextWindowSize` must be caught in the callback and handled (e.g., start a fresh session for `thread_id`)
+- **Guardrail violations** — `guardrailViolation` errors from Apple's model must be caught and surfaced gracefully (e.g., return a `Turn` indicating the model declined to respond)
+- **Non-determinism** — Apple's model output is sampled by default; set `GenerationOptions` temperature to 0 (greedy) for reproducible eval runs
+- **No streaming needed** — `ConversationSimulator` consumes complete turn responses, not streams
+
+_Source: [DeepEval — Conversation Simulator](https://deepeval.com/docs/conversation-simulator)_
+_Source: [DeepEval — Chatbot Evaluation Quickstart](https://deepeval.com/docs/getting-started-chatbots)_
+_Source: [python-apple-fm-sdk — Basic Usage](https://apple.github.io/python-apple-fm-sdk/basic_usage.html)_
