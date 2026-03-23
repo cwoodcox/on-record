@@ -2,7 +2,7 @@
 title: 'Pluggable LLM Provider for Eval Harness model_callback'
 slug: 'pluggable-eval-llm-provider'
 created: '2026-03-22'
-status: 'ready-for-dev'
+status: 'in-progress'
 stepsCompleted: [1, 2, 3, 4]
 tech_stack: ['python', 'anthropic-sdk', 'openai-sdk', 'deepeval']
 files_to_modify:
@@ -94,7 +94,7 @@ Extract the LLM-specific code from `model_callback` into a provider abstraction 
 
 ### Tasks
 
-- [ ] Task 1: Create `evals/providers/base.py` -- abstract LLM provider base class
+- [x] Task 1: Create `evals/providers/base.py` -- abstract LLM provider base class
   - File: `evals/providers/base.py` (new)
   - Action: Define `LLMProvider` class with:
     - `__init__(self, model: str, system_prompt: str, tool_schemas: list[dict])` -- stores config
@@ -102,7 +102,7 @@ Extract the LLM-specific code from `model_callback` into a provider abstraction 
     - `def format_messages(self, filtered_turns: list[Turn], current_input: str) -> list[dict]` -- raises `NotImplementedError`. Converts DeepEval Turn history to provider-native message format.
   - Notes: Import types from `deepeval.test_case` (Turn, MCPToolCall) and `mcp_client` (McpHttpClient). No `from __future__ import annotations` needed -- Python 3.10+.
 
-- [ ] Task 2: Create `evals/providers/anthropic_provider.py` -- extract existing Anthropic logic
+- [x] Task 2: Create `evals/providers/anthropic_provider.py` -- extract existing Anthropic logic
   - File: `evals/providers/anthropic_provider.py` (new)
   - Action: Create `AnthropicProvider(LLMProvider)` that:
     - `__init__`: creates `anthropic.Anthropic()` client, stores tool_schemas as-is (already Anthropic format)
@@ -110,7 +110,7 @@ Extract the LLM-specific code from `model_callback` into a provider abstraction 
     - `run_agentic_loop`: contains the `while True` loop from current `chatbot.py` lines 132-180 (Claude API call, tool_use block processing, tool_result construction, MCPToolCall creation)
   - Notes: This is a direct extraction -- no behavior change from current implementation. The `response.content` serialization for assistant messages with tool_use blocks must handle Anthropic's content block objects (they need to be passed back as-is to the API, not serialized).
 
-- [ ] Task 3: Create `evals/providers/openai_provider.py` -- new OpenAI implementation
+- [x] Task 3: Create `evals/providers/openai_provider.py` -- new OpenAI implementation
   - File: `evals/providers/openai_provider.py` (new)
   - Action: Create `OpenAIProvider(LLMProvider)` that:
     - `__init__`: creates `openai.OpenAI()` client (uses `OPENAI_API_KEY` from env), transforms `tool_schemas` to OpenAI format: `[{"type": "function", "function": {"name": s["name"], "description": s["description"], "parameters": s["input_schema"]}} for s in tool_schemas]`
@@ -126,7 +126,7 @@ Extract the LLM-specific code from `model_callback` into a provider abstraction 
       4. Loop until no more tool_calls
   - Notes: OpenAI tool_calls come as a list on the message object. Multiple tool_calls in one response = parallel tool calling. Each needs a separate `role: "tool"` response message (not batched like Anthropic's tool_result blocks). `json.loads` on `tool_call.function.arguments` can raise -- catch and surface as error tool result. OpenAI uses `OPENAI_API_KEY` env var by default.
 
-- [ ] Task 4: Create `evals/providers/__init__.py` -- provider factory
+- [x] Task 4: Create `evals/providers/__init__.py` -- provider factory
   - File: `evals/providers/__init__.py` (new)
   - Action: Implement `get_provider(system_prompt: str, tool_schemas: list[dict]) -> LLMProvider` factory function:
     - Read `EVAL_LLM_PROVIDER` from env (default: `"openai"`)
@@ -135,7 +135,7 @@ Extract the LLM-specific code from `model_callback` into a provider abstraction 
     - Raise `ValueError` with clear message for unknown provider names
   - Notes: Lazy imports of concrete providers to avoid importing unused SDKs. Only import `AnthropicProvider` when `EVAL_LLM_PROVIDER=anthropic`, etc.
 
-- [ ] Task 5: Refactor `evals/chatbot.py` -- use provider abstraction
+- [x] Task 5: Refactor `evals/chatbot.py` -- use provider abstraction
   - File: `evals/chatbot.py`
   - Action:
     - Remove `import anthropic` and `_anthropic = anthropic.Anthropic()`
@@ -150,7 +150,7 @@ Extract the LLM-specific code from `model_callback` into a provider abstraction 
     - Update module docstring to reflect provider-pluggable design
   - Notes: The `model_callback` signature MUST NOT change. The function body becomes ~15 lines (client setup, format messages, run loop, return Turn).
 
-- [ ] Task 6: Update `evals/conftest.py` -- provider-aware API key validation
+- [x] Task 6: Update `evals/conftest.py` -- provider-aware API key validation
   - File: `evals/conftest.py`
   - Action:
     - In `mcp_client_factory` fixture, replace hardcoded `ANTHROPIC_API_KEY` check with provider-aware check:
@@ -160,7 +160,7 @@ Extract the LLM-specific code from `model_callback` into a provider abstraction 
       - Fail with clear message indicating which provider was selected and which key is missing
   - Notes: The `mcp_server` fixture doesn't need changes -- it only checks MCP server env vars.
 
-- [ ] Task 7: Add unit tests for provider abstraction
+- [x] Task 7: Add unit tests for provider abstraction
   - File: `evals/tests/test_providers.py` (new)
   - Action: Write unit tests that:
     1. Test `get_provider()` returns `OpenAIProvider` when `EVAL_LLM_PROVIDER=openai` or unset
@@ -172,6 +172,19 @@ Extract the LLM-specific code from `model_callback` into a provider abstraction 
     7. Test `AnthropicProvider.format_messages` does NOT include system prompt in messages (it goes in separate `system` param)
     8. Test `model_callback` end-to-end with mocked provider (mock `_provider.run_agentic_loop` to return canned response, verify Turn construction)
   - Notes: Mock at LLM SDK boundary. Use `monkeypatch.setenv` for env var tests. Tests should NOT require API keys. Key phrases for error assertions: `"unknown provider"`.
+
+#### Review Follow-ups (AI)
+
+- [ ] [AI-Review][HIGH] LLM API Errors Crash Simulator - Wrap run_agentic_loop in try/except [evals/chatbot.py:126]
+- [ ] [AI-Review][HIGH] Loss of Agentic History - Pass tool results to LLM for history turns [evals/providers/anthropic_provider.py:38, evals/providers/openai_provider.py:53]
+- [ ] [AI-Review][MEDIUM] Violation of "No type: ignore" Rule - Fix tool schema type hint [evals/providers/anthropic_provider.py:46]
+- [ ] [AI-Review][MEDIUM] Bug #1884 Filter Drops Latest Input - Keep latest user input when filtering [evals/chatbot.py:113]
+- [ ] [AI-Review][LOW] Missing API Key Validation in Factory - Add key check to get_provider [evals/providers/__init__.py:22]
+- [ ] [AI-Review][LOW] Hardcoded max_tokens - Make max_tokens configurable [evals/providers/anthropic_provider.py:47, evals/providers/openai_provider.py:61]
+- [ ] [AI-Review][LOW] Opaque OpenAI Finish Reasons - Handle length and content_filter finish reasons [evals/providers/openai_provider.py:68]
+- [ ] [AI-Review][LOW] Redundant List Conversion - Remove list(turns) [evals/chatbot.py:112]
+- [ ] [AI-Review][LOW] OpenAI result_text Serialization - Use json.dumps for tool results [evals/providers/openai_provider.py:91]
+- [ ] [AI-Review][LOW] Inconsistent Docstrings - Align provider docstrings with base class [evals/providers/anthropic_provider.py:27]
 
 ### Acceptance Criteria
 
