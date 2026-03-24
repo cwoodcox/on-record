@@ -532,11 +532,11 @@ _Source: https://github.com/confident-ai/deepeval/issues/1884 — https://github
 
 ## Research Synthesis
 
-# Simulating Real Conversations: A Complete Technical Reference for deepeval ConversationGolden and ConversationSimulator
+# Simulating Real Conversations: A Complete Technical Reference for deepeval ConversationalGolden and ConversationSimulator
 
 ## Executive Summary
 
-deepeval's `ConversationGolden` and `ConversationSimulator` APIs provide a structured, LLM-driven approach to evaluating chatbot quality across multi-turn conversations. Rather than hand-authoring fake dialogues, you define *intent* — what the user wants to accomplish and what outcome would constitute success — and let the simulator generate realistic user behavior against your live chatbot. Evaluation metrics (`ConversationCompletenessMetric`, `ConversationRelevancyMetric`, `RoleAdherenceMetric`, `KnowledgeRetentionMetric`, and custom `ConversationalGEval`) then score each conversation on a 0–1 scale against configurable pass/fail thresholds.
+deepeval's `ConversationalGolden` and `ConversationSimulator` APIs provide a structured, LLM-driven approach to evaluating chatbot quality across multi-turn conversations. Rather than hand-authoring fake dialogues, you define *intent* — what the user wants to accomplish and what outcome would constitute success — and let the simulator generate realistic user behavior against your live chatbot. Evaluation metrics (`ConversationCompletenessMetric`, `ConversationRelevancyMetric`, `RoleAdherenceMetric`, `KnowledgeRetentionMetric`, and custom `ConversationalGEval`) then score each conversation on a 0–1 scale against configurable pass/fail thresholds.
 
 The framework is production-ready (v3.9.2, Apache 2.0, 14,100+ GitHub stars) and integrates cleanly into pytest-based CI pipelines. Two known open bugs have documented workarounds. The incremental adoption path — smoke test in a day, baseline benchmark in a week, CI gate in two weeks — avoids the common failure mode of building a large dataset before validating callback integration.
 
@@ -972,7 +972,7 @@ _Source: https://github.com/confident-ai/deepeval/issues/1884 — https://github
 
 ### For On-Record Specifically
 
-The on-record chatbot handles constituent inquiries involving address lookup, district identification, and bill search — all multi-turn flows. `ConversationGolden` is well-suited:
+The on-record chatbot handles constituent inquiries involving address lookup, district identification, and bill search — all multi-turn flows. `ConversationalGolden` is well-suited:
 
 - Each major flow (find representative, search bills, explain vote record) maps directly to one or more goldens
 - The `expected_outcome` field maps cleanly to the MCP tool call sequence that should be triggered
@@ -1015,4 +1015,4 @@ The on-record chatbot handles constituent inquiries involving address lookup, di
 **Document Confidence Level:** High — all claims verified against official docs, source code, and active GitHub issues
 **Source Verification:** All technical facts cited with primary sources
 
-_This document serves as the authoritative technical reference for integrating deepeval ConversationGolden conversation simulation into the on-record chatbot evaluation pipeline._
+_This document serves as the authoritative technical reference for integrating deepeval ConversationalGolden conversation simulation into the on-record chatbot evaluation pipeline._
