@@ -24,11 +24,6 @@ if not os.environ.get("ANTHROPIC_API_KEY"):
 
 from metrics import ALL_METRICS, BUILT_IN_METRICS, CITATION_FORMAT, VALIDATE_BEFORE_INFORM, WARM_OPEN  # noqa: E402
 
-pytestmark = pytest.mark.skipif(
-    not os.environ.get("ANTHROPIC_API_KEY"),
-    reason="ANTHROPIC_API_KEY required",
-)
-
 
 # ---------------------------------------------------------------------------
 # Helpers — build typed MCPToolCall results
@@ -36,13 +31,6 @@ pytestmark = pytest.mark.skipif(
 
 
 def _make_lookup_result(payload: dict) -> mcp.types.CallToolResult:
-    return mcp.types.CallToolResult(
-        content=[mcp.types.TextContent(type="text", text=json.dumps(payload))],
-        isError=False,
-    )
-
-
-def _make_search_result(payload: dict) -> mcp.types.CallToolResult:
     return mcp.types.CallToolResult(
         content=[mcp.types.TextContent(type="text", text=json.dumps(payload))],
         isError=False,
@@ -83,7 +71,7 @@ _ON_RECORD_MCP_SERVER = MCPServer(
             description=(
                 "Searches bills sponsored by a Utah legislator by issue theme. Returns up to 5 bills "
                 "from the SQLite cache matching the theme and legislator. Returns structured JSON with "
-                "bill ID, title, summary, status, vote result, vote date, and session."
+                "bill ID, title, summary, status, and session."
             ),
             inputSchema={
                 "type": "object",
@@ -207,7 +195,7 @@ TEST_CASE_DEB_PLUMB = ConversationalTestCase(
                 MCPToolCall(
                     name="search_bills",
                     args={"legislatorId": "PLUMBJ", "theme": "public education funding"},
-                    result=_make_search_result({"bills": [], "legislatorId": "PLUMBJ", "session": "2026GS"}),
+                    result=_make_lookup_result({"bills": [], "legislatorId": "PLUMBJ", "session": "2026GS"}),
                 ),
             ],
         ),
@@ -244,12 +232,12 @@ TEST_CASE_DEB_PLUMB = ConversationalTestCase(
                 MCPToolCall(
                     name="search_bills",
                     args={"legislatorId": "PLUMBJ", "theme": "arts education"},
-                    result=_make_search_result({"bills": [], "legislatorId": "PLUMBJ", "session": "2026GS"}),
+                    result=_make_lookup_result({"bills": [], "legislatorId": "PLUMBJ", "session": "2026GS"}),
                 ),
                 MCPToolCall(
                     name="search_bills",
                     args={"legislatorId": "PLUMBJ", "theme": "teacher staffing"},
-                    result=_make_search_result({"bills": [], "legislatorId": "PLUMBJ", "session": "2026GS"}),
+                    result=_make_lookup_result({"bills": [], "legislatorId": "PLUMBJ", "session": "2026GS"}),
                 ),
             ],
         ),
@@ -464,17 +452,17 @@ TEST_CASE_MARCUS_ROBERTS = ConversationalTestCase(
                 MCPToolCall(
                     name="search_bills",
                     args={"legislatorId": "ROBERC", "theme": "transit housing cost of living"},
-                    result=_make_search_result({"bills": [], "legislatorId": "ROBERC", "session": "2026GS"}),
+                    result=_make_lookup_result({"bills": [], "legislatorId": "ROBERC", "session": "2026GS"}),
                 ),
                 MCPToolCall(
                     name="search_bills",
                     args={"legislatorId": "ROBERC", "theme": "housing affordability"},
-                    result=_make_search_result({"bills": [], "legislatorId": "ROBERC", "session": "2026GS"}),
+                    result=_make_lookup_result({"bills": [], "legislatorId": "ROBERC", "session": "2026GS"}),
                 ),
                 MCPToolCall(
                     name="search_bills",
                     args={"legislatorId": "ROBERC", "theme": "transportation"},
-                    result=_make_search_result({
+                    result=_make_lookup_result({
                         "bills": [
                             {
                                 "id": "HB0586",
@@ -647,7 +635,8 @@ TEST_CASE_DEB_VALIDATE_SKIP = ConversationalTestCase(
                 ),
             ],
         ),
-    ]
+    ],
+    mcp_servers=[_ON_RECORD_MCP_SERVER],
 )
 
 
