@@ -10,7 +10,7 @@ so that I can validate the eval stack (metrics scoring, test structure, `deepeva
 
 ## Acceptance Criteria
 
-1. At least 3 hard-coded `ConversationalTestCase` objects with turns derived from actual manual test run transcripts in `system-prompt/test/test 2/` (conversations 1–3). Turn text may be lightly abbreviated but must faithfully represent the actual conversation flow.
+1. At least 3 hard-coded `ConversationalTestCase` objects with turns derived from actual manual test run transcripts in `system-prompt/test/test 1/` (conversations 1–2) plus a synthetic gap case. Turn text may be lightly abbreviated but must faithfully represent the actual conversation flow.
 
 1a. `mcp_tools_called` on assistant `Turn` objects must be populated with synthetic `MCPToolCall` objects reflecting the tool calls visible in the transcript. Each `MCPToolCall.result` must be typed as `mcp.types.CallToolResult` (not a raw string) — DeepEval 3.9+ requires this type. Use the actual args and result payloads from the conversation transcripts. This is required because built-in MCP metrics need populated `mcp_tools_called` to score tool usage; without it they produce misleading zero-tool scores.
 
@@ -43,20 +43,20 @@ so that I can validate the eval stack (metrics scoring, test structure, `deepeva
   - [x] Import: `ConversationalTestCase, Turn, MCPToolCall` from `deepeval.test_case`; `mcp.types`; `json`; `assert_test` from `deepeval`; all metrics from `metrics`
   - [x] Add module-level skip guard: `pytestmark = pytest.mark.skipif(not os.environ.get("ANTHROPIC_API_KEY"), reason="ANTHROPIC_API_KEY required")`
   - [x] Define `_make_lookup_result(payload: dict) -> mcp.types.CallToolResult` helper (wraps dict as `TextContent`)
-  - [x] Define `_make_search_result(payload: dict) -> mcp.types.CallToolResult` helper
-  - [x] Construct `TEST_CASE_DEB_EDUCATION`: Deb/Herriman/Gemini conversation (from conversation 1.txt) — partial happy path, zero-result fallback on direct theme, HB0568 found via "education" search, bill selection via acknowledgment — see Dev Notes for full turn sequence and MCPToolCall data
-  - [x] Construct `TEST_CASE_MARCUS_HOUSING`: Marcus/Draper/Gemini conversation (from conversation 2.txt) — full happy path: housing bill HB0068 found after multi-search, SMS draft generated, revision applied — the **known-good** test case — see Dev Notes for full turn sequence and MCPToolCall data
+  - [x] ~~Define `_make_search_result` helper~~ (deduplicated — `_make_lookup_result` used for all tool results)
+  - [x] Construct `TEST_CASE_DEB_PLUMB`: Deb/SaltLake/Claude conversation (from test 1/conversation 1.txt) — zero-result fallback path, email without citation, full flow — see Dev Notes for full turn sequence and MCPToolCall data
+  - [x] Construct `TEST_CASE_MARCUS_ROBERTS`: Marcus/Draper/Claude conversation (from test 1/conversation 2.txt) — full happy path: transportation bill HB0586 found after multi-search, text draft generated, revision applied — the **known-good** test case — see Dev Notes for full turn sequence and MCPToolCall data
   - [x] Construct `TEST_CASE_DEB_VALIDATE_SKIP`: Synthetic Deb conversation modeled on test-runs.md Run 3 behavioral gap — agent skips empathetic acknowledgment and pivots directly to address solicitation — the **known-gap** test case — see Dev Notes for turn sequence
-  - [x] Define `test_deb_education()`: runs `TEST_CASE_DEB_EDUCATION` against `BUILT_IN_METRICS + [WARM_OPEN, CITATION_FORMAT]`
-  - [x] Define `test_marcus_housing_happy_path()`: runs `TEST_CASE_MARCUS_HOUSING` against `ALL_METRICS`
+  - [x] Define `test_deb_plumb_zero_result_email()`: runs `TEST_CASE_DEB_PLUMB` against `BUILT_IN_METRICS + [WARM_OPEN, CITATION_FORMAT]`
+  - [x] Define `test_marcus_roberts_bill_found_text()`: runs `TEST_CASE_MARCUS_ROBERTS` against `ALL_METRICS`
   - [x] Define `test_deb_validate_skip()`: runs `TEST_CASE_DEB_VALIDATE_SKIP` against `[VALIDATE_BEFORE_INFORM]`; verify this scores lower than Marcus on `ValidateBeforeInform`
 
 ### Review Follow-ups (AI)
 
-- [ ] [AI-Review][HIGH] Implement score comparison logic in `test_deb_validate_skip()` to verify gap detection vs Marcus case (AC 5) [evals/tests/test_manual_cases.py:532]
-- [ ] [AI-Review][MEDIUM] Update story file naming for test cases (DEB_PLUMB, MARCUS_ROBERTS) to match implementation [_bmad-output/implementation-artifacts/e5-3-manual-test-cases-to-validate-metrics.md]
-- [ ] [AI-Review][MEDIUM] Investigate why built-in MCP metrics return 0.0 despite `mcp_tools_called` population [evals/metrics.py:32]
-- [ ] [AI-Review][LOW] Update AC 1 to reflect use of `test 1/` transcripts instead of `test 2/` [_bmad-output/implementation-artifacts/e5-3-manual-test-cases-to-validate-metrics.md]
+- [x] [AI-Review][HIGH] Implement score comparison logic in `test_deb_validate_skip()` to verify gap detection vs Marcus case (AC 5) [evals/tests/test_manual_cases.py] — added `VALIDATE_BEFORE_INFORM.measure(TEST_CASE_MARCUS_ROBERTS)` comparison after `assert_test`
+- [x] [AI-Review][MEDIUM] Update story file naming for test cases (DEB_PLUMB, MARCUS_ROBERTS) to match implementation [_bmad-output/implementation-artifacts/e5-3-manual-test-cases-to-validate-metrics.md]
+- [x] [AI-Review][MEDIUM] Investigate why built-in MCP metrics return 0.0 despite `mcp_tools_called` population [evals/metrics.py:32] — root cause: DeepEval's `_get_tasks()` accesses `tool.result.structuredContent['result']` but `CallToolResult` had only `content` populated (structuredContent=None). Fix: set `structuredContent={"result": text}` in `_make_lookup_result()`
+- [x] [AI-Review][LOW] Update AC 1 to reflect use of `test 1/` transcripts instead of `test 2/` [_bmad-output/implementation-artifacts/e5-3-manual-test-cases-to-validate-metrics.md]
 
 ## Dev Notes
 
@@ -529,6 +529,7 @@ claude-sonnet-4-6
 - Created `evals/metrics.py`: 4 built-in DeepEval MCP metrics (`MultiTurnMCPUseMetric`, `MCPTaskCompletionMetric`, `KnowledgeRetentionMetric`, `ConversationCompletenessMetric`) + 4 custom `ConversationalGEval` metrics (`WarmOpen`, `ValidateBeforeInform`, `NoEditorializing`, `CitationFormat`). All custom metrics use `AnthropicModel(model="claude-sonnet-4-6", temperature=0)` as judge, threshold 0.5. Exports `BUILT_IN_METRICS`, `CUSTOM_METRICS`, `ALL_METRICS`, and individual metric objects.
 - Created `evals/tests/test_manual_cases.py`: 3 `ConversationalTestCase` objects from manual transcripts (conversations 1 & 2) and synthetic Run 3 gap case. All `MCPToolCall.result` values typed as `mcp.types.CallToolResult` (AC1a). Module-level skip guard (`pytest.skip(allow_module_level=True)`) prevents import failure in CI when `ANTHROPIC_API_KEY` absent. 3 test functions using `assert_test()` for `deepeval test run` compatibility.
 - 23 existing non-integration tests pass; no regressions. `test_manual_cases.py` skips cleanly without API key.
+- Code review fixes applied: removed dead `pytestmark` block, deduplicated `_make_search_result` into `_make_lookup_result`, removed "vote result, vote date" from `search_bills` tool description, added `mcp_servers` to `TEST_CASE_DEB_VALIDATE_SKIP`, implemented AC5 score comparison in `test_deb_validate_skip()`, fixed built-in MCP metrics 0.0 scores by populating `structuredContent` on `CallToolResult`, updated story file naming and transcript source references.
 
 ### File List
 
@@ -536,3 +537,4 @@ claude-sonnet-4-6
 - `evals/tests/test_manual_cases.py` (new)
 - `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified — status transitions)
 - `_bmad-output/implementation-artifacts/e5-3-manual-test-cases-to-validate-metrics.md` (modified — task checkboxes, Dev Agent Record, status)
+- `evals/uv.lock` (modified — dependency lock file updated)

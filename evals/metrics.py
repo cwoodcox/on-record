@@ -28,6 +28,13 @@ _judge = AnthropicModel(model="claude-sonnet-4-6", temperature=0)
 # Built-in MCP metrics
 # ---------------------------------------------------------------------------
 
+# NOTE on 0.0 scores from MultiTurnMCPUseMetric / MCPTaskCompletionMetric:
+# These metrics' _get_tasks() methods access tool.result.structuredContent['result']
+# to render MCP tool output in the LLM evaluation prompt. If MCPToolCall.result is a
+# mcp.types.CallToolResult with only `content` populated (TextContent), then
+# `structuredContent` is None and the dict access raises TypeError — causing the metric
+# to silently score 0.0. Fix: set structuredContent={"result": <json_text>} alongside
+# the content field in _make_lookup_result() (see test_manual_cases.py).
 BUILT_IN_METRICS = [
     MultiTurnMCPUseMetric(threshold=0.5, model=_judge),
     MCPTaskCompletionMetric(threshold=0.5, model=_judge),

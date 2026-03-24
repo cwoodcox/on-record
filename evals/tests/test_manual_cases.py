@@ -31,8 +31,15 @@ from metrics import ALL_METRICS, BUILT_IN_METRICS, CITATION_FORMAT, VALIDATE_BEF
 
 
 def _make_lookup_result(payload: dict) -> mcp.types.CallToolResult:
+    text = json.dumps(payload)
     return mcp.types.CallToolResult(
-        content=[mcp.types.TextContent(type="text", text=json.dumps(payload))],
+        content=[mcp.types.TextContent(type="text", text=text)],
+        # structuredContent is required by DeepEval's built-in MCP metrics
+        # (MultiTurnMCPUseMetric, MCPTaskCompletionMetric) — their _get_tasks()
+        # method accesses tool.result.structuredContent['result'] to render tool
+        # output in the LLM prompt. Without it, the access raises TypeError on
+        # None and the metric silently scores 0.0.
+        structuredContent={"result": text},
         isError=False,
     )
 
@@ -664,6 +671,16 @@ def test_deb_validate_skip():
     """Deb/Validate-Skip synthetic gap case — ValidateBeforeInform only.
 
     This case intentionally skips empathetic validation; expected to score lower
-    than test_marcus_housing_happy_path on ValidateBeforeInform (AC5).
+    than Marcus on ValidateBeforeInform (AC5 gap detection).
     """
     assert_test(TEST_CASE_DEB_VALIDATE_SKIP, metrics=[VALIDATE_BEFORE_INFORM])
+    deb_skip_score = VALIDATE_BEFORE_INFORM.score
+
+    # Verify behavioral gap: deb-skip must score strictly below Marcus on this metric
+    VALIDATE_BEFORE_INFORM.measure(TEST_CASE_MARCUS_ROBERTS)
+    marcus_score = VALIDATE_BEFORE_INFORM.score
+
+    assert deb_skip_score < marcus_score, (
+        f"Gap detection failed: validate-skip scored {deb_skip_score:.2f}, "
+        f"Marcus scored {marcus_score:.2f} — expected skip < marcus on ValidateBeforeInform"
+    )
