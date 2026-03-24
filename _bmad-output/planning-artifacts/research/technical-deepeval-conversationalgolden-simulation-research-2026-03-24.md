@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3, 4]
+stepsCompleted: [1, 2, 3, 4, 5]
 inputDocuments: []
 workflowType: 'research'
 lastStep: 1
@@ -363,3 +363,163 @@ _Source: https://deepeval.com/docs/evaluation-datasets_
 4. Review first simulation transcripts, then add `user_description` to all goldens to improve persona fidelity
 
 _Source: https://deepeval.com/docs/conversation-simulator — https://deepeval.com/docs/getting-started-chatbots_
+
+---
+
+## Implementation Approaches and Technology Adoption
+
+### Technology Adoption Strategies
+
+**Recommended adoption path (incremental):**
+
+1. **Phase 1 — Smoke test (day 1):** Install deepeval, write one `ConversationalGolden` with a clear `scenario` and `expected_outcome`, implement the minimal `model_callback`, run `simulate()` with `max_user_simulations=3`. Goal: verify the callback contract works and transcripts look plausible.
+
+2. **Phase 2 — Baseline dataset (week 1):** Build 10–20 goldens covering the most common conversation intents. Add `user_description` after reviewing Phase 1 transcripts. Run `ConversationCompletenessMetric` and `ConversationRelevancyMetric` to establish a baseline score.
+
+3. **Phase 3 — CI gate (week 2):** Add `deepeval test run` to CI pipeline with `-c` caching. Set conservative `threshold=0.5` initially; tighten as the chatbot matures.
+
+4. **Phase 4 — Expand coverage (ongoing):** Add goldens for edge cases, error paths, and multi-intent scenarios. Layer in `KnowledgeRetentionMetric` and `RoleAdherenceMetric` as needed.
+
+**Big-bang alternative (not recommended):** Building a large golden dataset before validating callback integration leads to wasted effort if the `model_callback` contract is wrong or the chatbot's API shape changes.
+
+_Source: https://deepeval.com/docs/getting-started-chatbots — https://deepeval.com/docs/conversation-simulator_
+
+### Development Workflows and Tooling
+
+**Local development loop:**
+```bash
+# Install
+pip install deepeval
+
+# Set API key (or put in .env)
+export OPENAI_API_KEY=sk-...
+
+# Run a single test file verbosely (prints LLM judge chain-of-thought)
+deepeval test run tests/test_chatbot.py -v
+
+# Run with caching (skip re-eval of unchanged cases)
+deepeval test run tests/test_chatbot.py -v -c
+```
+
+**Recommended project layout:**
+```
+tests/
+  test_chatbot_conversations.py   # ConversationalTestCase tests
+  test_chatbot_unit.py            # LLMTestCase single-turn tests (separate file!)
+datasets/
+  conversational_goldens.json     # version-controlled golden dataset
+  .env                            # OPENAI_API_KEY (gitignored)
+```
+
+**Key tooling constraint:** Do not mix `ConversationalTestCase` and `LLMTestCase` in the same `evaluate()` call or the same pytest test function. Keep them in separate files.
+
+_Source: https://deepeval.com/docs/getting-started — https://deepeval.com/docs/evaluation-unit-testing-in-ci-cd_
+
+### Testing and Quality Assurance
+
+**Metric selection guide:**
+
+| What you want to validate | Metric |
+|---|---|
+| Did the chatbot satisfy the user's goal? | `ConversationCompletenessMetric` |
+| Were responses on-topic throughout? | `ConversationRelevancyMetric` |
+| Did the chatbot stay in persona/role? | `RoleAdherenceMetric` |
+| Did the chatbot remember earlier facts? | `KnowledgeRetentionMetric` |
+| Custom quality criteria | `ConversationalGEval(criteria="...")` |
+
+**Threshold strategy:** Start at `threshold=0.5` (default). For production gates, raise to `0.7`–`0.8` once baseline is established. Per-metric thresholds can be set independently.
+
+**Transcript review:** Always manually inspect simulation transcripts on first run with a new golden dataset. Vague `scenario` strings produce unrealistic user behavior regardless of metric scores. Fix the goldens before tuning thresholds.
+
+_Source: https://deepeval.com/docs/evaluation-multiturn-test-cases — https://deepeval.com/docs/metrics-conversation-completeness_
+
+### Deployment and Operations Practices
+
+**CI/CD pipeline (GitHub Actions):**
+```yaml
+- name: Run conversation simulation tests
+  env:
+    OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  run: |
+    pip install deepeval
+    deepeval test run tests/test_chatbot_conversations.py -n 4 -c -id "ci-${{ github.run_id }}"
+```
+
+**Cost control:**
+- `-c` caching eliminates redundant LLM judge calls on re-runs — most impactful optimization
+- `simulator_model="gpt-4o-mini"` for simulation, `gpt-4.1` for judging: lowers simulation cost while keeping eval quality
+- `max_concurrent=10–20` (vs default 100) when on a shared rate limit budget
+
+**Dataset versioning:** Commit `conversational_goldens.json` to version control alongside test code. Golden changes should be reviewed like code changes — they directly affect what the CI gate validates.
+
+_Source: https://deepeval.com/docs/evaluation-unit-testing-in-ci-cd — https://deepeval.com/docs/evaluation-flags-and-configs_
+
+### Team Organization and Skills
+
+**Required skills for getting started:**
+- Python 3.10+ (async/await for `model_callback`)
+- Basic pytest knowledge
+- Access to an OpenAI API key (or alternative LLM provider credentials)
+
+**No specialized ML background required.** deepeval abstracts all LLM judging internally. The team needs to understand *what* makes a good conversation (to write quality `scenario` and `expected_outcome` strings), not *how* the metrics work internally.
+
+**Golden authoring is the critical skill.** Poor `scenario` descriptions are the most common cause of low-signal simulations. Invest time in writing specific, realistic scenarios that mirror actual user intents from production logs.
+
+_Source: https://deepeval.com/docs/getting-started-chatbots — https://deepeval.com/docs/conversation-simulator_
+
+### Cost Optimization and Resource Management
+
+| Lever | Impact | Tradeoff |
+|---|---|---|
+| `-c` caching in CI | High — eliminates redundant calls | None — always use |
+| `simulator_model="gpt-4o-mini"` | Medium — cheaper user simulation | Slightly less realistic user turns |
+| `max_user_simulations=5` (vs 10) | Medium — halves turn count | May not reach `expected_outcome` on complex scenarios |
+| `max_concurrent=20` (vs 100) | Low cost impact | Slower wall-clock time |
+| Reduce golden count | High — linear cost reduction | Less benchmark coverage |
+
+**Rough cost estimate:** With GPT-4.1 as both simulator and judge, a 20-golden dataset with `max_user_simulations=10` and 3 metrics costs approximately $1–3 per full run (varies by turn length). With caching, subsequent CI runs cost near-zero if goldens are unchanged.
+
+_Source: https://deepeval.com/docs/evaluation-flags-and-configs — https://deepeval.com/docs/conversation-simulator_
+
+### Risk Assessment and Mitigation
+
+| Risk | Severity | Mitigation |
+|---|---|---|
+| Double initial user-turn bug (#1884) | Medium | Filter/skip the first turn in post-processing if turn count is unexpectedly high; monitor GitHub for fix |
+| JSON deserialization bug for `comments`/`custom_column_key_values` (#2056) | Low | Don't rely on those fields when round-tripping through JSON; use Confident AI platform instead |
+| `ConversationalGolden` vs `ConversationGolden` naming | Low | The correct class name is `ConversationalGolden` — old docs/examples may show `ConversationGolden` |
+| LLM provider rate limits | Medium | Set `max_concurrent=20`, use `tenacity` retries (built-in), stagger CI runs |
+| Simulation quality degradation | Medium | Always review transcripts manually when changing `scenario`/`user_description`; don't trust scores alone |
+| OpenAI API cost overrun | Low-Medium | Use `-c` caching, `gpt-4o-mini` for simulation, set `max_user_simulations` conservatively |
+
+_Source: https://github.com/confident-ai/deepeval/issues/1884 — https://github.com/confident-ai/deepeval/issues/2056_
+
+## Technical Research Recommendations
+
+### Implementation Roadmap
+
+1. **Week 1:** Install deepeval, write 5 goldens, validate `model_callback` integration
+2. **Week 2:** Expand to 20 goldens, add `ConversationCompletenessMetric` + `ConversationRelevancyMetric`, establish baseline
+3. **Week 3:** Add `deepeval test run` to CI with `-c` caching; set threshold=0.5
+4. **Week 4+:** Iterate — add goldens for edge cases, tune thresholds, layer in additional metrics
+
+### Technology Stack Recommendations
+
+- **Python 3.10+** (enables optional framework integrations)
+- **`deepeval` latest** (v3.9.2 as of 2026-03-24)
+- **OpenAI GPT-4.1** as judge; **GPT-4o-mini** as simulator (cost/quality balance)
+- **pytest** via `deepeval test run` for CI integration
+- **Local JSON** for golden dataset storage initially; migrate to Confident AI cloud if team grows
+
+### Skill Development Requirements
+
+- Write high-quality `scenario` strings: specific, user-intent-focused, grounded in real usage patterns
+- Async Python (`async def model_callback`) — required for all but the simplest stateless integrations
+- Metric interpretation: understand what `ConversationCompletenessMetric` score of 0.6 means before reacting
+
+### Success Metrics and KPIs
+
+- `ConversationCompletenessMetric` ≥ 0.7 across golden dataset
+- `ConversationRelevancyMetric` ≥ 0.8 (relevancy is a lower bar to hit)
+- Zero CI failures from deepeval infrastructure (rate limits, API errors) — only semantic failures
+- Golden dataset grows to 50+ covering all major user intents within first sprint
