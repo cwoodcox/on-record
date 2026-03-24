@@ -447,7 +447,7 @@ TEST_CASE_MARCUS_ROBERTS = ConversationalTestCase(
             content=(
                 "There we go! Rep. Roberts has sponsored some transportation-related bills:\n\n"
                 "1. HB 586 — Transportation Funding Amendments — Addresses how transportation is funded in "
-                "Utah. Currently filed in the House (still in progress for the 2026 General Session).\n"
+                "Utah. Currently stuck in committee (still in progress for the 2026 General Session).\n"
                 "2. HB 471 — Transportation Procurement Amendments — Dealt with how the Department of "
                 "Transportation handles procurement. Signed by the Governor in the 2025 General Session.\n\n"
                 "Neither of these is specifically about transit + housing to reduce costs — the bill you "
@@ -501,8 +501,8 @@ TEST_CASE_MARCUS_ROBERTS = ConversationalTestCase(
                 "Based on what the tool returned, HB 586 — Transportation Funding Amendments addresses how "
                 "transportation is funded in Utah. That's honestly about all the detail I have on it — the "
                 "summary is pretty sparse.\n\n"
-                "What I can say is that it's currently filed in the House for the 2026 General Session, "
-                "meaning it's still active and in play. That actually makes it a great moment to reach out "
+                "What I can say is that it's currently stuck in committee for the 2026 General Session, "
+                "which is exactly what you heard — and that actually makes it a great moment to reach out "
                 "— Rep. Roberts is the sponsor, so a message from a constituent right now could genuinely "
                 "matter.\n\n"
                 "Would you like to write to him about your cost-of-living concerns and reference this bill?"
@@ -524,11 +524,11 @@ TEST_CASE_MARCUS_ROBERTS = ConversationalTestCase(
             content=(
                 "Here's a draft text for Rep. Roberts:\n\n"
                 "---\n"
-                "Rep. Roberts — I'm a constituent in Draper and I'm feeling the squeeze. Making more than "
-                "ever but my budget is tighter than it's ever been. I know my neighbors are too. I'm "
-                "watching HB 586 and hoping it can help. Will you fight to make sure it moves forward? "
-                "— [Your Name]\n\n"
-                "(HB 586, 2026 General Session, currently filed in House)\n"
+                "Rep. Roberts — I'm a constituent in Draper. My neighbors are struggling and I'm feeling "
+                "it too — making more than ever but my budget is tighter than it's ever been. I heard HB "
+                "586 could help and that it's stuck in committee. Will you fight to make sure it moves "
+                "forward? — [Your Name]\n\n"
+                "(HB 586, 2026 General Session, stuck in committee)\n"
                 "---\n\n"
                 "Short, personal, and direct — and it names the bill so he knows you've done your homework. "
                 "Want me to tweak anything?"
@@ -544,10 +544,11 @@ TEST_CASE_MARCUS_ROBERTS = ConversationalTestCase(
             content=(
                 "Nice, Marcus — offering to help is a great touch. Here's the revised draft:\n\n"
                 "---\n"
-                "Rep. Roberts — I'm Marcus, a constituent in Draper. I'm making more than ever but my "
-                "budget is tighter than it's ever been, and I see my neighbors struggling too. I'm watching "
-                "HB 586 and believe it could help. How can I support you in moving it forward?\n\n"
-                "(HB 586, 2026 General Session, currently filed in House)\n"
+                "Rep. Roberts — I'm Marcus, a constituent in Draper. My neighbors are struggling and I'm "
+                "feeling it too — earning more than ever but the budget's tighter than it's ever been. I "
+                "heard HB 586 could help and that it's stuck in committee. How can I support you in moving "
+                "it forward?\n\n"
+                "(HB 586, 2026 General Session, stuck in committee)\n"
                 "---\n\n"
                 "Ends with a question, which makes it easy for him to respond. Want any other changes, or "
                 "is this ready to send?"
@@ -560,16 +561,18 @@ TEST_CASE_MARCUS_ROBERTS = ConversationalTestCase(
             content=(
                 "Awesome, Marcus! Here's everything you need to send it:\n\n"
                 "To: Rep. Calvin Roberts\n"
-                "Email: croberts@le.utah.gov\n"
-                "(No cell number on file for Rep. Roberts, but this message works great as an email too.)\n\n"
+                "Contact: croberts@le.utah.gov\n"
+                "(No cell number is on file for Rep. Roberts — you can send this as a text to his office "
+                "or via email at that address.)\n\n"
                 "---\n"
-                "Rep. Roberts — I'm Marcus, a constituent in Draper. I'm making more than ever but my "
-                "budget is tighter than it's ever been, and I see my neighbors struggling too. I'm watching "
-                "HB 586 and believe it could help. How can I support you in moving it forward?\n\n"
-                "(HB 586, 2026 General Session, currently filed in House)\n"
+                "Rep. Roberts — I'm Marcus, a constituent in Draper. My neighbors are struggling and I'm "
+                "feeling it too — earning more than ever but the budget's tighter than it's ever been. I "
+                "heard HB 586 could help and that it's stuck in committee. How can I support you in moving "
+                "it forward?\n\n"
+                "(HB 586, 2026 General Session, stuck in committee)\n"
                 "---\n\n"
                 "Good luck — and it's genuinely great that you're reaching out. Constituent voices matter, "
-                "especially on a bill that's still in play. I hope he writes back!"
+                "especially on a bill that's stuck and needs a push. I hope he writes back!"
             ),
             mcp_tools_called=None,
         ),
@@ -657,30 +660,21 @@ def test_deb_plumb_zero_result_email():
     Source: test 1/conversation 1.txt.
     CitationFormat should score N/A (correctly absent per rubric).
     """
-    assert_test(TEST_CASE_DEB_PLUMB, metrics=BUILT_IN_METRICS + [WARM_OPEN, CITATION_FORMAT])
+    assert_test(TEST_CASE_DEB_PLUMB, metrics=BUILT_IN_METRICS + [WARM_OPEN, CITATION_FORMAT], run_async=False)
 
 
 def test_marcus_roberts_bill_found_text():
     """Marcus/Roberts — bill found, text with citation, full flow including revision.
     Source: test 1/conversation 2.txt. Known-good case: should pass all metrics at 0.5.
     """
-    assert_test(TEST_CASE_MARCUS_ROBERTS, metrics=ALL_METRICS)
+    assert_test(TEST_CASE_MARCUS_ROBERTS, metrics=ALL_METRICS, run_async=False)
 
 
 def test_deb_validate_skip():
     """Deb/Validate-Skip synthetic gap case — ValidateBeforeInform only.
-
-    This case intentionally skips empathetic validation; expected to score lower
-    than Marcus on ValidateBeforeInform (AC5 gap detection).
+    Score should be BELOW 0.5 — this confirms the metric catches the known gap.
     """
-    assert_test(TEST_CASE_DEB_VALIDATE_SKIP, metrics=[VALIDATE_BEFORE_INFORM])
-    deb_skip_score = VALIDATE_BEFORE_INFORM.score
-
-    # Verify behavioral gap: deb-skip must score strictly below Marcus on this metric
-    VALIDATE_BEFORE_INFORM.measure(TEST_CASE_MARCUS_ROBERTS)
-    marcus_score = VALIDATE_BEFORE_INFORM.score
-
-    assert deb_skip_score < marcus_score, (
-        f"Gap detection failed: validate-skip scored {deb_skip_score:.2f}, "
-        f"Marcus scored {marcus_score:.2f} — expected skip < marcus on ValidateBeforeInform"
+    VALIDATE_BEFORE_INFORM.measure(TEST_CASE_DEB_VALIDATE_SKIP)
+    assert VALIDATE_BEFORE_INFORM.score < 0.5, (
+        f"Expected ValidateBeforeInform < 0.5 on known-gap case, got {VALIDATE_BEFORE_INFORM.score}"
     )
