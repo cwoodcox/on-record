@@ -1,6 +1,6 @@
 # Story E5.3: Manual Test Cases to Validate Metrics
 
-Status: review
+Status: in-progress
 
 ## Story
 
@@ -50,6 +50,13 @@ so that I can validate the eval stack (metrics scoring, test structure, `deepeva
   - [x] Define `test_deb_education()`: runs `TEST_CASE_DEB_EDUCATION` against `BUILT_IN_METRICS + [WARM_OPEN, CITATION_FORMAT]`
   - [x] Define `test_marcus_housing_happy_path()`: runs `TEST_CASE_MARCUS_HOUSING` against `ALL_METRICS`
   - [x] Define `test_deb_validate_skip()`: runs `TEST_CASE_DEB_VALIDATE_SKIP` against `[VALIDATE_BEFORE_INFORM]`; verify this scores lower than Marcus on `ValidateBeforeInform`
+
+### Review Follow-ups (AI)
+
+- [ ] [AI-Review][HIGH] Implement score comparison logic in `test_deb_validate_skip()` to verify gap detection vs Marcus case (AC 5) [evals/tests/test_manual_cases.py:532]
+- [ ] [AI-Review][MEDIUM] Update story file naming for test cases (DEB_PLUMB, MARCUS_ROBERTS) to match implementation [_bmad-output/implementation-artifacts/e5-3-manual-test-cases-to-validate-metrics.md]
+- [ ] [AI-Review][MEDIUM] Investigate why built-in MCP metrics return 0.0 despite `mcp_tools_called` population [evals/metrics.py:32]
+- [ ] [AI-Review][LOW] Update AC 1 to reflect use of `test 1/` transcripts instead of `test 2/` [_bmad-output/implementation-artifacts/e5-3-manual-test-cases-to-validate-metrics.md]
 
 ## Dev Notes
 
