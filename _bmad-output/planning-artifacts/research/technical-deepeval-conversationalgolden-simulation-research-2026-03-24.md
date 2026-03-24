@@ -4,8 +4,8 @@ inputDocuments: []
 workflowType: 'research'
 lastStep: 1
 research_type: 'technical'
-research_topic: 'deepeval ConversationGolden for conversation simulation'
-research_goals: 'Getting started with building ConversationGolden datasets and running conversation simulation tests in deepeval'
+research_topic: 'deepeval ConversationalGolden for conversation simulation'
+research_goals: 'Getting started with building ConversationalGolden datasets and running conversation simulation tests in deepeval'
 user_name: 'Corey'
 date: '2026-03-24'
 web_research_enabled: true
@@ -22,9 +22,9 @@ source_verification: true
 
 ## Research Overview
 
-This document presents a comprehensive technical research analysis of **deepeval's `ConversationGolden` dataset model and `ConversationSimulator` for multi-turn chatbot evaluation**. The research covers the complete journey from getting started — installing the library, writing your first golden, and wiring a `model_callback` — through production-grade CI integration with cost controls and risk mitigation.
+This document presents a comprehensive technical research analysis of **deepeval's `ConversationalGolden` dataset model and `ConversationSimulator` for multi-turn chatbot evaluation**. The research covers the complete journey from getting started — installing the library, writing your first golden, and wiring a `model_callback` — through production-grade CI integration with cost controls and risk mitigation.
 
-The research was conducted via direct source analysis of the deepeval v3.9.2 codebase, official documentation, and active GitHub issues (March 2026). Key findings: `ConversationGolden` authoring quality is the single highest-leverage factor in simulation realism; the `-c` caching flag is the most impactful cost optimization for CI; and two known open bugs (#1884, #2056) have straightforward workarounds. The incremental four-phase adoption path (smoke test → baseline dataset → CI gate → expand coverage) is the recommended strategy to avoid wasted effort.
+The research was conducted via direct source analysis of the deepeval v3.9.2 codebase, official documentation, and active GitHub issues (March 2026). Key findings: `ConversationalGolden` authoring quality is the single highest-leverage factor in simulation realism; the `-c` caching flag is the most impactful cost optimization for CI; and two known open bugs (#1884, #2056) have straightforward workarounds. The incremental four-phase adoption path (smoke test → baseline dataset → CI gate → expand coverage) is the recommended strategy to avoid wasted effort.
 
 For the full executive summary, strategic recommendations, and complete technical reference, see the **Research Synthesis** section at the end of this document.
 
@@ -34,8 +34,8 @@ For the full executive summary, strategic recommendations, and complete technica
 
 ## Technical Research Scope Confirmation
 
-**Research Topic:** deepeval ConversationGolden for conversation simulation
-**Research Goals:** Getting started with building ConversationGolden datasets and running conversation simulation tests in deepeval
+**Research Topic:** deepeval ConversationalGolden for conversation simulation
+**Research Goals:** Getting started with building ConversationalGolden datasets and running conversation simulation tests in deepeval
 
 **Technical Research Scope:**
 
@@ -592,7 +592,7 @@ For teams building chatbots on the Utah Legislature API (or any domain-specific 
 
 ### Research Goals Achieved
 
-**Original goal:** "Getting started with building ConversationGolden datasets and running conversation simulation tests in deepeval"
+**Original goal:** "Getting started with building ConversationalGolden datasets and running conversation simulation tests in deepeval"
 
 **Achieved:**
 - Complete `ConversationalGolden` field reference with authoring guidance
