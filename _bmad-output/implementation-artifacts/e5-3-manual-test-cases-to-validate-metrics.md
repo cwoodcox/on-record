@@ -1,517 +1,522 @@
 # Story E5.3: Manual Test Cases to Validate Metrics
 
-Status: in-progress
+Status: ready-for-dev
 
 ## Story
 
-As a **developer building the eval harness**,
-I want 3 hard-coded `ConversationalTestCase` objects with initial metric definitions,
-so that I can validate the eval stack (metrics scoring, test structure, `deepeval test run` output) before layering in simulation complexity.
+As a developer running evals,
+I want 3 hard-coded `ConversationalTestCase` objects with initial metrics configured and validated end-to-end,
+so that I can prove the evaluation stack works correctly before adding simulation complexity in E5-4/E5-6.
 
 ## Acceptance Criteria
 
-1. At least 3 hard-coded `ConversationalTestCase` objects with turns derived from actual manual test run transcripts in `system-prompt/test/test 1/` (conversations 1–2) plus a synthetic gap case. Turn text may be lightly abbreviated but must faithfully represent the actual conversation flow.
+1. At least 3 hard-coded test cases in `evals/tests/test_manual_cases.py` representing Runs 1, 2, and 3 from `system-prompt/test-runs.md`
 
-1a. `mcp_tools_called` on assistant `Turn` objects must be populated with synthetic `MCPToolCall` objects reflecting the tool calls visible in the transcript. Each `MCPToolCall.result` must be typed as `mcp.types.CallToolResult` (not a raw string) — DeepEval 3.9+ requires this type. Use the actual args and result payloads from the conversation transcripts. This is required because built-in MCP metrics need populated `mcp_tools_called` to score tool usage; without it they produce misleading zero-tool scores.
+1a. Assistant `Turn` objects that correspond to tool calls must include `mcp_tools_called` populated with synthetic `MCPToolCall` objects. `MCPToolCall.result` must be a `mcp.types.CallToolResult` wrapping a JSON string — not a raw string. This is required for built-in MCP metrics to score tool usage; without it they produce misleading zero-tool scores.
 
-2. Built-in metrics (`MultiTurnMCPUseMetric`, `MCPTaskCompletionMetric`, `KnowledgeRetentionMetric`, `ConversationCompletenessMetric`) are configured with initial threshold 0.5 and exported from `evals/metrics.py`.
+2. `evals/metrics.py` defines the 4 built-in metrics (`MultiTurnMCPUseMetric`, `MCPTaskCompletionMetric`, `KnowledgeRetentionMetric`, `ConversationCompletenessMetric`) each with `threshold=0.5` and a `get_builtin_metrics()` helper that returns a fresh list per call
 
-3. At least 4 custom `ConversationalGEval` metrics implemented: `WarmOpen`, `ValidateBeforeInform`, `NoEditorializing`, `CitationFormat`. All use `AnthropicModel(model="claude-sonnet-4-6", temperature=0)` as the judge and threshold 0.5. Error-path key phrases for `toContain` assertions (if metrics raise): `"judge model"`, `"threshold"`, `"evaluation_steps"`.
+3. At least 4 custom `ConversationalGEval` metrics defined in `evals/metrics.py`: `warm_open_metric`, `validate_before_inform_metric`, `no_editorializing_metric`, `citation_format_metric` — each with `criteria`, `evaluation_steps` (3–6 steps), `AnthropicModel` judge, and `threshold=0.5`
 
-4. All metrics produce scores and reasons when evaluated — no crashes, no empty results. Validate by running `cd evals && deepeval test run tests/test_manual_cases.py` with real API keys.
+4. Running `deepeval test run tests/test_manual_cases.py -v` from inside `evals/` produces per-metric scores and reasons with no crashes and no empty results
 
-5. The Marcus/housing test case (conversation 2 — full happy path with SMS citation and revision) passes all applicable metrics at threshold 0.5. The Deb/validate-skip test case (synthetic, modeled on test-runs.md Run 3 behavioral gap) shows a lower score on the `ValidateBeforeInform` metric than the Marcus case.
+5. `test_run2_marcus_known_good` passes all metrics at threshold 0.5; `test_run3_deb_validate_before_inform_gap` is marked `@pytest.mark.xfail` because Run 3 (Gemini skipped empathetic validation) is expected to score below threshold on `validate_before_inform_metric`, confirming the metric correctly detects the behavioral gap
 
-6. Tests are structured as pytest functions using `assert_test()` so that `deepeval test run tests/test_manual_cases.py` works correctly (caching, output formatting, identifier tagging). Tests requiring `ANTHROPIC_API_KEY` must skip gracefully when the key is absent (use `pytest.mark.skipif` or check at fixture level).
+6. Tests in `test_manual_cases.py` use `assert_test()` and do NOT require the real MCP server — no `mcp_server` fixture used, no live HTTP calls
 
 ## Tasks / Subtasks
 
-- [x] Task 1: Create `evals/metrics.py` (AC: 2, 3)
-  - [x] Import built-in metrics: `from deepeval.metrics import MultiTurnMCPUseMetric, MCPTaskCompletionMetric, KnowledgeRetentionMetric, ConversationCompletenessMetric`
-  - [x] Import judge model: `from deepeval.models import AnthropicModel`
-  - [x] Define `_judge = AnthropicModel(model="claude-sonnet-4-6", temperature=0)` module-level
-  - [x] Define `BUILT_IN_METRICS` list: all 4 built-in metrics at `threshold=0.5`
-  - [x] Define `WARM_OPEN` (`ConversationalGEval`) — see Dev Notes for criteria + evaluation_steps
-  - [x] Define `VALIDATE_BEFORE_INFORM` (`ConversationalGEval`) — see Dev Notes
-  - [x] Define `NO_EDITORIALIZING` (`ConversationalGEval`) — see Dev Notes
-  - [x] Define `CITATION_FORMAT` (`ConversationalGEval`) — see Dev Notes
-  - [x] Define `CUSTOM_METRICS` list: `[WARM_OPEN, VALIDATE_BEFORE_INFORM, NO_EDITORIALIZING, CITATION_FORMAT]`
-  - [x] Define `ALL_METRICS = BUILT_IN_METRICS + CUSTOM_METRICS`
-  - [x] Export all metric objects and lists at module level
+- [ ] Task 1: Create `evals/metrics.py` (AC: 2, 3)
+  - [ ] 1.1: Define `JUDGE_MODEL = AnthropicModel(model="claude-sonnet-4-6", temperature=0)`
+  - [ ] 1.2: Implement `get_builtin_metrics()` returning a fresh list of the 4 built-in metrics with `threshold=0.5`; pass `model=JUDGE_MODEL` to each metric that accepts it (avoids OPENAI_API_KEY requirement)
+  - [ ] 1.3: Define `warm_open_metric` with criteria and evaluation_steps from Dev Notes
+  - [ ] 1.4: Define `validate_before_inform_metric` with criteria and evaluation_steps from Dev Notes
+  - [ ] 1.5: Define `no_editorializing_metric` with criteria and evaluation_steps from Dev Notes
+  - [ ] 1.6: Define `citation_format_metric` with criteria and evaluation_steps from Dev Notes
 
-- [x] Task 2: Create `evals/tests/test_manual_cases.py` (AC: 1, 1a, 4, 5, 6)
-  - [x] Import: `ConversationalTestCase, Turn, MCPToolCall` from `deepeval.test_case`; `mcp.types`; `json`; `assert_test` from `deepeval`; all metrics from `metrics`
-  - [x] Add module-level skip guard: `pytestmark = pytest.mark.skipif(not os.environ.get("ANTHROPIC_API_KEY"), reason="ANTHROPIC_API_KEY required")`
-  - [x] Define `_make_lookup_result(payload: dict) -> mcp.types.CallToolResult` helper (wraps dict as `TextContent`)
-  - [x] ~~Define `_make_search_result` helper~~ (deduplicated — `_make_lookup_result` used for all tool results)
-  - [x] Construct `TEST_CASE_DEB_PLUMB`: Deb/SaltLake/Claude conversation (from test 1/conversation 1.txt) — zero-result fallback path, email without citation, full flow — see Dev Notes for full turn sequence and MCPToolCall data
-  - [x] Construct `TEST_CASE_MARCUS_ROBERTS`: Marcus/Draper/Claude conversation (from test 1/conversation 2.txt) — full happy path: transportation bill HB0586 found after multi-search, text draft generated, revision applied — the **known-good** test case — see Dev Notes for full turn sequence and MCPToolCall data
-  - [x] Construct `TEST_CASE_DEB_VALIDATE_SKIP`: Synthetic Deb conversation modeled on test-runs.md Run 3 behavioral gap — agent skips empathetic acknowledgment and pivots directly to address solicitation — the **known-gap** test case — see Dev Notes for turn sequence
-  - [x] Define `test_deb_plumb_zero_result_email()`: runs `TEST_CASE_DEB_PLUMB` against `BUILT_IN_METRICS + [WARM_OPEN, CITATION_FORMAT]`
-  - [x] Define `test_marcus_roberts_bill_found_text()`: runs `TEST_CASE_MARCUS_ROBERTS` against `ALL_METRICS`
-  - [x] Define `test_deb_validate_skip()`: runs `TEST_CASE_DEB_VALIDATE_SKIP` against `[VALIDATE_BEFORE_INFORM]`; verify this scores lower than Marcus on `ValidateBeforeInform`
+- [ ] Task 2: Create `evals/tests/test_manual_cases.py` (AC: 1, 1a, 4, 5, 6)
+  - [ ] 2.1: Add imports (`ConversationalTestCase`, `Turn`, `MCPToolCall`, `CallToolResult`, `TextContent`, `assert_test`, metrics from metrics.py)
+  - [ ] 2.2: Define `make_tool_result(data)` helper using `CallToolResult(content=[TextContent(type="text", text=json.dumps(data))], isError=False)`
+  - [ ] 2.3: Define synthetic data constants (Herriman legislators/bills, Draper legislators/bills) — use shapes from Dev Notes
+  - [ ] 2.4: Define `RUN1_TURNS` — 13-turn Deb/zero-result sequence; 2 assistant turns with `mcp_tools_called`
+  - [ ] 2.5: Define `RUN2_TURNS` — 15-turn Marcus/known-good sequence; 2 assistant turns with `mcp_tools_called`
+  - [ ] 2.6: Define `RUN3_TURNS` — 13-turn Deb/Gemini-validation-skip sequence; Turn 3 skips empathetic acknowledgment and immediately asks for address; 2 assistant turns with `mcp_tools_called`
+  - [ ] 2.7: Write `test_run1_deb_zero_result()` — `assert_test` with builtin + warm_open + validate_before_inform + no_editorializing (exclude citation_format: zero-result path has no bill)
+  - [ ] 2.8: Write `test_run2_marcus_known_good()` — `assert_test` with all builtins + all 4 custom metrics
+  - [ ] 2.9: Write `@pytest.mark.xfail test_run3_deb_validate_before_inform_gap()` — `assert_test` with `validate_before_inform_metric` only
 
-### Review Follow-ups (AI)
-
-- [x] [AI-Review][HIGH] Implement score comparison logic in `test_deb_validate_skip()` to verify gap detection vs Marcus case (AC 5) [evals/tests/test_manual_cases.py] — added `VALIDATE_BEFORE_INFORM.measure(TEST_CASE_MARCUS_ROBERTS)` comparison after `assert_test`
-- [x] [AI-Review][MEDIUM] Update story file naming for test cases (DEB_PLUMB, MARCUS_ROBERTS) to match implementation [_bmad-output/implementation-artifacts/e5-3-manual-test-cases-to-validate-metrics.md]
-- [x] [AI-Review][MEDIUM] Investigate why built-in MCP metrics return 0.0 despite `mcp_tools_called` population [evals/metrics.py:32] — root cause: DeepEval's `_get_tasks()` accesses `tool.result.structuredContent['result']` but `CallToolResult` had only `content` populated (structuredContent=None). Fix: set `structuredContent={"result": text}` in `_make_lookup_result()`
-- [x] [AI-Review][LOW] Update AC 1 to reflect use of `test 1/` transcripts instead of `test 2/` [_bmad-output/implementation-artifacts/e5-3-manual-test-cases-to-validate-metrics.md]
+- [ ] Task 3: Verify and record results (AC: 4, 5)
+  - [ ] 3.1: Run `cd evals && deepeval test run tests/test_manual_cases.py -v` and confirm no crashes
+  - [ ] 3.2: Confirm Run 2 passes; confirm Run 3 resolves as XFAIL (not XPASS)
+  - [ ] 3.3: Record per-metric scores and any threshold observations in Dev Agent Record
 
 ## Dev Notes
 
 ### Architecture Context
 
-This story builds on the completed E5-1 (`evals/server.py`, `evals/conftest.py`) and E5-2 (`evals/mcp_client.py`, `evals/chatbot.py`, `evals/providers/`). The two new files created here (`evals/metrics.py`, `evals/tests/test_manual_cases.py`) do NOT use the live MCP server or `model_callback` — they work entirely with pre-built `ConversationalTestCase` objects and DeepEval's metric scoring.
+E5-3 is Phase 1 of the phased eval adoption from `tech-spec-eval-harness.md`: prove metrics work on hardcoded conversations BEFORE adding `ConversationSimulator` complexity. E5-4 adds `ConversationalGolden` scenarios; E5-6 runs full simulation.
 
-```
-evals/
-├── metrics.py               ← NEW: metric definitions (built-in MCP + custom GEval)
-├── tests/
-│   └── test_manual_cases.py ← NEW: hard-coded test cases from manual transcripts
-```
+New files integrate as follows:
+- `evals/metrics.py` — standalone metric definitions; imported by all future test files
+- `evals/tests/test_manual_cases.py` — hardcoded turns only. No live MCP server, no model_callback, no chatbot.py.
 
-The existing `evals/tests/` already has:
-- `test_server_lifecycle.py` (E5-1)
-- `test_chatbot.py` (E5-2)
-- `test_providers.py` (pluggable LLM provider story)
-
-### DeepEval API — ConversationalTestCase Structure
-
-```python
-from deepeval.test_case import ConversationalTestCase, Turn, MCPToolCall
-import mcp.types
-import json
-
-def _make_lookup_result(payload: dict) -> mcp.types.CallToolResult:
-    return mcp.types.CallToolResult(
-        content=[mcp.types.TextContent(type="text", text=json.dumps(payload))],
-        isError=False,
-    )
-
-test_case = ConversationalTestCase(
-    turns=[
-        Turn(role="user", content="hi!"),
-        Turn(
-            role="assistant",
-            content="Hi there! What's been on your mind lately...",
-            mcp_tools_called=None,
-        ),
-        Turn(role="user", content="I'm really upset about..."),
-        Turn(
-            role="assistant",
-            content="That sounds incredibly stressful...",
-            mcp_tools_called=[
-                MCPToolCall(
-                    name="lookup_legislator",
-                    args={"street": "...", "zone": "..."},
-                    result=_make_lookup_result({...}),
-                )
-            ],
-        ),
-    ]
-)
-```
-
-**Critical:** `MCPToolCall.result` must be `mcp.types.CallToolResult` — NOT a raw string or dict. This was discovered during E5-2 implementation (DeepEval 3.9+ enforces this type). `mcp>=1.0.0` is already in `pyproject.toml`.
-
-### deepeval test run vs bare pytest
-
-Run with:
-```bash
-cd evals && deepeval test run tests/test_manual_cases.py
-```
-
-NOT:
-```bash
-cd evals && pytest tests/test_manual_cases.py  # skips DeepEval caching + output
-```
-
-Test functions use `assert_test()`:
-```python
-from deepeval import assert_test
-
-def test_marcus_housing_happy_path():
-    assert_test(TEST_CASE_MARCUS_HOUSING, metrics=ALL_METRICS)
-```
-
-### Custom Metric Definitions (metrics.py)
-
-All custom metrics use `AnthropicModel` as the judge. `ANTHROPIC_API_KEY` must be set.
-
-**WarmOpen** — checks the assistant opens by asking about the constituent's concern, NOT by immediately asking for address or presenting a category menu:
-```python
-WARM_OPEN = ConversationalGEval(
-    name="Warm Open",
-    criteria=(
-        "Evaluate whether the assistant opens the conversation by asking about the "
-        "constituent's concern or what brought them here — NOT by immediately requesting "
-        "their address or presenting a list of issue categories."
-    ),
-    evaluation_steps=[
-        "Check the very first assistant turn for its opening question.",
-        "If the first assistant turn asks about the constituent's concern or what's on "
-        "their mind, score positively.",
-        "If the first assistant turn requests an address, ZIP code, or presents a "
-        "menu of issue categories, penalize heavily.",
-        "A warm open that also mentions needing an address later (but asks about concern "
-        "first) is acceptable.",
-    ],
-    model=_judge,
-    threshold=0.5,
-)
-```
-
-**ValidateBeforeInform** — checks the assistant gives substantive emotional acknowledgment BEFORE pivoting to data collection:
-```python
-VALIDATE_BEFORE_INFORM = ConversationalGEval(
-    name="Validate Before Inform",
-    criteria=(
-        "Evaluate whether the assistant provides substantive emotional acknowledgment "
-        "of the constituent's concern before pivoting to address solicitation or "
-        "legislative data. A one-sentence acknowledgment immediately followed by an "
-        "address request is insufficient."
-    ),
-    evaluation_steps=[
-        "Identify the turn where the constituent first states their concern.",
-        "Find the assistant's response to that turn.",
-        "Check whether the response contains substantive emotional validation "
-        "(e.g., reflects the personal impact, expresses genuine understanding) "
-        "before asking for the address.",
-        "Penalize responses that jump directly to 'What's your address?' or "
-        "'To find your representatives, I need your address' after the concern is stated.",
-        "Allow one-sentence acknowledgment ONLY if it clearly addresses the personal "
-        "impact rather than just restating the issue.",
-    ],
-    model=_judge,
-    threshold=0.5,
-)
-```
-
-**NoEditorializing** — checks the assistant avoids characterizing legislator intent or motivation:
-```python
-NO_EDITORIALIZING = ConversationalGEval(
-    name="No Editorializing",
-    criteria=(
-        "Evaluate whether the assistant avoids characterizing legislator intent, "
-        "motivation, or values. All claims must be grounded in bill sponsorship or "
-        "status data from the MCP tool results."
-    ),
-    evaluation_steps=[
-        "Scan each assistant turn for subjective language about legislators.",
-        "Check that all claims are grounded in bill sponsorship, bill status, or "
-        "direct quotes from tool results.",
-        "Penalize phrases like 'clearly doesn't care', 'is opposed to', 'has shown "
-        "support for' when not grounded in a specific sponsored bill.",
-        "Allow factual statements: 'sponsored HB 68', 'the bill passed the House', "
-        "'this was filed in the 2026 General Session'.",
-        "Penalize any claim about why a legislator voted or acted in a certain way.",
-    ],
-    model=_judge,
-    threshold=0.5,
-)
-```
-
-**CitationFormat** — checks the draft cites a specific bill with a human-readable label:
-```python
-CITATION_FORMAT = ConversationalGEval(
-    name="Citation Format",
-    criteria=(
-        "Evaluate whether the generated draft message contains a bill citation in "
-        "human-readable format. Citations must use the bill's human-readable session "
-        "label (e.g., 'this session', '2026 General Session') and bill number/title, "
-        "not raw internal IDs like '2026GS'."
-    ),
-    evaluation_steps=[
-        "Find the assistant turn that contains the draft message.",
-        "If no draft was generated (zero-result fallback), score this metric N/A "
-        "(treat as passing — citation is correctly absent).",
-        "Check that the draft references a specific bill by number or title.",
-        "Verify the citation uses a human-readable session label, not a raw ID "
-        "like '2026GS' or 'session_code'.",
-        "An SMS draft may use a condensed trailing reference; email drafts may use "
-        "inline prose citation. Both formats are acceptable.",
-        "Penalize drafts that contain no bill citation when a bill was confirmed.",
-    ],
-    model=_judge,
-    threshold=0.5,
-)
-```
-
-### Test Case 1: Deb/Education (conversation 1.txt)
-
-Source: `system-prompt/test/test 2/conversation 1.txt` (Gemini CLI, Deb persona, education funding concern).
-
-**Turn sequence:**
-
-| # | Role | Content (abbreviated) |
-|---|------|----------------------|
-| 1 | user | `"hi!"` |
-| 2 | assistant | `"Hi there! What's been on your mind lately — what brings you here today?"` |
-| 3 | user | `"I'm really upset about the cuts to public education funding — my daughter's school just lost three teachers."` |
-| 4 | assistant | Acknowledgment + name + address request. `mcp_tools_called=None` |
-| 5 | user | `"I'm corey. you need my address?"` |
-| 6 | assistant | Confirms yes, asks for address |
-| 7 | user | `"My address is 6856 Windy Ridge in Herriman."` |
-| 8 | assistant | Presents legislators; calls lookup + search_bills ×2. `mcp_tools_called=[lookup, search1_empty, search2_found]` |
-| 9 | user | `"that's weird that it says salt lake city, but i recognize candice's name from a neighbor's campaign sign so it makes sense"` |
-| 10 | assistant | Bill options presented (HB0568, HB0280); re-searches. `mcp_tools_called=[search3_education]` |
-| 11 | user | `"yeah, i remember the half-day kindergarten, i really liked that! maybe if i tell her that and then tell her i'm disappointed in the recent funding cuts she'll remember me"` |
-| 12 | assistant | Affirms approach; asks email vs SMS + tone preference. `mcp_tools_called=None` |
-
-**MCPToolCall data for Turn 8:**
-```python
-# lookup_legislator
-MCPToolCall(
-    name="lookup_legislator",
-    args={"street": "6856 Windy Ridge", "zone": "Herriman"},
-    result=_make_lookup_result({
-        "legislators": [
-            {
-                "id": "PIERUC", "chamber": "house", "district": 49,
-                "name": "Candice B. Pierucci",
-                "email": "cpierucci@le.utah.gov", "phone": "385-414-1488",
-                "session": "2026GS", "phoneLabel": "cell",
-            },
-            {
-                "id": "BUSSEM", "chamber": "senate", "district": 11,
-                "name": "Emily Buss",
-                "email": "ebuss@le.utah.gov", "phone": "801-598-4734",
-                "session": "2026GS", "phoneLabel": "cell",
-            },
-        ],
-        "session": "2026GS",
-        "resolvedAddress": "6856 WINDY RIDGE DR, SALT LAKE CITY",
-    }),
-)
-
-# search_bills (empty — "public education funding")
-MCPToolCall(
-    name="search_bills",
-    args={"theme": "public education funding", "legislatorId": "PIERUC"},
-    result=_make_lookup_result({
-        "bills": [], "legislatorId": "PIERUC", "session": "2026GS",
-    }),
-)
-```
-
-**MCPToolCall data for Turn 10:**
-```python
-# search_bills — found results
-MCPToolCall(
-    name="search_bills",
-    args={"theme": "education", "legislatorId": "PIERUC"},
-    result=_make_lookup_result({
-        "bills": [
-            {
-                "id": "HB0568", "session": "2025GS",
-                "title": "Half-day Kindergarten Amendments",
-                "summary": "This bill requires local education agencies (LEAs) to provide a half-day kindergarten class in each school.",
-                "status": "House/ filed", "sponsorId": "PIERUC",
-            },
-            {
-                "id": "HB0280", "session": "2025GS",
-                "title": "School District Administrator Authority",
-                "summary": "This bill amends the definition of an employee.",
-                "status": "House/ filed", "sponsorId": "PIERUC",
-            },
-        ],
-        "legislatorId": "PIERUC",
-        "session": "2026GS",
-    }),
-)
-```
-
-### Test Case 2: Marcus/Housing (conversation 2.txt) — Known-Good
-
-Source: `system-prompt/test/test 2/conversation 2.txt` (Gemini CLI, Marcus persona, economic hardship → housing).
-
-**Full happy path:** warm open ✅, validate ✅, both legislators found, multiple bill searches, HB0068 confirmed, SMS draft generated, revision applied.
-
-**Turn sequence:**
-
-| # | Role | Content (abbreviated) |
-|---|------|----------------------|
-| 1 | user | `"hi!"` |
-| 2 | assistant | `"Hi there! What's been on your mind lately — what brings you here today?"` |
-| 3 | user | `"Things just feel wrong lately. Like my neighbors are struggling and I don't know why."` |
-| 4 | assistant | Acknowledges neighbor hardship; asks if it touched Marcus directly; asks name. `mcp_tools_called=None` |
-| 5 | user | `"I'm marcus. Yeah — my neighbor lost her job at the distribution center. She's got kids. I just feel like no one's doing anything."` |
-| 6 | assistant | Empathizes; asks for address. `mcp_tools_called=None` |
-| 7 | user | `"12997 Summerharvest Dr, Draper is my address"` |
-| 8 | assistant | Presents Roberts + Cullimore; searches economic hardship/employment/cost-of-living (all empty). `mcp_tools_called=[lookup, search×3_empty]` |
-| 9 | user | `"what about for senator cullimore?"` |
-| 10 | assistant | Searches Cullimore (economic hardship, cost of living, housing — all empty). `mcp_tools_called=[search×3_empty]` |
-| 11 | user | `"can we search for something to do with housing from cal?"` |
-| 12 | assistant | Searches housing/ROBERC — finds HB0492, HB0068. `mcp_tools_called=[search_housing_found]` |
-| 13 | user | `"yeah i remember hearing about 68"` |
-| 14 | assistant | Confirms HB 68; asks email vs SMS + tone. `mcp_tools_called=None` |
-| 15 | user | `"yeah let's text him about it,"` |
-| 16 | assistant | SMS draft: `"Marcus from Draper here. Seeing my neighbor struggle after losing her job has been really hard. I'm following HB 68 from this session and hope we can keep supporting families like hers. — Marcus"` |
-| 17 | user | `"i'd like to ask him how the changes will support her, and i don't need to sign my name"` |
-| 18 | assistant | Revised SMS: `"A Draper constituent here. My neighbor lost her job and has kids—it's been hard to watch. How will HB 68 from this session support families like hers?"` |
-
-**MCPToolCall data for Turn 8:**
-```python
-# lookup_legislator
-MCPToolCall(
-    name="lookup_legislator",
-    args={"street": "12997 Summerharvest Dr", "zone": "Draper"},
-    result=_make_lookup_result({
-        "legislators": [
-            {
-                "id": "ROBERC", "chamber": "house", "district": 46,
-                "name": "Calvin Roberts",
-                "email": "croberts@le.utah.gov", "phone": "",
-                "session": "2026GS", "phoneTypeUnknown": True,
-            },
-            {
-                "id": "CULLIKA", "chamber": "senate", "district": 19,
-                "name": "Kirk A. Cullimore",
-                "email": "kcullimore@le.utah.gov", "phone": "385-867-9474",
-                "session": "2026GS", "phoneLabel": "cell",
-            },
-        ],
-        "session": "2026GS",
-        "resolvedAddress": "12997 SUMMERHARVEST DR, SALT LAKE CITY",
-    }),
-)
-# 3 empty search_bills calls (economic hardship, employment, cost of living — all for ROBERC)
-MCPToolCall(
-    name="search_bills",
-    args={"theme": "economic hardship", "legislatorId": "ROBERC"},
-    result=_make_lookup_result({"bills": [], "legislatorId": "ROBERC", "session": "2026GS"}),
-)
-MCPToolCall(
-    name="search_bills",
-    args={"theme": "employment", "legislatorId": "ROBERC"},
-    result=_make_lookup_result({"bills": [], "legislatorId": "ROBERC", "session": "2026GS"}),
-)
-MCPToolCall(
-    name="search_bills",
-    args={"theme": "cost of living", "legislatorId": "ROBERC"},
-    result=_make_lookup_result({"bills": [], "legislatorId": "ROBERC", "session": "2026GS"}),
-)
-```
-
-**MCPToolCall data for Turn 10 (Cullimore searches, all empty):**
-```python
-MCPToolCall(name="search_bills", args={"theme": "economic hardship", "legislatorId": "CULLIKA"}, result=_make_lookup_result({"bills": [], "legislatorId": "CULLIKA", "session": "2026GS"}))
-MCPToolCall(name="search_bills", args={"theme": "cost of living", "legislatorId": "CULLIKA"}, result=_make_lookup_result({"bills": [], "legislatorId": "CULLIKA", "session": "2026GS"}))
-MCPToolCall(name="search_bills", args={"theme": "housing", "legislatorId": "CULLIKA"}, result=_make_lookup_result({"bills": [], "legislatorId": "CULLIKA", "session": "2026GS"}))
-```
-
-**MCPToolCall data for Turn 12 (housing/ROBERC — HB0068 found):**
-```python
-MCPToolCall(
-    name="search_bills",
-    args={"theme": "housing", "legislatorId": "ROBERC"},
-    result=_make_lookup_result({
-        "bills": [
-            {
-                "id": "HB0492", "session": "2026GS",
-                "title": "Transportation, Infrastructure, and Housing Amendments",
-                "summary": "This bill modifies transportation, infrastructure, and housing provisions.",
-                "status": "House/ enrolled bill to Printing", "sponsorId": "ROBERC",
-            },
-            {
-                "id": "HB0068", "session": "2026GS",
-                "title": "Housing and Community Development Amendments",
-                "summary": "This bill creates the Division of Housing and Community Development within the Governor's Office of Economic Opportunity.",
-                "status": "House/ to Governor", "sponsorId": "ROBERC",
-            },
-        ],
-        "legislatorId": "ROBERC",
-        "session": "2026GS",
-    }),
-)
-```
-
-### Test Case 3: Deb/Validate-Skip (synthetic, known-gap)
-
-**Purpose:** Modeled on test-runs.md Run 3 behavioral gap — "Skipped Step 1 validation and jumped straight to address solicitation." This demonstrates the `ValidateBeforeInform` metric can detect the failure mode.
-
-This is a synthetic test case constructed from the documented behavior, NOT from a real transcript. The agent jumped from concern statement to address solicitation without substantive acknowledgment.
-
-```python
-TEST_CASE_DEB_VALIDATE_SKIP = ConversationalTestCase(
-    turns=[
-        Turn(role="user", content="hi!"),
-        Turn(
-            role="assistant",
-            content="Hi there! What's been on your mind lately — what brings you here today?",
-            mcp_tools_called=None,
-        ),
-        Turn(
-            role="user",
-            content="I'm really upset about the cuts to public education funding — my daughter's school just lost three teachers.",
-        ),
-        Turn(
-            role="assistant",
-            # ← BEHAVIORAL GAP: skips validation, jumps straight to address request
-            content="I understand. To find your specific state representatives, I'll need your home address. Just the street address and city or ZIP is fine. What's your address?",
-            mcp_tools_called=None,
-        ),
-        Turn(role="user", content="My address is 6856 Windy Ridge in Herriman."),
-        Turn(
-            role="assistant",
-            content="Great. Your representatives are Candice B. Pierucci (House District 49) and Emily Buss (Senate District 11). Which one would you like to write to?",
-            mcp_tools_called=[
-                MCPToolCall(
-                    name="lookup_legislator",
-                    args={"street": "6856 Windy Ridge", "zone": "Herriman"},
-                    result=_make_lookup_result({
-                        "legislators": [
-                            {"id": "PIERUC", "chamber": "house", "district": 49, "name": "Candice B. Pierucci", "email": "cpierucci@le.utah.gov", "phone": "385-414-1488", "session": "2026GS", "phoneLabel": "cell"},
-                            {"id": "BUSSEM", "chamber": "senate", "district": 11, "name": "Emily Buss", "email": "ebuss@le.utah.gov", "phone": "801-598-4734", "session": "2026GS", "phoneLabel": "cell"},
-                        ],
-                        "session": "2026GS",
-                        "resolvedAddress": "6856 WINDY RIDGE DR, SALT LAKE CITY",
-                    }),
-                )
-            ],
-        ),
-    ]
-)
-```
-
-**Expected metric behavior:** `ValidateBeforeInform` should score significantly lower on this case than on `TEST_CASE_MARCUS_HOUSING`. The gap is intentional and serves as the harness's self-validation signal (AC5).
+Existing files NOT modified: `conftest.py`, `chatbot.py`, `server.py`, `mcp_client.py`, `providers/`.
 
 ### Environment Variables
 
-| Var | Required For |
-|-----|-------------|
-| `ANTHROPIC_API_KEY` | All metric scoring (AnthropicModel judge) |
+- `ANTHROPIC_API_KEY` — **required** for `AnthropicModel` judge in all custom metrics
+- `OPENAI_API_KEY` — **not required** for E5-3 (no `ConversationSimulator`, no `OpenAIProvider`, no GPT simulator model); pass `model=JUDGE_MODEL` to built-in metrics to avoid needing it there too
+- No MCP server env vars — E5-3 tests are fully hardcoded with no live server or tool calls
 
-Tests must skip gracefully if `ANTHROPIC_API_KEY` is absent (module-level `pytestmark` or `pytest.mark.skipif`).
+### Import Reference
+
+```python
+# test_manual_cases.py
+import json
+import pytest
+from deepeval import assert_test
+from deepeval.test_case import ConversationalTestCase, Turn, MCPToolCall
+from mcp.types import CallToolResult, TextContent
+from metrics import (
+    get_builtin_metrics,
+    warm_open_metric,
+    validate_before_inform_metric,
+    no_editorializing_metric,
+    citation_format_metric,
+)
+```
+
+```python
+# metrics.py
+from deepeval.metrics import (
+    MultiTurnMCPUseMetric,
+    MCPTaskCompletionMetric,
+    KnowledgeRetentionMetric,
+    ConversationCompletenessMetric,
+    ConversationalGEval,
+)
+from deepeval.models import AnthropicModel
+```
+
+### MCPToolCall Construction Pattern
+
+`MCPToolCall.result` must be `mcp.types.CallToolResult` — not a raw string or dict. Pattern confirmed from `evals/providers/anthropic_provider.py` lines 99–108.
+
+```python
+import json
+from mcp.types import CallToolResult, TextContent
+from deepeval.test_case import MCPToolCall
+
+def make_tool_result(data: dict) -> CallToolResult:
+    """Wrap a dict as a CallToolResult for synthetic MCPToolCall construction."""
+    return CallToolResult(
+        content=[TextContent(type="text", text=json.dumps(data))],
+        isError=False,
+    )
+
+# Usage
+lookup_call = MCPToolCall(
+    name="lookup_legislator",
+    args={"street": "6856 W Windy Ridge Dr", "zone": "84096"},
+    result=make_tool_result(HERRIMAN_LEGISLATORS),
+)
+```
+
+The JSON shape must match `packages/types/index.ts` exactly:
+- `LookupLegislatorResult`: `{ legislators: [{ id, chamber, district, name, email, phone, session }], session, resolvedAddress }`
+- `SearchBillsResult`: `{ bills: [{ id, session, title, summary, status, sponsorId, voteResult?, voteDate? }], legislatorId, session }`
+
+### Synthetic Data Constants
+
+Define these at module level in `test_manual_cases.py`:
+
+```python
+# ── Herriman UT 84096 (Runs 1 and 3) ─────────────────────────────────────────
+HERRIMAN_LEGISLATORS = {
+    "legislators": [
+        {"id": "SCallister", "chamber": "house", "district": 22, "name": "Sarah Callister",
+         "email": "scallister@le.utah.gov", "phone": "801-538-1000", "session": "2026GS"},
+        {"id": "JHayes", "chamber": "senate", "district": 10, "name": "James Hayes",
+         "email": "jhayes@le.utah.gov", "phone": "801-538-1035", "session": "2026GS"},
+    ],
+    "session": "2026GS",
+    "resolvedAddress": "6856 W Windy Ridge Dr, Herriman, UT 84096",
+}
+
+HERRIMAN_ZERO_BILLS = {
+    "bills": [], "legislatorId": "SCallister", "session": "2026GS"
+}
+
+HERRIMAN_CHARTER_BILL = {
+    "bills": [
+        {"id": "HB0152", "session": "2025GS", "title": "Charter School Funding Amendments",
+         "summary": "Revises state funding formulas for charter schools to provide more equitable per-pupil allocations.",
+         "status": "Passed", "sponsorId": "SCallister", "voteResult": "44-30", "voteDate": "2025-03-04"},
+    ],
+    "legislatorId": "SCallister",
+    "session": "2025GS",
+}
+
+# ── Draper (Run 2) ────────────────────────────────────────────────────────────
+DRAPER_LEGISLATORS = {
+    "legislators": [
+        {"id": "TBrennan", "chamber": "house", "district": 27, "name": "Thomas Brennan",
+         "email": "tbrennan@le.utah.gov", "phone": "801-538-1000", "session": "2026GS"},
+        {"id": "LRandall", "chamber": "senate", "district": 11, "name": "Lisa Randall",
+         "email": "lrandall@le.utah.gov", "phone": "801-538-1035", "session": "2026GS"},
+    ],
+    "session": "2026GS",
+    "resolvedAddress": "12997 Summerharvest Dr, Draper, UT 84020",
+}
+
+DRAPER_HOUSING_BILLS = {
+    "bills": [
+        {"id": "HB0078", "session": "2025GS", "title": "Affordable Housing Development Fund",
+         "summary": "Establishes a state fund supporting construction of affordable housing units in high-cost areas.",
+         "status": "Passed", "sponsorId": "LRandall", "voteResult": "47-28", "voteDate": "2025-03-10"},
+        {"id": "SB0042", "session": "2025GS", "title": "Workforce Transition Assistance Act",
+         "summary": "Expands job placement and retraining services for displaced workers.",
+         "status": "In Committee", "sponsorId": "LRandall"},
+    ],
+    "legislatorId": "LRandall",
+    "session": "2025GS",
+}
+```
+
+### Turn Sequences
+
+The actual conversation transcripts (`on-record-test/conversation X.txt`) are NOT in this repository — they live in a sibling directory that is not committed. The sequences below are representative synthetic turns constructed from `system-prompt/testing-notes.md` and the behavioral notes in `system-prompt/test-runs.md`. They faithfully represent each run's behavioral characteristics.
+
+**RUN 1 — Deb, Claude Sonnet 4.6, zero-result fallback** (warm_open ✅, validate ✅, no citation):
+
+```python
+RUN1_TURNS = [
+    Turn(role="assistant",
+         content="What's been on your mind lately — what brings you here today?"),
+    Turn(role="user",
+         content="I'm really upset about the cuts to public education funding — my daughter's school just lost three teachers."),
+    Turn(role="assistant",
+         content="That's a real impact — losing three teachers isn't an abstract budget cut, it changes your daughter's classroom every day. To find your specific state representatives, I'll need your home address. Could you share your street address and city or ZIP code?"),
+    Turn(role="user",
+         content="6856 W Windy Ridge Dr, Herriman UT 84096"),
+    Turn(role="assistant",
+         content="Based on your address in Herriman, your state representatives are:\n- Sarah Callister, House District 22\n- James Hayes, Senate District 10\n\nWhich one would you like to write to?",
+         mcp_tools_called=[
+             MCPToolCall(
+                 name="lookup_legislator",
+                 args={"street": "6856 W Windy Ridge Dr", "zone": "84096"},
+                 result=make_tool_result(HERRIMAN_LEGISLATORS),
+             ),
+         ]),
+    Turn(role="user",
+         content="The house representative please."),
+    Turn(role="assistant",
+         content="I searched for bills Representative Callister has sponsored related to public education funding, but wasn't able to find any matching bills in the current sessions. Would you like me to try a different search term, or proceed with a general message about your concern?",
+         mcp_tools_called=[
+             MCPToolCall(
+                 name="search_bills",
+                 args={"legislatorId": "SCallister", "theme": "public education funding"},
+                 result=make_tool_result(HERRIMAN_ZERO_BILLS),
+             ),
+         ]),
+    Turn(role="user",
+         content="Let's just write a general message about my concern."),
+    Turn(role="assistant",
+         content="Of course. Would you like to send this as an email or a text/SMS? And should the tone be conversational or more formal?"),
+    Turn(role="user",
+         content="Email, conversational please."),
+    Turn(role="assistant",
+         content="Here's a draft email for you:\n\nDear Representative Callister,\n\nI'm writing as a constituent from Herriman to share my concern about recent cuts to public education funding. My daughter's school recently lost three teachers due to budget constraints, and I believe our students deserve better support.\n\nI ask for your attention and action on this important issue.\n\nSincerely,\n[Your Name]"),
+    Turn(role="user",
+         content="Can you make it shorter and add that I've lived here for 15 years?"),
+    Turn(role="assistant",
+         content="Here's a shorter version:\n\nDear Representative Callister,\n\nAs a 15-year Herriman resident and concerned parent, I'm writing about cuts to public education funding. My daughter's school just lost three teachers. I ask for your attention to this issue.\n\nSincerely,\n[Your Name]"),
+]
+```
+
+**RUN 2 — Marcus, Claude Sonnet 4.6, known-good with citation** (all steps ✅, citation ✅):
+
+```python
+RUN2_TURNS = [
+    Turn(role="assistant",
+         content="What's been on your mind lately — what brings you here today?"),
+    Turn(role="user",
+         content="Things just feel wrong lately. Like my neighbors are struggling and I don't know why."),
+    Turn(role="assistant",
+         content="That feeling — when you can see the struggle around you but can't quite name the cause — is worth taking seriously. Tell me more about what you're observing. What does the struggle look like for your neighbors?"),
+    Turn(role="user",
+         content="Job losses mostly. And they can't keep up with rent. One family had to move out last month."),
+    Turn(role="assistant",
+         content="Thank you for sharing that — watching neighbors face job losses and housing instability is genuinely difficult. To connect you with the right state representatives, I'll need your home address. Could you share your street address and city or ZIP?"),
+    Turn(role="user",
+         content="12997 Summerharvest Dr, Draper"),
+    Turn(role="assistant",
+         content="Based on your address in Draper, your state representatives are:\n- Thomas Brennan, House District 27\n- Lisa Randall, Senate District 11\n\nWhich one would you like to write to?",
+         mcp_tools_called=[
+             MCPToolCall(
+                 name="lookup_legislator",
+                 args={"street": "12997 Summerharvest Dr", "zone": "Draper"},
+                 result=make_tool_result(DRAPER_LEGISLATORS),
+             ),
+         ]),
+    Turn(role="user",
+         content="Let's go with the Senate representative."),
+    Turn(role="assistant",
+         content="Here are some bills Senator Randall has sponsored related to economic hardship and housing:\n\n1. **HB 0078 — Affordable Housing Development Fund (2025 General Session):** Establishes a state fund supporting construction of affordable housing units. Status: Passed (47-28, 2025-03-10).\n2. **SB 0042 — Workforce Transition Assistance Act (2025 General Session):** Expands job placement services for displaced workers. Status: In Committee.\n\nDo any of these connect to what you're concerned about?",
+         mcp_tools_called=[
+             MCPToolCall(
+                 name="search_bills",
+                 args={"legislatorId": "LRandall", "theme": "economic hardship housing"},
+                 result=make_tool_result(DRAPER_HOUSING_BILLS),
+             ),
+         ]),
+    Turn(role="user",
+         content="The first one, the housing fund."),
+    Turn(role="assistant",
+         content="Would you like to send your message as an email or a text/SMS? And should the tone be conversational or more formal?"),
+    Turn(role="user",
+         content="Text message, conversational."),
+    Turn(role="assistant",
+         content="Here's a draft text message:\n\nHi Senator Randall, I'm a Draper constituent concerned about housing affordability. Neighbors are losing jobs and can't make rent — your HB 0078 (Affordable Housing Development Fund, 2025 General Session, passed 47-28) matters. Please keep prioritizing this. Thanks"),
+    Turn(role="user",
+         content="Can you make it a bit more personal and mention my neighbor had to move?"),
+    Turn(role="assistant",
+         content="Here's a more personal version:\n\nHi Senator Randall, I'm a Draper constituent watching neighbors struggle with rent — one family had to move out last month. Your HB 0078 (Affordable Housing Development Fund, 2025 General Session) gives me hope. Please keep this a priority. Thanks"),
+]
+```
+
+**RUN 3 — Deb, Gemini Flash 2.5, validation skip** (warm_open ✅, validate ❌):
+
+The only difference from Run 1 is Turn index 2 (third turn): the assistant skips empathetic acknowledgment and immediately requests the address.
+
+```python
+RUN3_TURNS = [
+    Turn(role="assistant",
+         content="Welcome. I can help you connect with your Utah state legislators. What concern brought you here today?"),
+    Turn(role="user",
+         content="I'm really upset about the cuts to public education funding — my daughter's school just lost three teachers."),
+    # ← VALIDATION SKIP: no empathetic acknowledgment; immediate pivot to address request
+    Turn(role="assistant",
+         content="I can help you reach out to your legislators about that. To find your specific representatives, I'll need your home address. What's your street address and city or ZIP code?"),
+    Turn(role="user",
+         content="6856 W Windy Ridge Dr, Herriman UT 84096"),
+    Turn(role="assistant",
+         content="Based on your address in Herriman, your state representatives are:\n- Sarah Callister, House District 22\n- James Hayes, Senate District 10\n\nWhich one would you like to write to?",
+         mcp_tools_called=[
+             MCPToolCall(
+                 name="lookup_legislator",
+                 args={"street": "6856 W Windy Ridge Dr", "zone": "84096"},
+                 result=make_tool_result(HERRIMAN_LEGISLATORS),
+             ),
+         ]),
+    Turn(role="user",
+         content="The house representative."),
+    Turn(role="assistant",
+         content="Here are bills Representative Callister has sponsored related to public education funding:\n\n1. **HB 0152 — Charter School Funding Amendments (2025 General Session):** Revises funding formulas for charter schools to provide more equitable per-pupil allocations. Status: Passed (44-30, 2025-03-04).\n\nDoes this connect to what you're concerned about?",
+         mcp_tools_called=[
+             MCPToolCall(
+                 name="search_bills",
+                 args={"legislatorId": "SCallister", "theme": "public education funding"},
+                 result=make_tool_result(HERRIMAN_CHARTER_BILL),
+             ),
+         ]),
+    Turn(role="user",
+         content="Yes, that works."),
+    Turn(role="assistant",
+         content="How would you like to send this — email or text/SMS? And conversational or formal tone?"),
+    Turn(role="user",
+         content="Email, formal."),
+    Turn(role="assistant",
+         content="Dear Representative Callister,\n\nI am writing as your constituent from Herriman to express my concern regarding public education funding in Utah. I am particularly troubled by the impact on local schools, including the recent loss of three teachers at my daughter's school.\n\nI note your sponsorship of HB 0152 (Charter School Funding Amendments, 2025 General Session, passed 44-30 on March 4, 2025) and urge you to continue addressing public education funding comprehensively.\n\nRespectfully,\n[Your Name]"),
+    Turn(role="user",
+         content="Can you open with something stronger?"),
+    Turn(role="assistant",
+         content="Dear Representative Callister,\n\nAs a constituent who has watched budget cuts eliminate teaching positions at my daughter's school, I write to urge your continued attention to public education funding. Your sponsorship of HB 0152 (Charter School Funding Amendments, 2025 General Session, passed 44-30) demonstrates awareness of school funding issues — I ask you to build on that commitment.\n\nRespectfully,\n[Your Name]"),
+]
+```
+
+### Metric Definitions for metrics.py
+
+```python
+JUDGE_MODEL = AnthropicModel(model="claude-sonnet-4-6", temperature=0)
+
+
+def get_builtin_metrics() -> list:
+    """Return a fresh list of built-in MCP metrics. Call once per test to avoid state sharing."""
+    # Pass model=JUDGE_MODEL where accepted to avoid requiring OPENAI_API_KEY.
+    # If a metric does not accept `model`, omit it — check at runtime if ImportError or TypeError.
+    return [
+        MultiTurnMCPUseMetric(threshold=0.5),
+        MCPTaskCompletionMetric(threshold=0.5),
+        KnowledgeRetentionMetric(threshold=0.5),
+        ConversationCompletenessMetric(threshold=0.5),
+    ]
+
+
+warm_open_metric = ConversationalGEval(
+    name="Warm Open",
+    criteria=(
+        "Evaluate whether the assistant's first turn invites the constituent to share their "
+        "concern using an open-ended question, without immediately requesting their home address "
+        "or presenting a topic category menu."
+    ),
+    evaluation_steps=[
+        "Find the first assistant turn in the conversation.",
+        "Check whether it contains an open-ended invitation to share what is on the constituent's mind "
+        "(e.g., 'What brings you here?', 'What has been on your mind?', 'What concern brought you here today?').",
+        "Penalize if the first assistant turn requests a home address as its primary ask.",
+        "Penalize if the first assistant turn presents a menu of topic categories "
+        "(e.g., 'Choose: education, healthcare, environment').",
+        "Ignore all turns after the first — only the opening message is evaluated.",
+        "Score 1 if the opening is warm and inviting; score 0 if it is transactional or directive.",
+    ],
+    model=JUDGE_MODEL,
+    threshold=0.5,
+)
+
+
+validate_before_inform_metric = ConversationalGEval(
+    name="Validate Before Inform",
+    criteria=(
+        "Evaluate whether the assistant provides substantive emotional acknowledgment of the "
+        "constituent's concern BEFORE soliciting their home address or pivoting to data collection."
+    ),
+    evaluation_steps=[
+        "Find the constituent's first message expressing a specific concern or personal situation.",
+        "Find the assistant's response immediately following that message.",
+        "Check whether that response contains empathetic language reflecting the specific situation — "
+        "not a generic 'I understand' but an acknowledgment of the actual content "
+        "(e.g., 'losing three teachers', 'neighbors struggling with rent').",
+        "Check that any address request or data pivot comes AFTER this acknowledgment, not as the sole element.",
+        "Penalize responses that pivot immediately to 'I will need your home address' with no emotional acknowledgment.",
+        "Penalize responses with only perfunctory acknowledgment (single generic phrase) immediately followed by an address request.",
+        "Score 1 if acknowledgment is substantive and precedes the address ask; "
+        "score 0 if the response goes directly from hearing the concern to requesting an address.",
+    ],
+    model=JUDGE_MODEL,
+    threshold=0.5,
+)
+
+
+no_editorializing_metric = ConversationalGEval(
+    name="No Editorializing",
+    criteria=(
+        "Evaluate whether the assistant avoids characterizing legislator intent, motivation, or "
+        "values beyond what is factually supported by bill sponsorship and vote data from MCP tools."
+    ),
+    evaluation_steps=[
+        "Scan each assistant turn for subjective language about legislators "
+        "(e.g., 'clearly does not care', 'has shown commitment to', 'opposed to', 'believes', 'supports').",
+        "Check that all claims about legislators are grounded in specific observable facts from MCP tools: "
+        "bill IDs, titles, session labels, status, vote results, and dates.",
+        "Penalize any attribution of intent or motivation beyond what the factual record shows.",
+        "Allow factual statements: 'sponsored HB 0078', 'bill passed 47-28', 'listed as primary sponsor', "
+        "'bill is currently in committee'.",
+        "Penalize speculation about how the legislator will vote, respond, or whether they care about an issue.",
+    ],
+    model=JUDGE_MODEL,
+    threshold=0.5,
+)
+
+
+citation_format_metric = ConversationalGEval(
+    name="Citation Format",
+    criteria=(
+        "Evaluate whether the final draft message contains a properly formatted bill citation using "
+        "a human-readable session label, and whether citations are present only when a bill was "
+        "confirmed — not fabricated when no bill was selected."
+    ),
+    evaluation_steps=[
+        "Find the final draft message in the conversation "
+        "(last or second-to-last assistant turn containing a salutation and closing).",
+        "If a bill was confirmed earlier: verify the draft contains exactly one citation referencing "
+        "that bill's ID and a human-readable session label (e.g., '2025 General Session', NOT '2025GS').",
+        "Verify the bill ID and session in the citation match what was presented in the search results — "
+        "no fabricated data.",
+        "Penalize citations using raw session codes (e.g., '2025GS') instead of human-readable labels.",
+        "Penalize drafts that cite a bill that was never shown in search results.",
+        "If no bill was confirmed (zero-result fallback): verify no citation is present. "
+        "Absence of citation is correct behavior — do not penalize.",
+        "Penalize drafts with more than one citation when only one bill was confirmed.",
+    ],
+    model=JUDGE_MODEL,
+    threshold=0.5,
+)
+```
+
+### Test Function Structure
+
+```python
+def test_run1_deb_zero_result():
+    """Run 1: Deb, Claude. Zero-result fallback — no citation; warm open and validation correct."""
+    run1 = ConversationalTestCase(turns=RUN1_TURNS)
+    assert_test(run1, get_builtin_metrics() + [
+        warm_open_metric, validate_before_inform_metric, no_editorializing_metric,
+        # citation_format_metric intentionally excluded: zero-result path has no bill to cite
+    ])
+
+
+def test_run2_marcus_known_good():
+    """Run 2: Marcus, Claude. Known-good — all steps correct, citation present."""
+    run2 = ConversationalTestCase(turns=RUN2_TURNS)
+    assert_test(run2, get_builtin_metrics() + [
+        warm_open_metric, validate_before_inform_metric, no_editorializing_metric, citation_format_metric,
+    ])
+
+
+@pytest.mark.xfail(
+    reason=(
+        "Run 3 (Gemini Flash 2.5) skipped empathetic acknowledgment — Step 1 Validate ❌ in test-runs.md. "
+        "This test EXPECTS to fail: validate_before_inform_metric should score below 0.5. "
+        "XFAIL = metric working correctly. XPASS = metric may need calibration."
+    )
+)
+def test_run3_deb_validate_before_inform_gap():
+    """Run 3: Deb, Gemini. Validation skip — expected to score below threshold, proving metric detects gap."""
+    run3 = ConversationalTestCase(turns=RUN3_TURNS)
+    assert_test(run3, [validate_before_inform_metric])
+```
+
+### Running Tests
+
+From inside `evals/`:
+```bash
+cd evals
+deepeval test run tests/test_manual_cases.py -v
+```
+
+Do NOT use bare `pytest` — deepeval plugin hooks (scoring display, caching, identifier tagging) only activate through `deepeval test run`. With result caching:
+```bash
+deepeval test run tests/test_manual_cases.py -v -c
+```
+
+`test_manual_cases.py` must NOT contain `LLMTestCase` objects — `ConversationalTestCase` and `LLMTestCase` cannot be mixed in the same `evaluate()` call or test file.
+
+### Note on ConversationalGolden for E5-4
+
+E5-3 uses `ConversationalTestCase` with hardcoded turns. E5-4 introduces `ConversationalGolden` — the correct class name is `ConversationalGolden` from `deepeval.dataset` (NOT `ConversationGolden`; old examples may use the incorrect alias).
 
 ### Project Structure Notes
 
-New files created by this story:
+New files only — no modifications to existing files:
 ```
 evals/
-├── metrics.py                        (new — all metric definitions)
+├── metrics.py                          ← NEW: all metric definitions
 └── tests/
-    └── test_manual_cases.py          (new — hard-coded ConversationalTestCase objects)
+    └── test_manual_cases.py            ← NEW: 3 hardcoded ConversationalTestCase tests
 ```
 
-Modified files: none.
-
-Do NOT modify:
-- `evals/pyproject.toml` — no new dependencies needed (`deepeval`, `mcp`, `anthropic` already present)
-- `evals/conftest.py` — no fixture changes needed (test_manual_cases.py doesn't use server fixture)
-- `evals/chatbot.py`, `evals/mcp_client.py`, `evals/providers/` — do not touch
+Module imports from `tests/` to `evals/` root work via the same path resolution as `import chatbot` in `tests/test_chatbot.py` — the `evals/` root is the Python path root.
 
 ### References
 
-- Tech spec (authoritative): [`_bmad-output/implementation-artifacts/tech-spec-eval-harness.md`] — Phase 1, Story E5-3
-- E5-2 story (MCPToolCall result type discovery): [`_bmad-output/implementation-artifacts/E5-2-mcp-http-client-and-model-callback.md`] — Completion Notes, "MCPToolCall.result must be mcp.types.CallToolResult"
-- Conversation transcript — Deb: [`system-prompt/test/test 2/conversation 1.txt`]
-- Conversation transcript — Marcus: [`system-prompt/test/test 2/conversation 2.txt`]
-- Manual test run outcomes: [`system-prompt/test-runs.md`] — Run 3 behavioral gap (validate skip)
-- DeepEval research doc: [`_bmad-output/planning-artifacts/research/technical-deepeval-conversationsimulator-research-2026-03-21.md`]
-- ConversationalGEval examples: [`_bmad-output/implementation-artifacts/tech-spec-eval-harness.md`] — "Custom rubrics via ConversationalGEval" section
-- Existing evals codebase: [`evals/chatbot.py`], [`evals/providers/base.py`], [`evals/tests/test_chatbot.py`]
+- [Source: _bmad-output/implementation-artifacts/tech-spec-eval-harness.md#Story E5-3] — AC and deliverables
+- [Source: system-prompt/test-runs.md] — Run 1/2/3 behavioral outcomes; validation skip (Run 3); zero-result note (Runs 1, 5)
+- [Source: system-prompt/testing-notes.md] — Persona A/B expected behaviors; Step 1 pass/fail signals; tool parameter expectations
+- [Source: packages/types/index.ts] — `LookupLegislatorResult`, `SearchBillsResult`, `Legislator`, `Bill` shapes for synthetic MCPToolCall result data
+- [Source: evals/providers/anthropic_provider.py#L99-108] — Confirmed `MCPToolCall(name, args, result=CallToolResult(...))` pattern
+- [Source: evals/tests/test_chatbot.py#L1-14] — Import pattern (`from mcp.types import CallToolResult, TextContent`)
+- [Source: evals/pyproject.toml] — `deepeval>=3.7.0`, `mcp>=1.0.0` already present; no new dependencies needed for this story
 
 ## Dev Agent Record
 
@@ -521,20 +526,6 @@ claude-sonnet-4-6
 
 ### Debug Log References
 
-- `AnthropicModel` eagerly builds the Anthropic client at `__init__` time (calls `require_secret_api_key`). Module-level instantiation in `metrics.py` therefore requires `ANTHROPIC_API_KEY` at import time. Resolved by using `pytest.skip(allow_module_level=True)` as the FIRST statement in `test_manual_cases.py` (before the `from metrics import ...` line), so the entire module is skipped cleanly in CI when the key is absent. `pytestmark` is also present for documentation, though it applies per-test rather than preventing the import.
-- `deepeval test run` (not bare `pytest`) required for correct caching and output. Tests use `assert_test()` per spec.
-
 ### Completion Notes List
 
-- Created `evals/metrics.py`: 4 built-in DeepEval MCP metrics (`MultiTurnMCPUseMetric`, `MCPTaskCompletionMetric`, `KnowledgeRetentionMetric`, `ConversationCompletenessMetric`) + 4 custom `ConversationalGEval` metrics (`WarmOpen`, `ValidateBeforeInform`, `NoEditorializing`, `CitationFormat`). All custom metrics use `AnthropicModel(model="claude-sonnet-4-6", temperature=0)` as judge, threshold 0.5. Exports `BUILT_IN_METRICS`, `CUSTOM_METRICS`, `ALL_METRICS`, and individual metric objects.
-- Created `evals/tests/test_manual_cases.py`: 3 `ConversationalTestCase` objects from manual transcripts (conversations 1 & 2) and synthetic Run 3 gap case. All `MCPToolCall.result` values typed as `mcp.types.CallToolResult` (AC1a). Module-level skip guard (`pytest.skip(allow_module_level=True)`) prevents import failure in CI when `ANTHROPIC_API_KEY` absent. 3 test functions using `assert_test()` for `deepeval test run` compatibility.
-- 23 existing non-integration tests pass; no regressions. `test_manual_cases.py` skips cleanly without API key.
-- Code review fixes applied: removed dead `pytestmark` block, deduplicated `_make_search_result` into `_make_lookup_result`, removed "vote result, vote date" from `search_bills` tool description, added `mcp_servers` to `TEST_CASE_DEB_VALIDATE_SKIP`, implemented AC5 score comparison in `test_deb_validate_skip()`, fixed built-in MCP metrics 0.0 scores by populating `structuredContent` on `CallToolResult`, updated story file naming and transcript source references.
-
 ### File List
-
-- `evals/metrics.py` (new)
-- `evals/tests/test_manual_cases.py` (new)
-- `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified — status transitions)
-- `_bmad-output/implementation-artifacts/e5-3-manual-test-cases-to-validate-metrics.md` (modified — task checkboxes, Dev Agent Record, status)
-- `evals/uv.lock` (modified — dependency lock file updated)
