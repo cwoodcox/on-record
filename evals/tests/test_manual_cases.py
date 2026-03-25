@@ -38,8 +38,8 @@ def _make_lookup_result(payload: dict) -> mcp.types.CallToolResult:
         # (MultiTurnMCPUseMetric, MCPTaskCompletionMetric) — their _get_tasks()
         # method accesses tool.result.structuredContent['result'] to render tool
         # output in the LLM prompt. Without it, the access raises TypeError on
-        # None and the metric silently scores 0.0.
-        structuredContent={"result": text},
+        # None and the metric silently scores 0.0. Must be a dict, not a JSON string.
+        structuredContent={"result": payload},
         isError=False,
     )
 
