@@ -13,7 +13,7 @@ so that I can validate the complete DeepEval scoring stack works end-to-end befo
 ## Acceptance Criteria
 
 1. At least 3 hard-coded test cases with turns from actual manual test runs (Runs 1, 2, 3 from the manual test log).
-2. `mcp_tools_called` on all assistant `Turn` objects that made tool calls must be populated with synthetic `MCPToolCall` objects derived from tool call blocks visible in the transcript files. Built-in MCP metrics score tool usage via `mcp_tools_called` — without it they produce misleading zero-tool scores.
+2. `mcp_tools_called` on all assistant `Turn` objects that made tool calls must be populated with synthetic `MCPToolCall` objects derived from tool call blocks visible in the transcript files. Built-in MCP metrics score tool usage via `mcp_tools_called` — without it they produce misleading zero-tool scores. See Dev Notes — there are three deepeval bugs that must all be worked around simultaneously or the MCP metrics silently score as if no tools were called.
 3. Built-in metrics (`MultiTurnMCPUseMetric`, `MCPTaskCompletionMetric`, `KnowledgeRetentionMetric`, `ConversationCompletenessMetric`) configured with `threshold=0.5` and `AnthropicModel` as their `model`.
 4. At least 3 custom `ConversationalGEval` metrics implemented: **Warm Open**, **No-Editorializing**, and **Validate Before Inform**. Each has `criteria`, `evaluation_steps` (3–6 steps), `model=judge`, and `threshold=0.5`.
 5. All metrics produce scores and reasons — no crashes, no empty score fields, no `None` score values.
@@ -38,8 +38,12 @@ so that I can validate the complete DeepEval scoring stack works end-to-end befo
 - [ ] Task 2: Create `evals/tests/test_manual_cases.py` (AC: 1, 2, 5, 6, 7)
   - [ ] Read transcripts at `../on-record-test/test 1/conversation 1.txt` (Run 1 — Deb/Claude/zero-result), `conversation 2.txt` (Run 2 — Marcus/Claude/bill found), `conversation 3.txt` (Run 3 — Deb/Gemini/validate gap) to extract exact turn content and tool call args/results
   - [ ] Build Turn objects for each run (see Dev Notes for structure and transcript data summary)
-  - [ ] Populate `mcp_tools_called` on every assistant Turn that invoked a tool with `MCPToolCall(name=..., args=..., result=CallToolResult(content=[TextContent(type="text", text=<json_string>)], isError=False))`
-  - [ ] Wrap each run's turns in a `ConversationalTestCase(turns=[...])`
+  - [ ] Define `make_tool_call(name, args, result_data)` and `make_mcp_turn(content, tool_calls)` helpers at top of file (see Dev Notes for exact implementation — these encode all three deepeval bug workarounds)
+  - [ ] Define `ON_RECORD_MCP_SERVER` MCPServer constant at module level (reused across all 3 test cases)
+  - [ ] Populate `mcp_tools_called` on every assistant Turn that invoked a tool using `make_mcp_turn()` helper — NOT `Turn()` directly (Bug A workaround: `_mcp_interaction` must be force-set)
+  - [ ] Set `structuredContent={"result": <data_dict>}` on every `CallToolResult` — NOT just `content=[TextContent(...)]` (Bug B workaround)
+  - [ ] Pass `mcp_servers=[ON_RECORD_MCP_SERVER]` to every `ConversationalTestCase` (Bug C workaround)
+  - [ ] Wrap each run's turns in a `ConversationalTestCase(turns=[...], mcp_servers=[ON_RECORD_MCP_SERVER])`
   - [ ] `test_run2_passes_all_applicable_metrics`: call `assert_test(run2_case, [all_metrics_from_metrics_py])` — should pass cleanly
   - [ ] `test_run3_validate_gap_detected`: use `evaluate(test_cases=[run3_case], metrics=[validate_before_inform_metric])` and assert `result.test_results[0].metrics_data[0].score < 0.5`
   - [ ] `test_all_metrics_produce_scores`: use `evaluate(test_cases=[run1_case, run2_case, run3_case], metrics=[...all metrics...])` and assert no result has a `None` score field (AC 5 — no crashes)
@@ -65,6 +69,168 @@ scores + reasons per metric
 ```
 
 Only external dependency: `ANTHROPIC_API_KEY` for the `AnthropicModel` judge.
+
+### 🚨 CRITICAL: Three deepeval Bugs That Break MCP Metrics
+
+These bugs were found by reading the deepeval source in `evals/.venv/`. All three must be fixed **simultaneously** or the built-in MCP metrics (`MultiTurnMCPUseMetric`, `MCPTaskCompletionMetric`) silently score as if no tools were ever called — producing misleading 0-scores with no error.
+
+---
+
+#### Bug A: `Turn._mcp_interaction` Private Attribute Never Set (Silent Metric Bypass)
+
+**Root cause:** `Turn.validate_input` (Pydantic v2 `mode="before"` validator) sets `data["_mcp_interaction"] = True` when `mcp_tools_called` is provided, but Pydantic v2 private attributes (`PrivateAttr`) cannot be initialized via the data dict in a `before` validator. The private attribute always stays at its default value of `False`.
+
+**Consequence:** `_get_tasks()` in both `MultiTurnMCPUseMetric` and `MCPTaskCompletionMetric` checks `if turn._mcp_interaction:` for each turn to decide whether to include tool calls in the scoring prompt. Since it's always `False`, ALL tool calls are silently skipped. The metrics evaluate a conversation where the agent "never used any tools" — scoring incorrectly even though `mcp_tools_called` is populated.
+
+**Fix — force-set after every Turn construction with tool calls:**
+```python
+turn = Turn(role="assistant", content="...", mcp_tools_called=[...])
+object.__setattr__(turn, "_mcp_interaction", True)  # REQUIRED — deepeval bug workaround
+```
+
+**Verified with:**
+```python
+# _mcp_interaction is False even with mcp_tools_called set:
+turn = Turn(role="assistant", content="x", mcp_tools_called=[tool_call])
+assert turn._mcp_interaction == False  # bug confirmed
+
+object.__setattr__(turn, "_mcp_interaction", True)  # workaround
+assert turn._mcp_interaction == True   # now correct
+```
+
+---
+
+#### Bug B: `CallToolResult.structuredContent` Must Be Set or Metrics Crash
+
+**Root cause:** `_get_tasks()` builds the scoring prompt using `tool.result.structuredContent['result']`. `CallToolResult.structuredContent` defaults to `None`. Accessing `None['result']` raises `TypeError: 'NoneType' object is not subscriptable`.
+
+**Fix — always set `structuredContent` when constructing `CallToolResult` for test cases:**
+```python
+import json
+from mcp.types import CallToolResult, TextContent
+
+result_data = {"legislators": [...], "session": "2026GS"}  # the actual tool response dict
+
+result = CallToolResult(
+    content=[TextContent(type="text", text=json.dumps(result_data))],
+    structuredContent={"result": result_data},  # REQUIRED — must match {"result": <data>}
+    isError=False,
+)
+```
+
+The key is `structuredContent={"result": <the_data>}` — the dict must have a `"result"` key. The value can be any serializable data (dict, list, string).
+
+---
+
+#### Bug C: Both MCP Metrics Require `mcp_servers` in `ConversationalTestCase`
+
+**Root cause:** Both `MultiTurnMCPUseMetric` and `MCPTaskCompletionMetric` explicitly check:
+```python
+if not test_case.mcp_servers:
+    raise MissingTestCaseParamsError("'mcp_servers' ... cannot be empty for the 'MultiTurnMCPUseMetric' metric.")
+```
+
+Without `mcp_servers`, they raise immediately — no scoring, no score value, the test crashes.
+
+**Fix — pass `mcp_servers` to every `ConversationalTestCase` used with MCP metrics:**
+```python
+from mcp.types import Tool
+from deepeval.test_case import MCPServer, ConversationalTestCase
+
+ON_RECORD_MCP_SERVER = MCPServer(
+    server_name="on-record-mcp-server",
+    transport="streamable-http",
+    available_tools=[
+        Tool(
+            name="lookup_legislator",
+            description="Identifies a constituent's Utah House and Senate legislators from their home address via GIS lookup.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "street": {"type": "string", "description": "Street portion only: number and street name."},
+                    "zone": {"type": "string", "description": "City name or 5-digit ZIP code."},
+                },
+                "required": ["street", "zone"],
+            },
+        ),
+        Tool(
+            name="search_bills",
+            description="Searches bills sponsored by a Utah legislator by issue theme.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "legislatorId": {"type": "string", "description": "Legislator ID from lookup_legislator output."},
+                    "theme": {"type": "string", "description": "Freeform search term from constituent's concern."},
+                },
+                "required": ["legislatorId", "theme"],
+            },
+        ),
+    ],
+)
+
+test_case = ConversationalTestCase(
+    turns=[...],
+    mcp_servers=[ON_RECORD_MCP_SERVER],  # REQUIRED for MultiTurnMCPUseMetric and MCPTaskCompletionMetric
+)
+```
+
+Define `ON_RECORD_MCP_SERVER` once at module level and reuse across all 3 test cases.
+
+---
+
+#### Complete Correct Pattern (All Three Fixes Applied)
+
+```python
+import json
+from mcp.types import CallToolResult, TextContent, Tool
+from deepeval.test_case import MCPToolCall, MCPServer, Turn, ConversationalTestCase
+
+def make_tool_call(name: str, args: dict, result_data) -> MCPToolCall:
+    """Build an MCPToolCall with all required fields for MCP metrics to score correctly."""
+    return MCPToolCall(
+        name=name,
+        args=args,
+        result=CallToolResult(
+            content=[TextContent(type="text", text=json.dumps(result_data))],
+            structuredContent={"result": result_data},  # Bug B fix
+            isError=False,
+        ),
+    )
+
+def make_mcp_turn(content: str, tool_calls: list[MCPToolCall]) -> Turn:
+    """Build an assistant Turn with tool calls, with _mcp_interaction forced True."""
+    turn = Turn(role="assistant", content=content, mcp_tools_called=tool_calls)
+    object.__setattr__(turn, "_mcp_interaction", True)  # Bug A fix
+    return turn
+
+# Usage:
+lookup_call = make_tool_call(
+    name="lookup_legislator",
+    args={"street": "12997 Summerharvest", "zone": "Draper"},
+    result_data={
+        "legislators": [
+            {"id": "ROBERC", "chamber": "house", "district": 46, "name": "Calvin Roberts",
+             "email": "croberts@le.utah.gov", "session": "2026GS"},
+            {"id": "CULLIMK", "chamber": "senate", "district": 19, "name": "Kirk A. Cullimore",
+             "email": "kcullimore@le.utah.gov", "session": "2026GS"},
+        ],
+        "session": "2026GS",
+        "resolvedAddress": "12997 SUMMERHARVEST DR, DRAPER",
+    },
+)
+
+lookup_turn = make_mcp_turn(
+    content="Got it! Your representatives are Calvin Roberts (House D46) and Kirk A. Cullimore (Senate D19).",
+    tool_calls=[lookup_call],
+)
+
+test_case = ConversationalTestCase(
+    turns=[...all turns including lookup_turn...],
+    mcp_servers=[ON_RECORD_MCP_SERVER],  # Bug C fix
+)
+```
+
+---
 
 ### DeepEval API — Exact Imports (Verified from E5-2 Implementation)
 
@@ -96,20 +262,7 @@ from mcp.types import CallToolResult, TextContent
 
 ### MCPToolCall Construction Pattern
 
-Use the same pattern as `test_chatbot.py` (confirmed working):
-
-```python
-MCPToolCall(
-    name="lookup_legislator",
-    args={"street": "12997 Summerharvest", "zone": "Draper"},
-    result=CallToolResult(
-        content=[TextContent(type="text", text='{"legislators": [...], "session": "2026GS", "resolvedAddress": "..."}')],
-        isError=False,
-    ),
-)
-```
-
-The `result` field must be a `CallToolResult`, not a plain dict or string. The `args` field is a dict. See `evals/providers/anthropic_provider.py` lines 99–109 for the production construction pattern.
+⚠️ **Do NOT copy from `test_chatbot.py` or `anthropic_provider.py` for manual test cases.** Production code doesn't set `structuredContent` (server sets it at runtime), but manual test cases require it explicitly. Always use the `make_tool_call` / `make_mcp_turn` helpers defined in the CRITICAL bugs section above.
 
 ### Transcript Data Summary — Extracted Tool Calls
 
