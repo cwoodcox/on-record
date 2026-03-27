@@ -27,7 +27,7 @@ so that I can validate that DeepEval metrics score correctly before adding simul
 1b. **MCPToolCall.result type:** `MCPToolCall.result` must be `mcp.types.CallToolResult` with both `content` and `structuredContent` populated:
    ```python
    mcp.types.CallToolResult(
-       content=[mcp.types.TextContent(type="text", text=json.dumps(payload))],
+       content=[mcp.types.TextContent(type="text", text="Looking up your address...")],
        structuredContent={"result": payload},  # REQUIRED — dict, not JSON string
        isError=False,
    )
