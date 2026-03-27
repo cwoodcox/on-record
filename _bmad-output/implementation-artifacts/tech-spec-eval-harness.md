@@ -302,12 +302,13 @@ metric = ConversationalGEval(
 
 **AC:**
 1. At least 3 hard-coded test cases with turns from actual manual test runs (Runs 1, 2, 3)
-1a. For hard-coded test cases, `mcp_tools_called` on assistant `Turn` objects must be populated with synthetic `MCPToolCall` objects derived from the tool call blocks visible in the manual test transcripts. For example, if the transcript shows a `lookup_legislator` call with known arguments (street, zone) and result (legislator name, district), create `MCPToolCall(name="lookup_legislator", args={...}, result={...})` for that turn. This is required because built-in MCP metrics need `mcp_tools_called` to score tool usage — without it they will produce misleading zero-tool scores.
+1a. Each MCP tool call must be its own assistant turn: `mcp_tools_called` contains exactly one `MCPToolCall`, and `content` is a brief human-readable descriptor of what the agent is doing (e.g. `"Looking up your address..."`). Multiple tool calls in the same transcript exchange each get their own turn unless the source material clearly shows they were issued in parallel. The assistant's reply to the user is always a separate turn after all MCP turns, with no `mcp_tools_called`. This structure is required for `MultiTurnMCPUseMetric` to score correctly — combined turns are silently skipped. `MCPToolCall.result` must be `mcp.types.CallToolResult` with `structuredContent={"result": payload}` where `payload` is a dict, not a JSON string.
 2. Built-in metrics (`MultiTurnMCPUseMetric`, `MCPTaskCompletionMetric`, `KnowledgeRetentionMetric`, `ConversationCompletenessMetric`) are configured with initial threshold 0.5
 3. At least 3 custom ConversationalGEval metrics implemented (warm open, no-editorializing, citation format)
 4. All metrics produce scores and reasons — no crashes, no empty results
 5. Manual test case that's known-good (Run 2) passes all metrics; manual test case with known gap (Run 3 — Gemini skipped validation) shows lower score on validate-before-inform metric
 6. Tests run via `deepeval test run` (not bare `pytest`) to verify caching and output formatting
+7. `test_manual_cases.py` includes a `@deepeval.log_hyperparameters` decorated `hyperparameters()` function logging at minimum: `model` (chatbot-under-test model name), `prompt_template` (system prompt content or version identifier), and `temperature`. This establishes the hyperparameter tracking pattern for E5-4+ where the SUT is live.
 
 #### Phase 2 — Story E5-4: ConversationalGolden Scenarios
 
