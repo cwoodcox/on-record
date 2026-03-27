@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: Current File",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "python": "${workspaceFolder}/evals/.venv/bin/python",
+      "cwd": "${workspaceFolder}/evals",
+      "envFile": "${workspaceFolder}/evals/.env",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "DeepEval: Manual Tests",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/evals/.venv/bin/deepeval",
+      "python": "${workspaceFolder}/evals/.venv/bin/python",
+      "cwd": "${workspaceFolder}/evals",
+      "envFile": "${workspaceFolder}/evals/.env",
+      "args": ["test", "run", "tests/test_manual_cases.py::test_marcus_roberts_bill_found_text"],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    }
+  ]
+}

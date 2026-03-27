@@ -42,6 +42,9 @@ BUILT_IN_METRICS = [
     ConversationCompletenessMetric(threshold=0.5, model=_judge),
 ]
 
+TOOL_USE_ONLY = [
+    MultiTurnMCPUseMetric(threshold=0.5, model=_judge)
+]
 # ---------------------------------------------------------------------------
 # Custom ConversationalGEval metrics
 # ---------------------------------------------------------------------------

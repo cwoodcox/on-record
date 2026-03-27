@@ -14,15 +14,16 @@ import os
 import mcp.types
 import pytest
 from deepeval import assert_test
-from deepeval.test_case import ConversationalTestCase, MCPToolCall, Turn
+from deepeval.test_case import ConversationalTestCase, MCPToolCall, Turn, LLMTestCase
 from deepeval.test_case.mcp import MCPServer
+from deepeval.metrics import MCPTaskCompletionMetric, MCPUseMetric
 
 # Skip entire module when API key is absent — must come before metrics import
 # because AnthropicModel (used in metrics.py) requires ANTHROPIC_API_KEY at init time.
 if not os.environ.get("ANTHROPIC_API_KEY"):
     pytest.skip("ANTHROPIC_API_KEY required", allow_module_level=True)
 
-from metrics import ALL_METRICS, BUILT_IN_METRICS, CITATION_FORMAT, VALIDATE_BEFORE_INFORM, WARM_OPEN  # noqa: E402
+from metrics import ALL_METRICS, BUILT_IN_METRICS, CITATION_FORMAT, VALIDATE_BEFORE_INFORM, WARM_OPEN, TOOL_USE_ONLY  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -31,9 +32,8 @@ from metrics import ALL_METRICS, BUILT_IN_METRICS, CITATION_FORMAT, VALIDATE_BEF
 
 
 def _make_lookup_result(payload: dict) -> mcp.types.CallToolResult:
-    text = json.dumps(payload)
     return mcp.types.CallToolResult(
-        content=[mcp.types.TextContent(type="text", text=text)],
+        content=[],
         # structuredContent is required by DeepEval's built-in MCP metrics
         # (MultiTurnMCPUseMetric, MCPTaskCompletionMetric) — their _get_tasks()
         # method accesses tool.result.structuredContent['result'] to render tool
@@ -111,7 +111,6 @@ TEST_CASE_DEB_PLUMB = ConversationalTestCase(
         Turn(
             role="assistant",
             content="What's been on your mind lately — what brings you here today?",
-            mcp_tools_called=None,
         ),
         Turn(
             role="user",
@@ -126,7 +125,6 @@ TEST_CASE_DEB_PLUMB = ConversationalTestCase(
                 "Has this affected your daughter directly — like losing a favorite teacher, bigger class "
                 "sizes, or programs being cut?"
             ),
-            mcp_tools_called=None,
         ),
         Turn(
             role="user",
@@ -143,17 +141,11 @@ TEST_CASE_DEB_PLUMB = ConversationalTestCase(
                 "To look up your specific state legislators, could you share your address? Just your street "
                 "address and city or ZIP is fine."
             ),
-            mcp_tools_called=None,
         ),
         Turn(role="user", content="742 evergreen terrace, salt lake"),
         Turn(
             role="assistant",
-            content=(
-                "Got it! Based on your address, your state representatives are:\n\n"
-                "- Grant Amjad Miller, House of Representatives, District 24\n"
-                "- Jen Plumb, State Senate, District 9\n\n"
-                "Which one would you like to write to?"
-            ),
+            content="Looking up your address...",
             mcp_tools_called=[
                 MCPToolCall(
                     name="lookup_legislator",
@@ -187,7 +179,27 @@ TEST_CASE_DEB_PLUMB = ConversationalTestCase(
                 ),
             ],
         ),
+        Turn(
+            role="assistant",
+            content=(
+                "Got it! Based on your address, your state representatives are:\n\n"
+                "- Grant Amjad Miller, House of Representatives, District 24\n"
+                "- Jen Plumb, State Senate, District 9\n\n"
+                "Which one would you like to write to?"
+            ),
+        ),
         Turn(role="user", content="I've heard of Jen, can I send her an email?"),
+        Turn(
+            role="assistant",
+            content="Searching for bills related to public education funding that Sen. Plumb has sponsored...",
+            mcp_tools_called=[
+                MCPToolCall(
+                    name="search_bills",
+                    args={"legislatorId": "PLUMBJ", "theme": "public education funding"},
+                    result=_make_lookup_result({"bills": [], "legislatorId": "PLUMBJ", "session": "2026GS"}),
+                ),
+            ],
+        ),
         Turn(
             role="assistant",
             content=(
@@ -198,13 +210,6 @@ TEST_CASE_DEB_PLUMB = ConversationalTestCase(
                 "bills related to teacher staffing or workforce, arts education, or school budgets or "
                 "appropriations. Just say the word and I'll try another search."
             ),
-            mcp_tools_called=[
-                MCPToolCall(
-                    name="search_bills",
-                    args={"legislatorId": "PLUMBJ", "theme": "public education funding"},
-                    result=_make_lookup_result({"bills": [], "legislatorId": "PLUMBJ", "session": "2026GS"}),
-                ),
-            ],
         ),
         Turn(role="user", content="could you check for older bills?"),
         Turn(
@@ -218,9 +223,30 @@ TEST_CASE_DEB_PLUMB = ConversationalTestCase(
                 "\"teacher staffing\" — both of which tie closely to what you're experiencing with your "
                 "daughter's school?"
             ),
-            mcp_tools_called=None,
         ),
         Turn(role="user", content="yeah see if you can find something"),
+        Turn(
+            role="assistant",
+            content="Searching for bills related to arts education that Sen. Plumb has sponsored...",
+            mcp_tools_called=[
+                MCPToolCall(
+                    name="search_bills",
+                    args={"legislatorId": "PLUMBJ", "theme": "arts education"},
+                    result=_make_lookup_result({"bills": [], "legislatorId": "PLUMBJ", "session": "2026GS"}),
+                ),
+            ],
+        ),
+        Turn(
+            role="assistant",
+            content="Searching for bills related to teacher staffing that Sen. Plumb has sponsored...",
+            mcp_tools_called=[
+                MCPToolCall(
+                    name="search_bills",
+                    args={"legislatorId": "PLUMBJ", "theme": "teacher staffing"},
+                    result=_make_lookup_result({"bills": [], "legislatorId": "PLUMBJ", "session": "2026GS"}),
+                ),
+            ],
+        ),
         Turn(
             role="assistant",
             content=(
@@ -235,18 +261,6 @@ TEST_CASE_DEB_PLUMB = ConversationalTestCase(
                 "broader issue of education funding cuts in your district, and asks Sen. Plumb what she's "
                 "doing or plans to do about it. Would you like to go ahead?"
             ),
-            mcp_tools_called=[
-                MCPToolCall(
-                    name="search_bills",
-                    args={"legislatorId": "PLUMBJ", "theme": "arts education"},
-                    result=_make_lookup_result({"bills": [], "legislatorId": "PLUMBJ", "session": "2026GS"}),
-                ),
-                MCPToolCall(
-                    name="search_bills",
-                    args={"legislatorId": "PLUMBJ", "theme": "teacher staffing"},
-                    result=_make_lookup_result({"bills": [], "legislatorId": "PLUMBJ", "session": "2026GS"}),
-                ),
-            ],
         ),
         Turn(role="user", content="that sounds like a really good plan"),
         Turn(
@@ -256,13 +270,11 @@ TEST_CASE_DEB_PLUMB = ConversationalTestCase(
                 "1. Tone — Would you like it to be conversational (personal, in your own voice) or formal "
                 "(professional and structured)?"
             ),
-            mcp_tools_called=None,
         ),
         Turn(role="user", content="personal"),
         Turn(
             role="assistant",
             content="Got it — personal and conversational it is. And just to confirm, you'd like this sent as an email, right?",
-            mcp_tools_called=None,
         ),
         Turn(role="user", content="yeah, email is fine but I don't want it to be too long!"),
         Turn(
@@ -290,7 +302,6 @@ TEST_CASE_DEB_PLUMB = ConversationalTestCase(
                 "---\n\n"
                 "Would you like any changes — different wording, shorter, more detail on something specific?"
             ),
-            mcp_tools_called=None,
         ),
         Turn(
             role="user",
@@ -318,7 +329,6 @@ TEST_CASE_DEB_PLUMB = ConversationalTestCase(
                 "Short, personal, and straight from the heart. Would you like any other changes, or is "
                 "this ready to send?"
             ),
-            mcp_tools_called=None,
         ),
         Turn(role="user", content="That's perfect!"),
         Turn(
@@ -331,7 +341,6 @@ TEST_CASE_DEB_PLUMB = ConversationalTestCase(
                 "Your story is exactly the kind of thing legislators need to hear. A 15-year resident, a "
                 "real kid, a real loss — that matters. Good luck, Deb, and I hope Sen. Plumb responds!"
             ),
-            mcp_tools_called=None,
         ),
     ],
     mcp_servers=[_ON_RECORD_MCP_SERVER],
@@ -349,7 +358,6 @@ TEST_CASE_MARCUS_ROBERTS = ConversationalTestCase(
         Turn(
             role="assistant",
             content="Hi there! Welcome.\n\nWhat's been on your mind lately — what brings you here today?",
-            mcp_tools_called=None,
         ),
         Turn(
             role="user",
@@ -363,7 +371,6 @@ TEST_CASE_MARCUS_ROBERTS = ConversationalTestCase(
                 "Can you tell me a bit more about what you're seeing? Is it more about money being tight, "
                 "jobs, housing costs, something else? And has any of this touched you or your family directly?"
             ),
-            mcp_tools_called=None,
         ),
         Turn(
             role="user",
@@ -382,7 +389,6 @@ TEST_CASE_MARCUS_ROBERTS = ConversationalTestCase(
                 "Has anything specific really stood out to you — like a bill that shocked you, or something "
                 "you used to be able to afford that now feels out of reach?"
             ),
-            mcp_tools_called=None,
         ),
         Turn(
             role="user",
@@ -397,17 +403,10 @@ TEST_CASE_MARCUS_ROBERTS = ConversationalTestCase(
                 "To find out who your specific state representatives are and what they've been doing on "
                 "issues like this, I'll need your address — just your street address and city or ZIP is fine."
             ),
-            mcp_tools_called=None,
         ),
         Turn(role="user", content="yeah it's 12997 summerharvest in draper"),
         Turn(
-            role="assistant",
-            content=(
-                "Got it! Based on your address, your Utah state representatives are:\n\n"
-                "- Calvin Roberts, House of Representatives, District 46\n"
-                "- Kirk A. Cullimore, Senate, District 19\n\n"
-                "Which one would you like to write to?"
-            ),
+            role="assistant", content="Looking up your address...",
             mcp_tools_called=[
                 MCPToolCall(
                     name="lookup_legislator",
@@ -441,31 +440,39 @@ TEST_CASE_MARCUS_ROBERTS = ConversationalTestCase(
                 ),
             ],
         ),
-        Turn(role="user", content="i've heard of cal, let's text him"),
         Turn(
             role="assistant",
             content=(
-                "There we go! Rep. Roberts has sponsored some transportation-related bills:\n\n"
-                "1. HB 586 — Transportation Funding Amendments — Addresses how transportation is funded in "
-                "Utah. Currently stuck in committee (still in progress for the 2026 General Session).\n"
-                "2. HB 471 — Transportation Procurement Amendments — Dealt with how the Department of "
-                "Transportation handles procurement. Signed by the Governor in the 2025 General Session.\n\n"
-                "Neither of these is specifically about transit + housing to reduce costs — the bill you "
-                "heard about may not be something Rep. Roberts has sponsored directly. Would you like to "
-                "write to him anyway about your cost-of-living concerns and the kind of bill you'd like to "
-                "see him support, or try a different search angle?"
+                "Got it! Based on your address, your Utah state representatives are:\n\n"
+                "- Calvin Roberts, House of Representatives, District 46\n"
+                "- Kirk A. Cullimore, Senate, District 19\n\n"
+                "Which one would you like to write to?"
             ),
+        ),
+        Turn(role="user", content="i've heard of cal, let's text him"),
+        Turn(
+            role="assistant", content=("Searching for bills related to transit, housing, or cost of living that Rep. Roberts has sponsored..."),
             mcp_tools_called=[
                 MCPToolCall(
                     name="search_bills",
                     args={"legislatorId": "ROBERC", "theme": "transit housing cost of living"},
                     result=_make_lookup_result({"bills": [], "legislatorId": "ROBERC", "session": "2026GS"}),
                 ),
+            ],
+        ),
+        Turn(
+            role="assistant", content="Searching for bills related to housing affordability that Rep. Roberts has sponsored...",
+            mcp_tools_called=[
                 MCPToolCall(
                     name="search_bills",
                     args={"legislatorId": "ROBERC", "theme": "housing affordability"},
                     result=_make_lookup_result({"bills": [], "legislatorId": "ROBERC", "session": "2026GS"}),
                 ),
+            ]
+        ),
+        Turn(
+            role="assistant", content="Searching for bills related to transportation that Rep. Roberts has sponsored...",
+            mcp_tools_called=[
                 MCPToolCall(
                     name="search_bills",
                     args={"legislatorId": "ROBERC", "theme": "transportation"},
@@ -494,6 +501,20 @@ TEST_CASE_MARCUS_ROBERTS = ConversationalTestCase(
                 ),
             ],
         ),
+        Turn(
+            role="assistant",
+            content=(
+                "There we go! Rep. Roberts has sponsored some transportation-related bills:\n\n"
+                "1. HB 586 — Transportation Funding Amendments — Addresses how transportation is funded in "
+                "Utah. Currently stuck in committee (still in progress for the 2026 General Session).\n"
+                "2. HB 471 — Transportation Procurement Amendments — Dealt with how the Department of "
+                "Transportation handles procurement. Signed by the Governor in the 2025 General Session.\n\n"
+                "Neither of these is specifically about transit + housing to reduce costs — the bill you "
+                "heard about may not be something Rep. Roberts has sponsored directly. Would you like to "
+                "write to him anyway about your cost-of-living concerns and the kind of bill you'd like to "
+                "see him support, or try a different search angle?"
+            ),
+        ),
         Turn(role="user", content="what does hb 586 do?"),
         Turn(
             role="assistant",
@@ -507,7 +528,6 @@ TEST_CASE_MARCUS_ROBERTS = ConversationalTestCase(
                 "matter.\n\n"
                 "Would you like to write to him about your cost-of-living concerns and reference this bill?"
             ),
-            mcp_tools_called=None,
         ),
         Turn(role="user", content="let's talk about that"),
         Turn(
@@ -516,7 +536,6 @@ TEST_CASE_MARCUS_ROBERTS = ConversationalTestCase(
                 "Great — let's do it! You mentioned you want to send a text — would you like the tone to be "
                 "conversational (personal, in your own voice) or formal (professional, structured)?"
             ),
-            mcp_tools_called=None,
         ),
         Turn(role="user", content="conversational, it's a text. i've heard they reply"),
         Turn(
@@ -533,7 +552,6 @@ TEST_CASE_MARCUS_ROBERTS = ConversationalTestCase(
                 "Short, personal, and direct — and it names the bill so he knows you've done your homework. "
                 "Want me to tweak anything?"
             ),
-            mcp_tools_called=None,
         ),
         Turn(
             role="user",
@@ -553,7 +571,6 @@ TEST_CASE_MARCUS_ROBERTS = ConversationalTestCase(
                 "Ends with a question, which makes it easy for him to respond. Want any other changes, or "
                 "is this ready to send?"
             ),
-            mcp_tools_called=None,
         ),
         Turn(role="user", content="i like it!"),
         Turn(
@@ -574,7 +591,6 @@ TEST_CASE_MARCUS_ROBERTS = ConversationalTestCase(
                 "Good luck — and it's genuinely great that you're reaching out. Constituent voices matter, "
                 "especially on a bill that's stuck and needs a push. I hope he writes back!"
             ),
-            mcp_tools_called=None,
         ),
     ],
     mcp_servers=[_ON_RECORD_MCP_SERVER],
@@ -590,7 +606,6 @@ TEST_CASE_DEB_VALIDATE_SKIP = ConversationalTestCase(
         Turn(
             role="assistant",
             content="Hi there! What's been on your mind lately — what brings you here today?",
-            mcp_tools_called=None,
         ),
         Turn(
             role="user",
@@ -603,15 +618,11 @@ TEST_CASE_DEB_VALIDATE_SKIP = ConversationalTestCase(
                 "I understand. To find your specific state representatives, I'll need your home address. "
                 "Just the street address and city or ZIP is fine. What's your address?"
             ),
-            mcp_tools_called=None,
         ),
         Turn(role="user", content="My address is 6856 Windy Ridge in Herriman."),
         Turn(
             role="assistant",
-            content=(
-                "Great. Your representatives are Candice B. Pierucci (House District 49) and Emily Buss "
-                "(Senate District 11). Which one would you like to write to?"
-            ),
+            content="Looking up your address...",
             mcp_tools_called=[
                 MCPToolCall(
                     name="lookup_legislator",
@@ -644,6 +655,13 @@ TEST_CASE_DEB_VALIDATE_SKIP = ConversationalTestCase(
                     }),
                 ),
             ],
+        ),
+        Turn(
+            role="assistant",
+            content=(
+                "Great. Your representatives are Candice B. Pierucci (House District 49) and Emily Buss "
+                "(Senate District 11). Which one would you like to write to?"
+            ),
         ),
     ],
     mcp_servers=[_ON_RECORD_MCP_SERVER],
