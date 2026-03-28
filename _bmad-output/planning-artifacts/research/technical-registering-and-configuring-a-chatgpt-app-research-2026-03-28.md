@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3, 4]
+stepsCompleted: [1, 2, 3, 4, 5]
 inputDocuments: []
 workflowType: 'research'
 lastStep: 1
@@ -249,5 +249,117 @@ _Deployment targets validated by community:_ Azure Functions (TypeScript), Cloud
 _Observability:_ Pino logger with `source` field on every entry is already present in On Record's MCP server — sufficient for Action debugging. For the App Directory path, add structured logging of tool invocations (without user content) for review compliance.
 _One version at a time:_ App Directory enforces one live version and one in-review version. Blue/green deployments must complete before submitting a new version.
 _Source:_ https://platform.openai.com/docs/actions/production | https://developers.openai.com/apps-sdk/deploy/submission
+
+## Implementation Approaches and Technology Adoption
+
+### Technology Adoption Strategies
+
+Two viable adoption paths for On Record, ordered by effort:
+
+**Path A — GPT Actions (incremental, low friction)**
+- Expose On Record's existing MCP server endpoints via an OpenAPI 3.1.0 schema.
+- Register a Custom GPT at `chatgpt.com/create`, paste the schema, configure API key auth.
+- No new server infrastructure. No App Directory submission. No identity verification.
+- Time to working prototype: hours. Time to shareable link: one day.
+- Limitation: no embedded UI, no per-user identity, cannot appear in App Directory.
+- _Migration path:_ the schema endpoints map 1:1 to MCP tools when upgrading to Path B.
+- _Source:_ https://platform.openai.com/docs/actions/getting-started
+
+**Path B — Apps SDK / MCP App (full integration)**
+- Extend `apps/mcp-server` to expose MCP tools over Streamable HTTP.
+- Optionally add a React UI widget using `@openai/apps-sdk-ui` (React 19 + Tailwind 4 — already in On Record's stack).
+- Submit to App Directory: requires OpenAI Platform account, identity verification, review process (beta, variable timeline).
+- Time to submission-ready: estimated 1–2 sprints. Review timeline: indeterminate.
+- _Source:_ https://developers.openai.com/apps-sdk/deploy/submission
+
+**Recommended strategy:** Implement Path A first (quick win, validates UX assumptions), then evolve to Path B once the App Directory review process matures.
+
+### Development Workflows and Tooling
+
+_Local development:_ GPT Builder runs in browser — no local tooling for the ChatGPT UI. The MCP server can be tested locally using the **MCP Inspector** (OAuth flow debugging) and **ChatGPT Developer Mode** (beta, end-to-end MCP tool testing with a tunnel like ngrok).
+_Schema iteration:_ Edit the OpenAPI YAML locally → paste updated schema into GPT Builder → test in ChatGPT chat. No CI step needed for schema-only changes.
+_MCP server changes:_ Standard On Record development workflow (pnpm, Vitest, TypeScript strict). The MCP server already has a test suite mocking at `LegislatureDataProvider` — new tools follow the same pattern.
+_Apps SDK UI:_ Install `@openai/apps-sdk-ui`, import CSS in global stylesheet, use components in React. Storybook available at `https://openai.github.io/apps-sdk-ui/` for component reference.
+_Source:_ https://help.openai.com/en/articles/12584461-developer-mode-apps-and-full-mcp-connectors-in-chatgpt-beta | https://openai.github.io/apps-sdk-ui/
+
+### Testing and Quality Assurance
+
+_Unit tests:_ Mock at `LegislatureDataProvider` boundary (existing pattern). No SQLite touch in tests. New MCP tools follow the same mock convention.
+_Integration tests:_ Use ChatGPT Developer Mode to connect the local MCP server (via tunnel) and exercise tools in real ChatGPT conversations. Manual verification of tool selection, parameter extraction, and response formatting.
+_Schema validation:_ Validate OpenAPI schema with a linter (e.g., `@redocly/cli`) before pasting into GPT Builder. ChatGPT surfaces schema parse errors but with poor diagnostics — catch them early.
+_Test prompts:_ App Directory submission requires 3–5 test prompts with expected responses. These should be written alongside tool implementation to validate model tool selection.
+_Error path coverage:_ Follow On Record's convention — test key phrases in `nature`/`action` fields of error responses using `toContain()`, not exact string match.
+_Source:_ https://developers.openai.com/apps-sdk/app-submission-guidelines
+
+### Deployment and Operations Practices
+
+_Infrastructure:_ Existing On Record MCP server hosting (any HTTPS-capable platform) is sufficient for GPT Actions. The server must be publicly reachable; no internal/VPN endpoints.
+_Environment variables:_ Store the GPT Action API key as an environment variable alongside existing secrets. Never hardcode.
+_Logging:_ Existing Pino logger with `source` field is sufficient. For App Directory compliance, avoid logging user message content or conversation context — log only tool invocations and structured outcomes.
+_Versioning:_ App Directory enforces one live + one in-review version at a time. Use semantic versioning for the MCP server; coordinate deploys with App Directory submissions.
+_Monitoring:_ Track tool invocation counts and error rates. Rate limit (429) frequency is a key health signal — high 429 rates indicate caching is insufficient.
+_Source:_ https://platform.openai.com/docs/actions/production | https://developers.openai.com/apps-sdk/deploy/submission
+
+### Team Organization and Skills
+
+_No new skill requirements for Path A:_ Any On Record contributor who can write TypeScript and understands OpenAPI schemas can implement GPT Actions. YAML/JSON schema authoring is the primary new skill.
+_Path B additions:_ Familiarity with MCP server concepts (tools/resources/prompts), OAuth 2.1/PKCE flow debugging (MCP Inspector), and React component development with `@openai/apps-sdk-ui` if building a UI widget.
+_Account requirements:_ One paid ChatGPT subscription (Plus/Pro/Team) for the GPT Builder. One OpenAI Platform account with identity verification for App Directory submission.
+_Source:_ https://developers.openai.com/apps-sdk | https://help.openai.com/en/articles/8554397-creating-a-gpt
+
+### Cost Optimization and Resource Management
+
+_GPT Builder is included_ in paid ChatGPT subscriptions — no additional cost to create and share GPTs.
+_OpenAI API costs:_ GPT Actions call your server; your server does not call the OpenAI API. There is no per-call cost to you for ChatGPT invoking your Action. Costs arise only if On Record's backend makes its own OpenAI API calls (not the current architecture).
+_Caching:_ Semantic response caching at the MCP server layer is the highest-leverage cost optimization. The existing SQLite cache already caches Utah Legislature API responses — extend it to cache common tool response shapes.
+_Token efficiency:_ Keep MCP tool responses concise and structured. Every extra token in a tool response is paid by the user's ChatGPT subscription — optimize for their experience, not just your server cost.
+_Source:_ https://platform.openai.com/docs/actions/production
+
+### Risk Assessment and Mitigation
+
+| Risk | Severity | Mitigation |
+|---|---|---|
+| App Directory review delay (beta process) | Medium | Ship Path A first; App Directory is additive |
+| ChatGPT model selects wrong tool | Medium | Improve `summary`/`description` quality; add test prompts |
+| Rate limits hit during high traffic | Low | Exponential backoff + semantic caching |
+| OAuth DCR creates thousands of short-lived client IDs | Medium (Path B only) | Design IdP to handle DCR at scale; monitor client ID table growth |
+| Privacy policy gap blocks public publishing | Low | Draft policy covering Action data handling before first public share |
+| MCP tool annotation errors cause App Directory rejection | Low | Review `readOnlyHint`/`destructiveHint` against actual side effects before submission |
+| ChatGPT platform changes break integration | Medium | OpenAPI schema + MCP are open standards — migration cost is low; monitor OpenAI changelog |
+
+## Technical Research Recommendations
+
+### Implementation Roadmap
+
+1. **Sprint 0 (1–2 days):** Author OpenAPI 3.1.0 schema for existing On Record MCP tools. Register Custom GPT with API key auth. Share with internal testers.
+2. **Sprint 1:** Validate tool selection quality with real constituent queries. Refine descriptions. Add missing tools (e.g., `find_district_by_address` if not yet exposed).
+3. **Sprint 2 (if App Directory path desired):** Complete OpenAI Platform identity verification. Extend MCP server to Streamable HTTP transport. Prepare submission package (screenshots, test prompts, privacy policy).
+4. **Optional:** Build `@openai/apps-sdk-ui` widget for rich district/legislator display inside ChatGPT.
+
+### Technology Stack Recommendations
+
+| Component | Recommendation | Rationale |
+|---|---|---|
+| OpenAPI schema | Hand-authored YAML, OpenAPI 3.1.0 | Full control; validates with Redocly |
+| MCP transport | Streamable HTTP (Hono route) | Already using Hono; recommended by OpenAI |
+| Authentication (v1) | API key (header) | No per-user identity needed for public data |
+| Authentication (future) | OAuth 2.1 + PKCE | Required for App Directory; use existing IdP |
+| UI (if needed) | `@openai/apps-sdk-ui` + React 19 + Tailwind 4 | Direct compatibility with existing `apps/web` stack |
+| Testing | Vitest (unit) + ChatGPT Developer Mode (e2e) | Consistent with existing test conventions |
+
+### Skill Development Requirements
+
+- OpenAPI 3.1.0 schema authoring (primary new skill)
+- MCP Inspector for OAuth debugging (Path B only)
+- `@openai/apps-sdk-ui` component library (UI widget only)
+- OpenAI Platform account management and App Directory submission process
+
+### Success Metrics and KPIs
+
+- Tool selection accuracy: model invokes correct tool for ≥90% of representative constituent queries
+- Response latency: MCP tool round-trip <500ms (p95)
+- Error rate: <1% of tool invocations return error responses
+- Cache hit rate: ≥60% of repeated query patterns served from cache
+- App Directory submission: zero rejections due to annotation errors or missing policy docs
 
 <!-- Content will be appended sequentially through research workflow steps -->
