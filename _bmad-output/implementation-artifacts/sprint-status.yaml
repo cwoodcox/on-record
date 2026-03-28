@@ -83,15 +83,30 @@ development_status:
   #   - Error message test pattern: toContain('key phrase') over exact string or type-only assertions
   #   - Discovery spike principle: fill API doc gaps + spot-check error cases before writing spec for any new integration
 
+  # ─── Epic 2: additions (sprint-change-proposal-2026-03-27) ─────────────────
+  # resolve_address: new tool (extract GIS resolution from lookup_legislator)
+  # lookup_legislator-name-district-search: enhance with name/district modes
+  2-x-resolve-address-mcp-tool: backlog
+  2-x-lookup-legislator-name-district-search: backlog
+
+  # ─── Epic 3: additions (sprint-change-proposal-2026-03-27) ─────────────────
+  # search_bills redesign: all-optional filters, pagination, normalized billId
+  3-x-search-bills-interface-redesign: backlog
+
   # ─── Epic 4: Constituent Can Get a Voiced, Cited Draft ─────────────────────
+  # Correct-course 2026-03-27: 4-step wizard replaced with rules-based system
+  # prompt. 4-3 closed (learnings incorporated). 4-6 dropped from MVP (web UI
+  # components incompatible with ChatGPT App model). 4-1 system prompt needs
+  # full rewrite before 4-4/4-5 can start.
   epic-4: in-progress
   4-1-system-prompt-and-4-step-agent-instructions: done
   4-2-personal-concern-capture-and-empathetic-issue-discovery: done
-  4-3-medium-and-formality-selection: review
+  4-3-medium-and-formality-selection: done
   4-4-voice-calibrated-draft-generation-with-source-citations: backlog
   4-5-draft-revision-loop: backlog
-  4-6-progressstrip-and-draftcard-ui-components: backlog
+  4-6-progressstrip-and-draftcard-ui-components: dropped
   4-7-system-prompt-token-footprint-optimization: backlog
+  4-x-chatgpt-app-configuration-and-publishing: backlog
   epic-4-retrospective: optional
 
   # ─── Epic 5: Constituent Can Send Their Message in One Action ───────────────
