@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3]
+stepsCompleted: [1, 2, 3, 4]
 inputDocuments: []
 workflowType: 'research'
 lastStep: 1
@@ -178,5 +178,76 @@ _Polling Pattern:_ For long-running operations, the recommended pattern is: Acti
 _MCP Streaming:_ MCP's Streamable HTTP transport supports streaming responses (server-sent partial results). This is useful for progress updates in long-running tool calls.
 _No Native Event Bus:_ There is no event broker (Kafka, RabbitMQ, etc.) in the ChatGPT integration model. All event-like patterns must be implemented via polling or streaming within the MCP transport.
 _Source:_ https://platform.openai.com/docs/actions/production | https://developers.openai.com/apps-sdk/build/mcp-server
+
+## Architectural Patterns and Design
+
+### System Architecture Patterns
+
+Three distinct architectural tiers exist, each with a different integration depth and complexity trade-off:
+
+**Tier 1 — Custom GPT + GPT Actions (Shallow integration)**
+- Architecture: OpenAPI schema describes your existing REST API → ChatGPT calls it via HTTPS → ChatGPT narrates the response to the user.
+- No new server required. If On Record's MCP server already exposes HTTP endpoints (Hono), an OpenAPI 3.1.0 schema describing those endpoints is sufficient.
+- This is a **schema-first** pattern: the OpenAPI spec is the integration contract. ChatGPT reads it and generates all API calls autonomously.
+- Trade-off: No per-user identity (shared API key), no embedded UI, cannot be listed in the App Directory.
+- _Source:_ https://platform.openai.com/docs/actions/getting-started
+
+**Tier 2 — Apps SDK / MCP Server App (Deep integration)**
+- Architecture: MCP server (tools/resources/prompts) + optional React UI widget (iframe, JSON-RPC postMessage) + ChatGPT as the orchestrator.
+- The MCP server is the single integration boundary. ChatGPT invokes named tools; the server executes them and returns structured data.
+- UI layer (`@openai/apps-sdk-ui`) renders inside ChatGPT as an iframe. Backend and UI communicate via JSON-RPC 2.0 over `window.postMessage`.
+- Trade-off: Requires App Directory submission + identity verification + review process. Cannot be in public GPT Store.
+- _Source:_ https://developers.openai.com/apps-sdk | https://openai.github.io/apps-sdk-ui/
+
+**On Record's existing architecture fits Tier 2 natively**: `apps/mcp-server` (Hono + `@modelcontextprotocol/sdk 1.26.0`) is already an MCP server. The ChatGPT integration path is an extension of what already exists, not a new system.
+
+### Design Principles and Best Practices
+
+_Schema-first design:_ OpenAPI 3.1.0 schema is the contract between ChatGPT and your API. Design the schema independently from the implementation; keep descriptions intent-focused (not instruction-focused to the LLM).
+_Separation of concerns:_ The MCP server's job is to return **raw structured data** — never pre-formatted natural language. ChatGPT's model handles all narration, summarization, and formatting for the user. Violating this (returning narrative text from the API) degrades response quality.
+_Tool annotation accuracy:_ `readOnlyHint`, `destructiveHint`, and `openWorldHint` on MCP tools are not optional cosmetics — they control ChatGPT's confirmation behavior and are enforced at App Directory review. Model the hints on actual side-effect semantics.
+_Minimal surface area:_ Only expose endpoints/tools that the ChatGPT use case actually needs. Enumerating every endpoint increases schema token cost and confuses the model's tool selection.
+_Description quality matters:_ The model uses operation `summary` and `description` to decide which tool to invoke. Descriptions should reflect **intent** derived from constituent concerns, not enumerate valid values or implementation details (per CLAUDE.md guidance).
+_Source:_ https://platform.openai.com/docs/actions/getting-started | https://developers.openai.com/apps-sdk/build/mcp-server
+
+### Scalability and Performance Patterns
+
+_Rate limit tiers:_ OpenAI uses a spend-based tier system. Tier 1 (entry): 500 RPM / 500K TPM. Tier 4+: 15K RPM / 40M TPM. For Action backends, the binding constraint is your server's capacity, not OpenAI's limits.
+_Exponential backoff:_ Required on 429 responses — immediate retry is forbidden per OpenAI guidance. OpenAI reports 73% of API call failures come from naive retry implementations.
+_Semantic caching:_ For On Record's use case (constituent queries about legislators and bills), many queries will be semantically similar. Caching responses at the MCP server layer avoids redundant OpenAI API calls and reduces latency. The existing `better-sqlite3` cache layer in `apps/mcp-server/src/cache/` is architecturally positioned for this.
+_Batch API:_ For non-real-time workloads (e.g., pre-computing bill summaries), the OpenAI Batch API offers 40% cost reduction and doubled throughput. Not applicable to conversational ChatGPT actions.
+_Token budget discipline:_ GPT-5 supports 100K+ token contexts but at linear cost. MCP tool responses should be concise and structured — avoid returning full bill text when a summary suffices.
+_Source:_ https://platform.openai.com/docs/actions/production | https://intuitionlabs.ai/articles/chatgpt-api-pricing-2026-token-costs-limits
+
+### Integration and Communication Patterns
+
+_Single integration boundary:_ The MCP server is the sole boundary between ChatGPT and On Record's internal systems (legislature data, UGRC geocoding, district lookups). ChatGPT never touches the SQLite cache or UGRC API directly — all routing is through MCP tools. This is consistent with On Record's existing architectural boundary (Boundary 4: `better-sqlite3` confined to `src/cache/`).
+_Tool-per-concern:_ Each MCP tool should do one thing: `search_bills`, `get_legislator`, `find_district`. Do not bundle concerns into a single multi-purpose tool — the model's tool selection degrades with ambiguous, overloaded tools.
+_Action → MCP migration path:_ If starting with GPT Actions (quicker to ship), the OpenAPI schema endpoints map 1:1 to MCP tools. Migration is additive: add MCP tool definitions alongside existing Action endpoints, then flip the GPT configuration.
+_Source:_ https://platform.openai.com/docs/actions/introduction | https://developers.openai.com/apps-sdk/build/mcp-server
+
+### Security Architecture Patterns
+
+_Defense in depth for ChatGPT origin verification:_ There is no cryptographic request signing from ChatGPT. The recommended architecture is: (1) IP allowlist using `chatgpt-actions.json` CIDR blocks as the outer layer; (2) API key or OAuth token as the auth layer; (3) input validation and rate limiting as the inner layer.
+_API key architecture:_ A static API key is shared across all ChatGPT users of the GPT — it identifies the GPT, not the individual user. For On Record's public legislative data (no PII), this is the correct auth model. Store the key in the Action configuration (encrypted by OpenAI) and as an environment variable in the MCP server.
+_OAuth for per-user identity:_ Required only if the use case needs to distinguish individual constituents (e.g., saving preferences). On Record v1 does not require this.
+_CSP on MCP server domain:_ Required for Apps SDK submissions. Must enumerate all external domains the app fetches from (UGRC GIS API, Utah Legislature API).
+_No PII in tool responses:_ Per On Record's existing logger policy (`addresses always '[REDACTED]'`), address data must be redacted before inclusion in any MCP tool response returned to ChatGPT. The LLM may log or replay content.
+_Source:_ https://developers.openai.com/api/docs/actions/authentication | https://developers.openai.com/apps-sdk/build/auth
+
+### Data Architecture Patterns
+
+_Existing cache layer is unchanged:_ The SQLite-backed bill/legislator cache in `apps/mcp-server/src/cache/` is the data source for all ChatGPT tools. No new storage layer is required. The `LegislatureDataProvider` abstraction boundary remains the correct mock point for tests.
+_Tool response shaping:_ MCP tools should return data shaped for the model's reasoning, not for direct display. Flat JSON objects with explicit field names outperform deeply nested structures. Avoid returning arrays longer than ~20 items — the model cannot reason well over very long lists.
+_FTS5 for bill search:_ The existing FTS5 full-text search (JOIN pattern with BM25 ranking per CLAUDE.md) maps directly to a `search_bills` MCP tool. The empty MATCH guard is critical to preserve.
+_Source:_ https://platform.openai.com/docs/actions/getting-started
+
+### Deployment and Operations Architecture
+
+_Hosting requirements:_ HTTPS-only (TLS 1.2+, valid public certificate, port 443). The MCP server must be reachable from ChatGPT's published egress IPs. No localhost or private network endpoints.
+_Deployment targets validated by community:_ Azure Functions (TypeScript), Cloudflare Workers, Vercel serverless functions. Standard containerized deployments (Docker + any cloud provider) work equally well.
+_Observability:_ Pino logger with `source` field on every entry is already present in On Record's MCP server — sufficient for Action debugging. For the App Directory path, add structured logging of tool invocations (without user content) for review compliance.
+_One version at a time:_ App Directory enforces one live version and one in-review version. Blue/green deployments must complete before submitting a new version.
+_Source:_ https://platform.openai.com/docs/actions/production | https://developers.openai.com/apps-sdk/deploy/submission
 
 <!-- Content will be appended sequentially through research workflow steps -->
