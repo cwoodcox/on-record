@@ -232,10 +232,11 @@ Input: { street: string, zone: string }
 Output: {
   houseDistrict: number,
   senateDistrict: number,
-  session: string,
   resolvedAddress: string   // string (existing type — geocoder's canonical form of the address)
 }
 ```
+
+District boundaries come from GIS data on a redistricting cycle, not a legislative session cycle — the current Utah map is valid 2022–2032. Session context is not meaningful here and is dropped from the output. The LLM gets district numbers; `search_bills` handles session logic internally.
 
 **Rationale:** The current `lookup_legislator` bundles two responsibilities: GIS resolution and legislator data retrieval. Separating them makes each tool independently useful. `resolve_address` returns district identifiers; a follow-up `lookup_legislator({ chamber, district })` retrieves contact info. The LLM can also call `lookup_legislator` directly by name without ever needing an address.
 
@@ -291,11 +292,11 @@ ADD:
 | FR | Current Text | Required Change |
 |---|---|---|
 | FR6 | "bills sponsored or co-sponsored by a specific Utah legislator" | Add: "or any bill by session/theme when no specific legislator is provided" |
-| FR7 | "the identified legislator's vote record" | Clarify: vote record = sponsored bill vote outcomes only; this FR should be scoped to owned-bill status |
+| FR7 | "the identified legislator's vote record" | Clarify: vote record = bill outcome for sponsored bills only. Full voting record (how a legislator voted on others' bills) is deferred to the OpenStates data source migration — the cache layer survives unchanged. |
 | FR8 | "filtered to a specific legislator" | Change: `sponsorId` is optional filter; tool can search all bills |
 | FR13 | "2–3 issue framings derived from the legislator's record" | Generalize: framings can derive from any relevant bills, not only the constituent's legislator's sponsored bills |
 | FR25/FR26 | "Claude.ai and ChatGPT" platform verification | Add ChatGPT App (custom GPT) as first-class verified platform |
-| MVP Strategy | "BYOLLM" as primary model | Update: ChatGPT App is primary launch path; BYOLLM remains available for Claude.ai users |
+| MVP Strategy | "BYOLLM" as primary model | Update: ChatGPT App is primary launch path. Parallel effort to qualify for Anthropic's Claude app/extension marketplace. BYOLLM (manual MCP setup) remains a fallback path but is no longer the primary onboarding story. |
 
 ---
 
