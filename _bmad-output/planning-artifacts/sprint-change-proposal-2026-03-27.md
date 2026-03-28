@@ -122,7 +122,7 @@ The MCP bill search redesign research (2026-03-21) already identified the `searc
 |---|---|---|---|
 | `resolve_address` tool (refactor) | Low | Low | Extracts existing GIS logic; no new behavior |
 | `lookup_legislator` name/district search | Medium | Low | New query modes; same result type |
-| `search_bills` redesign | Medium | Low | Research done; no schema changes; cache layer stays |
+| `search_bills` redesign | Medium | Low | Research done; adds "all bills" mode; FTS5 still available for cross-legislator search |
 | System prompt rewrite (rules-based) | High | Medium | Core product work; behavioral testing still required |
 | ChatGPT App configuration + publish | Medium | Medium | Platform-specific; requires testing across GPT behavior |
 | PRD + epic file updates | Medium | Low | Documentation work |
@@ -151,7 +151,7 @@ The 4-step wizard is replaced by a set of behavioral rules. The conversation can
 
 2. **Link action to lived experience.** Whatever legislative action is cited must connect back to how it affects the constituent or people they care about. The draft must not be a dry legislative summary.
 
-3. **Cite specific bills or actions.** The draft must include at least one verifiable citation (bill number, session, vote date if available). Citation is non-optional. If no bill is found, do not fabricate one — but try harder before giving up. Call `search_bills` with multiple approaches if needed.
+3. **Substantiation required.** Make the strongest claim the retrieved data supports — no more, no less. If data supports a pattern ("you've sponsored three bills restricting Medicaid access across two sessions"), name it. If data supports only one specific act, cite that act. If data supports nothing, write around the constituent's experience without attributing any legislative record. Never assert a position the tools didn't return. The zero-result path produces a letter grounded entirely in the constituent's concern — no fabricated citations, no inferred positions.
 
 4. **No editorializing.** Present the legislator's record objectively. "Voted no on SB 22" is acceptable. "Clearly doesn't care about working families" is not. Intent, motivation, and character judgments are forbidden.
 
@@ -161,10 +161,16 @@ The 4-step wizard is replaced by a set of behavioral rules. The conversation can
 
 The constituent may arrive knowing a specific bill by number, a legislator by name (not their own), a general issue area, or nothing at all. The system prompt must handle all entry points without forcing a rigid sequence. The `resolve_address` and `lookup_legislator` tools are available for identifying the constituent's own legislators, but they are not required when the constituent already knows who they're writing to.
 
+**Bill discovery strategy:**
+
+When a specific legislator is known, call `search_bills({ sponsorId })` to load their full bill list and reason over it directly — do not invent theme keywords. The LLM is better at semantic relevance than FTS5. Theme/keyword search (`query`) is the right tool when searching across all legislators (finding a specific bill by number or subject without a known sponsor).
+
 **Prohibited behaviors (explicit additions):**
+- Do not invent theme keywords to drive `search_bills` when a legislator is already known — load their bills and reason directly
 - Do not force the constituent through address lookup if they already know who they're writing to
 - Do not limit bill discovery to the constituent's own legislator
 - Do not imply the tools can surface voting records on bills the legislator didn't sponsor (this constraint remains)
+- Do not make any claim about a legislator's record that was not returned by the tools
 
 ### 4.2 — `search_bills` Interface Redesign
 
@@ -179,22 +185,29 @@ NEW:
 {
   query?: string          // freeform search term (title/summary FTS5 match)
   billId?: string         // exact bill ID lookup (e.g. "HB0088")
-  sponsorId?: string      // filter to bills sponsored by this legislator
+  sponsorId?: string      // return all bills for this legislator (no query needed)
   session?: string        // filter to a specific session (e.g. "2026GS")
   floorSponsorId?: string // filter by floor sponsor
-  limit?: number          // default 5, max 20
+  limit?: number          // default 50 when sponsorId-only; default 5 otherwise; max 100
 }
 ```
 
-At least one of `query` or `billId` must be provided (Zod `.refine()` validation).
+**Validation:** At least one of `query`, `billId`, or `sponsorId` must be provided.
+
+**Three query modes dispatched in the cache layer:**
+- `billId` provided → direct equality lookup by bill ID
+- `sponsorId` provided, no `query` → return **all bills** for that legislator (the LLM picks what's relevant)
+- `query` provided → FTS5 full-text search with optional `sponsorId`/`session` filters
+
+**The "all bills" mode is the preferred path when a specific legislator is known.** Theme keyword search was an approximation of LLM reasoning — with a full bill list in context, the LLM can directly identify which bills relate to the constituent's concern, reason about patterns across sessions, and make proportional claims without the limitations of FTS5 keyword matching. Utah legislators typically sponsor 10–30 bills per session; this is well within context window limits.
 
 Cache function: `searchBills(params: SearchBillsParams): Bill[]` replaces `searchBillsByTheme(sponsorId, theme)`.
 
 `SearchBillsResult` in `packages/types/`:
-- Remove required `legislatorId` field (becomes optional or removed)
-- Add `queryMode: 'text-search' | 'bill-id-lookup'` for transparency
+- Remove required `legislatorId` field (becomes optional)
+- Add `queryMode: 'all-by-sponsor' | 'text-search' | 'bill-id-lookup'` for transparency
 
-**Rationale:** The Epic 3 retrospective and the 2026-03-21 research both identified the required `legislatorId` as a blocking design error. The modal real-world use case ("oppose Rep Lee's HB88") is impossible with the current interface.
+**Rationale:** The Epic 3 retrospective and the 2026-03-21 research both identified the required `legislatorId` and the `THEME_QUERIES` expansion map as blocking design errors. The "all bills" mode eliminates the FTS5 theme approximation entirely for the legislator-scoped path. FTS5 search remains valuable for cross-legislator discovery (finding a specific bill you've heard about, searching across all sponsors).
 
 ### 4.3 — `resolve_address` New Tool
 
