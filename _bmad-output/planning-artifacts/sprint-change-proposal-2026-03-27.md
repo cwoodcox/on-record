@@ -181,33 +181,44 @@ Section: Tool parameter schema
 OLD:
 { legislatorId: string (required), theme: string (required) }
 
-NEW:
+NEW — all parameters are optional filters; any combination restricts results:
 {
-  query?: string          // freeform search term (title/summary FTS5 match)
-  billId?: string         // exact bill ID lookup (e.g. "HB0088")
-  sponsorId?: string      // return all bills for this legislator (no query needed)
-  session?: string        // filter to a specific session (e.g. "2026GS")
+  query?: string          // freeform FTS5 full-text search (title/summary)
+  billId?: string         // exact bill ID (e.g. "HB0088")
+  sponsorId?: string      // filter to bills sponsored by this legislator
   floorSponsorId?: string // filter by floor sponsor
-  limit?: number          // default 50 when sponsorId-only; default 5 otherwise; max 100
+  session?: string        // filter to a specific session (e.g. "2026GS")
+  chamber?: 'house' | 'senate'  // filter to one legislative chamber
+  count?: number          // page size; default 50, max 100
+  offset?: number         // pagination offset; default 0
 }
 ```
 
-**Validation:** At least one of `query`, `billId`, or `sponsorId` must be provided.
+**No required parameters.** Any filter may be omitted; omitting all returns all cached bills (paginated). Filters compose — e.g. `{ sponsorId, session }` returns all bills that legislator sponsored in that session.
 
-**Three query modes dispatched in the cache layer:**
-- `billId` provided → direct equality lookup by bill ID
-- `sponsorId` provided, no `query` → return **all bills** for that legislator (the LLM picks what's relevant)
-- `query` provided → FTS5 full-text search with optional `sponsorId`/`session` filters
+**Cache layer dispatch:**
+- `billId` provided → direct equality lookup; other filters still apply
+- `query` provided → FTS5 MATCH with any provided filters as WHERE clauses
+- Neither provided → direct table scan with any provided filters as WHERE clauses
 
-**The "all bills" mode is the preferred path when a specific legislator is known.** Theme keyword search was an approximation of LLM reasoning — with a full bill list in context, the LLM can directly identify which bills relate to the constituent's concern, reason about patterns across sessions, and make proportional claims without the limitations of FTS5 keyword matching. Utah legislators typically sponsor 10–30 bills per session; this is well within context window limits.
+**The no-query path is the preferred approach when a specific legislator is known.** Call `search_bills({ sponsorId })` to load their full bill list and let the LLM reason over it directly. Theme keyword search was an approximation of LLM reasoning — with a full bill list in context, the LLM can identify relevant bills semantically, recognize patterns across sessions, and make proportional claims from complete data. Utah legislators typically sponsor 10–30 bills per session; well within context window limits.
 
-Cache function: `searchBills(params: SearchBillsParams): Bill[]` replaces `searchBillsByTheme(sponsorId, theme)`.
+Cache function: `searchBills(params: SearchBillsParams): SearchBillsResult` replaces `searchBillsByTheme(sponsorId, theme)`.
 
 `SearchBillsResult` in `packages/types/`:
-- Remove required `legislatorId` field (becomes optional)
-- Add `queryMode: 'all-by-sponsor' | 'text-search' | 'bill-id-lookup'` for transparency
 
-**Rationale:** The Epic 3 retrospective and the 2026-03-21 research both identified the required `legislatorId` and the `THEME_QUERIES` expansion map as blocking design errors. The "all bills" mode eliminates the FTS5 theme approximation entirely for the legislator-scoped path. FTS5 search remains valuable for cross-legislator discovery (finding a specific bill you've heard about, searching across all sponsors).
+```typescript
+{
+  bills: Bill[]     // page of results
+  total: number     // total matching records (for pagination)
+  offset: number    // offset used for this page
+  count: number     // number of bills returned in this page
+}
+```
+
+Remove required `legislatorId` field from result. The caller always knows what filters they passed.
+
+**Rationale:** The Epic 3 retrospective and the 2026-03-21 research both identified the required `legislatorId` and the `THEME_QUERIES` expansion map as blocking design errors. Making all params optional filters produces a composable, self-consistent interface — each param narrows results regardless of what other params are present. Pagination makes the "all bills" mode safe at any scale.
 
 ### 4.3 — `resolve_address` New Tool
 
