@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3, 4, 5]
+stepsCompleted: [1, 2, 3, 4, 5, 6]
 inputDocuments: []
 workflowType: 'research'
 lastStep: 1
@@ -12,7 +12,7 @@ web_research_enabled: true
 source_verification: true
 ---
 
-# Research Report: technical
+# Registering and Configuring a ChatGPT App: Comprehensive Technical Research
 
 **Date:** 2026-03-28
 **Author:** Corey
@@ -20,9 +20,46 @@ source_verification: true
 
 ---
 
+## Executive Summary
+
+ChatGPT's integration platform has undergone a complete architectural shift since 2024. The original plugin system was shut down in April 2024 and replaced by two active mechanisms: **GPT Actions** (OpenAPI 3.1.0 schemas wired to Custom GPTs) and the newer **Apps SDK** (MCP-based, launched December 2025), which enables full-featured app submissions to the ChatGPT App Directory.
+
+For the On Record project, the path forward is clear: the existing `apps/mcp-server` (Hono + `@modelcontextprotocol/sdk 1.26.0` + TypeScript) is already architected for the Apps SDK path. A two-stage strategy is recommended — ship a GPT Actions integration quickly (hours to working prototype, no new infrastructure), then evolve to a full MCP App submission once the App Directory review process matures from beta.
+
+The Apps SDK UI library (`@openai/apps-sdk-ui`) uses React 18/19 + Tailwind 4 + Radix — direct compatibility with On Record's existing `apps/web` stack. Authentication for v1 is a static API key (appropriate for public legislative data with no PII). Per-user OAuth 2.1/PKCE is available for future personalization features.
+
+**Key Technical Findings:**
+
+- Three integration tiers exist: Custom GPT only (no-code), GPT Actions (OpenAPI REST), Apps SDK/MCP (full developer path)
+- MCP is now a cross-platform open standard — an On Record MCP server works with both ChatGPT and Claude with no protocol changes
+- App Directory submission requires identity verification + beta review; GPT Actions has no such gate
+- `@openai/apps-sdk-ui` slots directly into Next.js/Tailwind 4 stack with a one-line CSS import
+- No new storage infrastructure needed — existing SQLite cache layer is the data source
+
+**Technical Recommendations:**
+
+1. Author an OpenAPI 3.1.0 schema for existing MCP tools and register a Custom GPT with API key auth (Path A — ship first)
+2. Complete OpenAI Platform identity verification now — it's a prerequisite for App Directory and has no downside to doing early
+3. Annotate all MCP tools with accurate `readOnlyHint`/`destructiveHint` before App Directory submission — incorrect labeling is a documented rejection reason
+4. Add semantic caching at the MCP server layer — 73% of naive OpenAI integrations fail from rate limits; caching prevents this
+5. Draft a Privacy Policy covering Action data handling before any public sharing of the GPT
+
+## Table of Contents
+
+1. [Technical Research Scope Confirmation](#technical-research-scope-confirmation)
+2. [Technology Stack Analysis](#technology-stack-analysis)
+3. [Integration Patterns Analysis](#integration-patterns-analysis)
+4. [Architectural Patterns and Design](#architectural-patterns-and-design)
+5. [Implementation Approaches and Technology Adoption](#implementation-approaches-and-technology-adoption)
+6. [Source References](#source-references)
+
+---
+
 ## Research Overview
 
-[Research overview and methodology will be appended here]
+This report covers the complete technical landscape for registering and configuring a ChatGPT app as of March 2026. Research spans three integration tiers (Custom GPT, GPT Actions, Apps SDK/MCP), authentication mechanisms (None, API Key, OAuth 2.0/2.1+PKCE), the OpenAPI 3.1.0 schema requirements, the `@openai/apps-sdk-ui` design system, App Directory submission requirements, rate limits, and On Record-specific architectural fit.
+
+All findings are sourced from OpenAI's official documentation (platform.openai.com, developers.openai.com, help.openai.com), the OpenAI Cookbook, the open-source `openai/apps-sdk-ui` GitHub repository, and current developer community reports. Web research was conducted on 2026-03-28; all platform details reflect the current state post-Apps SDK launch (December 2025).
 
 ---
 
@@ -362,4 +399,59 @@ _Source:_ https://platform.openai.com/docs/actions/production
 - Cache hit rate: ≥60% of repeated query patterns served from cache
 - App Directory submission: zero rejections due to annotation errors or missing policy docs
 
-<!-- Content will be appended sequentially through research workflow steps -->
+## Source References
+
+### OpenAI Official Documentation
+
+- [GPT Builder — OpenAI Help Center](https://help.openai.com/en/articles/8770868-gpt-builder)
+- [Creating a GPT — OpenAI Help Center](https://help.openai.com/en/articles/8554397-creating-a-gpt)
+- [Sharing and Publishing GPTs — OpenAI Help Center](https://help.openai.com/en/articles/8798878-building-and-publishing-a-gpt)
+- [Submitting Apps to the ChatGPT App Directory — OpenAI Help Center](https://help.openai.com/en/articles/20001040-submitting-apps-to-the-chatgpt-app-directory)
+- [Developer Mode and MCP Apps in ChatGPT (beta)](https://help.openai.com/en/articles/12584461-developer-mode-apps-and-full-mcp-connectors-in-chatgpt-beta)
+- [GPT Actions Introduction — platform.openai.com](https://platform.openai.com/docs/actions/introduction)
+- [Getting Started with GPT Actions — platform.openai.com](https://platform.openai.com/docs/actions/getting-started)
+- [GPT Action Authentication — platform.openai.com](https://platform.openai.com/docs/actions/authentication)
+- [GPT Actions Production Notes — platform.openai.com](https://platform.openai.com/docs/actions/production)
+- [GPT Actions Library — platform.openai.com](https://platform.openai.com/docs/actions/actions-library)
+- [OpenAI API Rate Limits — developers.openai.com](https://developers.openai.com/api/docs/guides/rate-limits)
+- [Apps SDK Overview — developers.openai.com](https://developers.openai.com/apps-sdk)
+- [Apps SDK Quickstart — developers.openai.com](https://developers.openai.com/apps-sdk/quickstart)
+- [Apps SDK: Build MCP Server — developers.openai.com](https://developers.openai.com/apps-sdk/build/mcp-server)
+- [Apps SDK: Authentication — developers.openai.com](https://developers.openai.com/apps-sdk/build/auth)
+- [Apps SDK: Submit and Maintain — developers.openai.com](https://developers.openai.com/apps-sdk/deploy/submission)
+- [App Submission Guidelines — developers.openai.com](https://developers.openai.com/apps-sdk/app-submission-guidelines)
+- [ChatGPT Developer Hub — developers.openai.com](https://developers.openai.com/chatgpt)
+
+### OpenAI Announcements
+
+- [Introducing Apps in ChatGPT and the new Apps SDK](https://openai.com/index/introducing-apps-in-chatgpt/)
+- [Developers Can Now Submit Apps to ChatGPT](https://openai.com/index/developers-can-now-submit-apps-to-chatgpt/)
+
+### OpenAI Cookbook Examples
+
+- [GPT Actions Getting Started](https://cookbook.openai.com/examples/chatgpt/gpt_actions_library/.gpt_action_getting_started)
+- [GPT Actions: Outlook (OAuth example)](https://developers.openai.com/cookbook/examples/chatgpt/gpt_actions_library/gpt_action_outlook)
+- [GPT Actions: Jira (OAuth example)](https://developers.openai.com/cookbook/examples/chatgpt/gpt_actions_library/gpt_action_jira)
+- [GPT Actions: Box (OAuth example)](https://developers.openai.com/cookbook/examples/chatgpt/gpt_actions_library/gpt_action_box)
+
+### Apps SDK UI
+
+- [Apps SDK UI Storybook — openai.github.io](https://openai.github.io/apps-sdk-ui/)
+- [openai/apps-sdk-ui — GitHub](https://github.com/openai/apps-sdk-ui)
+
+### Community and Third-Party
+
+- [How to Add OAuth Authentication to Custom GPT — Stackademic](https://stackademic.com/blog/how-to-add-oauth-authentication-to-your-customgpt-a-step-by-step-guide-7bdfa6009836)
+- [Authentication for MCP-Powered ChatGPT Apps — Stytch](https://stytch.com/blog/guide-to-authentication-for-the-openai-apps-sdk/)
+- [How to Set Up OAuth for the ChatGPT Connector — apxml.com](https://apxml.com/posts/how-to-setup-oauth-chatgpt-connector)
+- [ChatGPT API Pricing 2026: Token Costs & Rate Limits — IntuitionLabs](https://intuitionlabs.ai/articles/chatgpt-api-pricing-2026-token-costs-limits)
+- [ChatGPT App Directory and GPT Store — DataStudios](https://www.datastudios.org/post/chatgpt-app-directory-and-gpt-store-marketplace-launch-sdk-features-and-platform-evolution)
+
+---
+
+**Technical Research Completion Date:** 2026-03-28
+**Research Period:** Current comprehensive technical analysis (post-Apps SDK launch, December 2025)
+**Source Verification:** All technical facts cited with current authoritative sources
+**Technical Confidence Level:** High — based on multiple primary OpenAI documentation sources
+
+_This research document serves as an authoritative technical reference on registering and configuring a ChatGPT app for the On Record project and provides strategic guidance for informed implementation decisions._
