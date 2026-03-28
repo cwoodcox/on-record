@@ -159,18 +159,13 @@ The 4-step wizard is replaced by a set of behavioral rules. The conversation can
 
 **New flow capability (vs. old wizard):**
 
-The constituent may arrive knowing a specific bill by number, a legislator by name (not their own), a general issue area, or nothing at all. The system prompt must handle all entry points without forcing a rigid sequence. The `resolve_address` and `lookup_legislator` tools are available for identifying the constituent's own legislators, but they are not required when the constituent already knows who they're writing to.
+The constituent may arrive knowing a specific bill by number, a legislator by name (not their own), a general issue area, or nothing at all. The system prompt must handle all entry points without forcing a rigid sequence. `resolve_address` is for address-to-district resolution; `lookup_legislator` surfaces contact info and legislator details — both remain useful even when the constituent knows who they're writing to, since contact info still needs to be retrieved.
+
+6. **Sponsored bills only.** The tools surface bills a legislator sponsored or co-sponsored. They do not surface how a legislator voted on bills introduced by others. Do not imply otherwise.
 
 **Bill discovery strategy:**
 
-When a specific legislator is known, call `search_bills({ sponsorId })` to load their full bill list and reason over it directly — do not invent theme keywords. The LLM is better at semantic relevance than FTS5. Theme/keyword search (`query`) is the right tool when searching across all legislators (finding a specific bill by number or subject without a known sponsor).
-
-**Prohibited behaviors (explicit additions):**
-- Do not invent theme keywords to drive `search_bills` when a legislator is already known — load their bills and reason directly
-- Do not force the constituent through address lookup if they already know who they're writing to
-- Do not limit bill discovery to the constituent's own legislator
-- Do not imply the tools can surface voting records on bills the legislator didn't sponsor (this constraint remains)
-- Do not make any claim about a legislator's record that was not returned by the tools
+When a specific legislator is known and the constituent has not arrived with a specific bill in mind, call `search_bills({ sponsorId })` to load their full bill list and reason over it directly. The LLM is better at semantic relevance than FTS5. Theme/keyword search (`query`) is the right tool when searching across all legislators (finding a specific bill by number or subject without a known sponsor).
 
 ### 4.2 — `search_bills` Interface Redesign
 
@@ -184,7 +179,10 @@ OLD:
 NEW — all parameters are optional filters; any combination restricts results:
 {
   query?: string          // freeform FTS5 full-text search (title/summary)
-  billId?: string         // exact bill ID (e.g. "HB0088")
+  billId?: string         // normalized bill ID match — strips/pads zeros and normalizes prefix
+                          // "HB88" matches HB0088, HB088, etc. regardless of zero-padding
+                          // combine with chamber to narrow when chamber is known;
+                          // if chamber is unknown, put the number in query instead
   sponsorId?: string      // filter to bills sponsored by this legislator
   floorSponsorId?: string // filter by floor sponsor
   session?: string        // filter to a specific session (e.g. "2026GS")
@@ -201,7 +199,7 @@ NEW — all parameters are optional filters; any combination restricts results:
 - `query` provided → FTS5 MATCH with any provided filters as WHERE clauses
 - Neither provided → direct table scan with any provided filters as WHERE clauses
 
-**The no-query path is the preferred approach when a specific legislator is known.** Call `search_bills({ sponsorId })` to load their full bill list and let the LLM reason over it directly. Theme keyword search was an approximation of LLM reasoning — with a full bill list in context, the LLM can identify relevant bills semantically, recognize patterns across sessions, and make proportional claims from complete data. Utah legislators typically sponsor 10–30 bills per session; well within context window limits.
+**When a specific legislator is known and no specific bill was provided, the no-query path is preferred.** Call `search_bills({ sponsorId })` to load their full bill list and let the LLM reason over it directly. Theme keyword search was an approximation of LLM reasoning — with a full bill list in context, the LLM can identify relevant bills semantically, recognize patterns across sessions, and make proportional claims from complete data. Utah legislators typically sponsor 10–30 bills per session; well within context window limits.
 
 Cache function: `searchBills(params: SearchBillsParams): SearchBillsResult` replaces `searchBillsByTheme(sponsorId, theme)`.
 
@@ -234,13 +232,12 @@ Input: { street: string, zone: string }
 Output: {
   houseDistrict: number,
   senateDistrict: number,
-  legislators: LegislatorSummary[],
   session: string,
-  resolvedAddress: string
+  resolvedAddress: string   // string (existing type — geocoder's canonical form of the address)
 }
 ```
 
-**Rationale:** The current `lookup_legislator` bundles two responsibilities: GIS resolution and legislator data retrieval. Separating them allows a ChatGPT App system prompt to call `resolve_address` once at the start and then use `lookup_legislator` by district or name for subsequent lookups. It also makes `lookup_legislator` reusable by the "write about someone else's bill" flow (constituent knows who they're writing to without needing address resolution).
+**Rationale:** The current `lookup_legislator` bundles two responsibilities: GIS resolution and legislator data retrieval. Separating them makes each tool independently useful. `resolve_address` returns district identifiers; a follow-up `lookup_legislator({ chamber, district })` retrieves contact info. The LLM can also call `lookup_legislator` directly by name without ever needing an address.
 
 ### 4.4 — `lookup_legislator` Enhancement
 
@@ -250,24 +247,20 @@ Section: Tool parameter schema
 
 OLD: { street: string, zone: string }
 
-NEW:
+NEW — address resolution removed (now in resolve_address); two independent search modes:
 {
-  // Mode A — address lookup (existing behavior)
-  street?: string
-  zone?: string
+  // Mode A — name search
+  name?: string                    // partial match on legislator name
 
-  // Mode B — name search
-  name?: string           // partial match on legislator name
-
-  // Mode C — district lookup
+  // Mode B — district lookup (chamber and district are a required pair)
   chamber?: 'house' | 'senate'
-  district?: number
+  district?: number                // required when chamber is provided, and vice versa
 }
 ```
 
-At least one search mode must be provided.
+At least one mode must be provided. Chamber and district are always a required pair — there is no meaningful "House District 14" without specifying the chamber, and district numbers do not overlap between chambers.
 
-**Rationale:** Users often know their legislator by name. A constituent who says "I want to write to Rep. Lee" should not need to enter their address first.
+**Rationale:** Address resolution is now in `resolve_address`. `lookup_legislator` is purely for retrieving legislator contact info and details. A constituent who knows their rep by name — or an LLM that has district identifiers from `resolve_address` — can retrieve contact info directly without an address.
 
 ### 4.5 — Epic 4 Restructure
 
