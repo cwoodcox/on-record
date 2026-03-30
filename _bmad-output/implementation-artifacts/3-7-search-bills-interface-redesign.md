@@ -1,6 +1,6 @@
 # Story 3.7: `search_bills` Interface Redesign
 
-Status: review
+Status: in-progress
 
 ## Story
 
@@ -92,6 +92,12 @@ so that the chatbot can search across all cached bills, not only by a specific s
   - [x] Confirmed no `better-sqlite3` imports outside `apps/mcp-server/src/cache/`
   - [x] Confirmed no `console.log` introduced
 
+### Review Follow-ups (AI)
+
+- [ ] [AI-Review][High] `system-prompt/agent-instructions.md` Inconsistency: The "Quick Reference: Tool Schemas" section still lists the old `search_bills` schema (`legislatorId`/`theme`). Update it to reflect the new optional, composable parameters and `SearchBillsResult` shape.
+- [ ] [AI-Review][Medium] Verify Web Usage: Explicitly confirm that no components in `apps/web/` are attempting to access the removed `legislatorId` or `session` fields from `SearchBillsResult`.
+- [ ] [AI-Review][Low] SQL Column Aliasing Guard: Review the regex replacement `replace(/\bsession\b/g, 'b.session')` in `searchBills` to ensure it doesn't inadvertently affect non-column instances of the word "session".
+
 ## Dev Notes
 
 ### Context — Why This Redesign
@@ -155,7 +161,7 @@ const countSql = `
   ${nonFtsConditions.length > 0 ? 'AND ' + nonFtsConditions.join(' AND ') : ''}
 `
 const pageSql = `
-  SELECT b.id, b.session, b.title, b.summary, b.status, b.sponsor_id, b.vote_result, b.vote_date
+  SELECT b.id, b.session, b.title, b.summary, b.status, b.sponsor_id, b.floor_sponsor_id, b.vote_result, b.vote_date
   FROM bill_fts
   JOIN bills b ON b.rowid = bill_fts.rowid
   WHERE bill_fts MATCH ?
@@ -175,7 +181,7 @@ const countSql = `
   ${conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : ''}
 `
 const pageSql = `
-  SELECT id, session, title, summary, status, sponsor_id, vote_result, vote_date
+  SELECT id, session, title, summary, status, sponsor_id, floor_sponsor_id, vote_result, vote_date
   FROM bills
   ${conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : ''}
   ORDER BY session DESC, id ASC
