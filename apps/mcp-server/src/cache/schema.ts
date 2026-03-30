@@ -23,6 +23,14 @@ export function initializeSchema(db: Database.Database): void {
     }
   }
 
+  // Migration: add floor_sponsor_id column if absent — backward-compatible (nullable, no default needed).
+  // Guard: only ALTER if the bills table already exists (length > 0); fresh installs get the column
+  // via the CREATE TABLE statement below, so no ALTER is needed on first run.
+  const billsCols = db.pragma('table_info(bills)') as Array<{ name: string }>
+  if (billsCols.length > 0 && !billsCols.some((c) => c.name === 'floor_sponsor_id')) {
+    db.exec('ALTER TABLE bills ADD COLUMN floor_sponsor_id TEXT')
+  }
+
   db.transaction(() => {
     // --- legislators table ---
     // Stores cached legislator data. Populated by cache/legislators.ts (Story 2.3).
@@ -48,15 +56,16 @@ export function initializeSchema(db: Database.Database): void {
     // across sessions; the unique identity is the (bill_number, session) pair.
     db.exec(`
       CREATE TABLE IF NOT EXISTS bills (
-        id          TEXT    NOT NULL,
-        session     TEXT    NOT NULL,
-        title       TEXT    NOT NULL,
-        summary     TEXT    NOT NULL,
-        status      TEXT    NOT NULL,
-        sponsor_id  TEXT    NOT NULL,
-        vote_result TEXT,
-        vote_date   TEXT,
-        cached_at   TEXT    NOT NULL,
+        id               TEXT    NOT NULL,
+        session          TEXT    NOT NULL,
+        title            TEXT    NOT NULL,
+        summary          TEXT    NOT NULL,
+        status           TEXT    NOT NULL,
+        sponsor_id       TEXT    NOT NULL,
+        floor_sponsor_id TEXT,
+        vote_result      TEXT,
+        vote_date        TEXT,
+        cached_at        TEXT    NOT NULL,
         PRIMARY KEY (id, session)
       )
     `)

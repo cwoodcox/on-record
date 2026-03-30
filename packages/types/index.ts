@@ -2,6 +2,7 @@
 // These types define the public API between MCP tools and the LLM system prompt.
 // DO NOT rename fields in LookupLegislatorResult or SearchBillsResult without
 // also updating system-prompt/agent-instructions.md (Story 4.1).
+// SearchBillsResult fields: bills, total, count, offset (legislatorId and session removed in Story 3.7).
 
 // Legislator — returned by lookup_legislator MCP tool (FR4, FR5)
 export interface Legislator {
@@ -24,6 +25,7 @@ export interface Bill {
   summary: string
   status: string
   sponsorId: string
+  floorSponsorId?: string // populated from API's floorSponsor field when present (Story 3.7)
   voteResult?: string
   voteDate?: string // ISO 8601 date string: "2024-03-04"
 }
@@ -77,10 +79,22 @@ export interface LookupLegislatorResult {
   resolvedAddress: string // actual address in MCP response; always '[REDACTED]' in logs
 }
 
+export interface SearchBillsParams {
+  query?: string           // freeform FTS5 full-text search on bill title + summary
+  billId?: string          // bill ID match — prefix + numeric value parsed for zero-padding normalization
+  sponsorId?: string       // filter to bills with this sponsor_id
+  floorSponsorId?: string  // filter to bills where floor_sponsor_id = this value
+  session?: string         // filter to a specific session (e.g. "2026GS")
+  chamber?: 'house' | 'senate'  // 'house' → id LIKE 'H%'; 'senate' → id LIKE 'S%'
+  count?: number           // page size; default 50, max 100
+  offset?: number          // pagination offset; default 0
+}
+
 export interface SearchBillsResult {
-  bills: Bill[]
-  legislatorId: string
-  session: string
+  bills: Bill[]    // page of results
+  total: number    // total matching records (for pagination)
+  offset: number   // offset used for this page
+  count: number    // number of bills returned in this page (= bills.length)
 }
 
 // AnalyticsEvent — POST /api/events payload (FR39, Story 7.3)

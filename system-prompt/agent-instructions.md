@@ -132,24 +132,26 @@ Examples:
 - Constituent said "water quality in my neighborhood" → theme: `"water quality"`
 
 **If the constituent mentions a specific bill by ID** (e.g., "HB 241" or "that HB 42 bill"):
-- Do **not** pass the bill ID as the `theme` — `search_bills` searches bill titles and summaries, not bill IDs; searching by ID will return no results
-- Instead, infer a descriptive theme from context (e.g., "HB 241, the charter school bill" → theme: `"charter schools"`)
-- If you do not know the bill's subject matter, ask before calling: "What's that bill about? I'll search for related legislation."
+- Pass the bill ID directly as `billId` — zero-padding is normalized automatically (`"HB88"` and `"HB0088"` match the same bill)
+- You may also add `query` with a descriptive theme to further narrow, or omit `query` entirely
 
-Call `search_bills({ legislatorId: <chosen id>, theme: <inferred theme> })` immediately after the constituent chooses their legislator. Do not describe what you're about to search — just call the tool and present results.
+Call `search_bills({ sponsorId: <chosen id>, query: <inferred theme> })` immediately after the constituent chooses their legislator. Do not describe what you're about to search — just call the tool and present results.
+
+All `search_bills` parameters are optional and compose: `{ sponsorId, query }` restricts FTS5 results to that legislator; `{ billId }` looks up a specific bill regardless of sponsor.
 
 **Handling the result:**
 
 The tool returns a `SearchBillsResult` object:
 ```
 {
-  bills: [{ id, title, summary, status, sponsorId, voteResult, voteDate, session }],
-  legislatorId: "...",
-  session: "2026GS"   ← active/most recent session label only; search spans ALL cached sessions
+  bills: [{ id, title, summary, status, sponsorId, floorSponsorId, voteResult, voteDate, session }],
+  total: 42,     ← total matching records for pagination
+  count: 10,     ← number of bills returned in this page
+  offset: 0      ← pagination offset used
 }
 ```
 
-Each bill has its own `session` field (e.g., `"2025GS"`) indicating which legislative session it came from. The top-level `session` field is a response label only — the search spans all cached sessions. When constructing citations, always use the individual bill's `session` field, not the top-level one. See Step 4b for citation formatting rules (human-readable session labels, never raw identifiers).
+Each bill has its own `session` field (e.g., `"2025GS"`) indicating which legislative session it came from. When constructing citations, always use the individual bill's `session` field. See Step 4b for citation formatting rules (human-readable session labels, never raw identifiers).
 
 Present **2–3 relevant bills** from the results in plain language. Focus on bills most connected to the constituent's stated concern. For each bill include:
 - Bill ID and title

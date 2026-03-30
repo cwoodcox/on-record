@@ -55,6 +55,7 @@ const mockBillDetailResponse = {
   generalProvisions: 'This bill supplements or reduces appropriations...',
   lastAction: 'Governor Signed',
   primeSponsor: 'WHYTESL',
+  floorSponsor: 'HARPEWA',
   highlightedProvisions: 'This bill amends weighted pupil unit provisions...',
 }
 
@@ -290,6 +291,32 @@ describe('UtahLegislatureProvider', () => {
       expect(result[0]?.id).toBe('HB0002')
     })
 
+    it('populates floorSponsorId when detail response includes floorSponsor', async () => {
+      fetchMock
+        .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify([{ number: 'HB0001', trackingID: 'TUBFCRPIYI' }]) })
+        .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockBillDetailResponse) })
+
+      const promise = provider.getBillsBySession('2026GS')
+      await vi.runAllTimersAsync()
+      const result = await promise
+
+      expect(result).toHaveLength(1)
+      expect(result[0]?.floorSponsorId).toBe('HARPEWA')
+    })
+
+    it('omits floorSponsorId (undefined) when detail response lacks floorSponsor', async () => {
+      fetchMock
+        .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify([{ number: 'HB0002', trackingID: 'BKSTYLLAEC' }]) })
+        .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockBillDetail2Response) })
+
+      const promise = provider.getBillsBySession('2026GS')
+      await vi.runAllTimersAsync()
+      const result = await promise
+
+      expect(result).toHaveLength(1)
+      expect('floorSponsorId' in (result[0] ?? {})).toBe(false)
+    })
+
     it('populates voteResult and voteDate when detail response includes them', async () => {
       fetchMock
         .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify([{ number: 'HB0001', trackingID: 'TUBFCRPIYI' }]) })
@@ -442,6 +469,32 @@ describe('UtahLegislatureProvider', () => {
         sponsorId: 'WHYTESL',
         fullText: 'This bill amends weighted pupil unit provisions...',
       })
+    })
+
+    it('includes floorSponsorId when API response contains floorSponsor', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(mockBillDetailResponse), // has floorSponsor: 'HARPEWA'
+      })
+
+      const promise = provider.getBillDetail('HB0001', '2026GS')
+      await vi.runAllTimersAsync()
+      const result = await promise
+
+      expect(result.floorSponsorId).toBe('HARPEWA')
+    })
+
+    it('omits floorSponsorId when API response lacks floorSponsor field', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(mockBillDetail2Response), // no floorSponsor
+      })
+
+      const promise = provider.getBillDetail('HB0002', '2026GS')
+      await vi.runAllTimersAsync()
+      const result = await promise
+
+      expect('floorSponsorId' in result).toBe(false)
     })
 
     it('throws AppError on API failure', async () => {

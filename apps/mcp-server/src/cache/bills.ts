@@ -5,14 +5,14 @@
 // Also exports singleton wrappers for sessions.ts functions (getActiveSessionId) for use from tools/.
 //
 // Architecture note on db access:
-//   - getBillsBySponsor, getBillsBySession, searchBillsByTheme: called from tools/ (outside cache/)
-//     which cannot import the db singleton — these functions use the db singleton directly.
+//   - getBillsBySponsor, getBillsBySession, searchBillsByTheme, searchBills: called from tools/
+//     (outside cache/) which cannot import the db singleton — these functions use the db singleton directly.
 //   - getActiveSessionId: singleton wrapper for getActiveSession(db), callable from tools/.
 //   - writeBills: called exclusively from cache/refresh.ts (inside cache/); receives
 //     db as a parameter for dependency injection and testability.
 import { db } from './db.js'
 import type Database from 'better-sqlite3'
-import type { Bill } from '@on-record/types'
+import type { Bill, SearchBillsParams, SearchBillsResult } from '@on-record/types'
 import { getActiveSession } from './sessions.js'
 
 // ── Row shape returned from SQLite ──────────────────────────────────────────
@@ -23,6 +23,7 @@ interface BillRow {
   summary: string
   status: string
   sponsor_id: string
+  floor_sponsor_id: string | null
   vote_result: string | null
   vote_date: string | null
 }
@@ -37,6 +38,9 @@ function rowToBill(row: BillRow): Bill {
     sponsorId: row.sponsor_id,
   }
   // null in DB → undefined in returned Bill (exactOptionalPropertyTypes: true)
+  if (row.floor_sponsor_id !== null) {
+    bill.floorSponsorId = row.floor_sponsor_id
+  }
   if (row.vote_result !== null) {
     bill.voteResult = row.vote_result
   }
@@ -57,7 +61,7 @@ function rowToBill(row: BillRow): Bill {
 export function getBillsBySponsor(sponsorId: string): Bill[] {
   const rows = db
     .prepare<[string], BillRow>(
-      'SELECT id, session, title, summary, status, sponsor_id, vote_result, vote_date FROM bills WHERE sponsor_id = ?',
+      'SELECT id, session, title, summary, status, sponsor_id, floor_sponsor_id, vote_result, vote_date FROM bills WHERE sponsor_id = ?',
     )
     .all(sponsorId)
   return rows.map(rowToBill)
@@ -74,77 +78,34 @@ export function getBillsBySponsor(sponsorId: string): Bill[] {
 export function getBillsBySession(session: string): Bill[] {
   const rows = db
     .prepare<[string], BillRow>(
-      'SELECT id, session, title, summary, status, sponsor_id, vote_result, vote_date FROM bills WHERE session = ?',
+      'SELECT id, session, title, summary, status, sponsor_id, floor_sponsor_id, vote_result, vote_date FROM bills WHERE session = ?',
     )
     .all(session)
   return rows.map(rowToBill)
 }
 
-// Internal constant — not exported. Maps normalized (lowercase) theme keywords
-// and their synonyms to FTS5 OR query strings.
-// Both canonical theme names AND individual synonyms are keys, so input like
-// 'Medicaid' (after normalization to 'medicaid') resolves to the healthcare query.
-const THEME_QUERIES: Record<string, string> = {
-  // Healthcare
-  healthcare: 'healthcare OR health OR insurance OR Medicaid OR prescription',
-  health: 'healthcare OR health OR insurance OR Medicaid OR prescription',
-  insurance: 'healthcare OR health OR insurance OR Medicaid OR prescription',
-  medicaid: 'healthcare OR health OR insurance OR Medicaid OR prescription',
-  prescription: 'healthcare OR health OR insurance OR Medicaid OR prescription',
-  // Education
-  education: 'school OR teacher OR student OR education',
-  school: 'school OR teacher OR student OR education',
-  teacher: 'school OR teacher OR student OR education',
-  student: 'school OR teacher OR student OR education',
-  // Housing
-  housing: 'rent OR landlord OR affordable OR housing',
-  rent: 'rent OR landlord OR affordable OR housing',
-  landlord: 'rent OR landlord OR affordable OR housing',
-  affordable: 'rent OR landlord OR affordable OR housing',
-  // Redistricting
-  redistricting: 'redistricting OR gerrymandering OR district',
-  gerrymandering: 'redistricting OR gerrymandering OR district',
-  'prop 4': 'redistricting OR gerrymandering OR district',
-  district: 'redistricting OR gerrymandering OR district',
-  // Environment
-  environment: 'climate OR pollution OR water OR environment',
-  climate: 'climate OR pollution OR water OR environment',
-  pollution: 'climate OR pollution OR water OR environment',
-  water: 'climate OR pollution OR water OR environment',
-  // Taxes
-  taxes: 'revenue OR budget OR fiscal OR tax OR taxes',
-  tax: 'revenue OR budget OR fiscal OR tax OR taxes',
-  revenue: 'revenue OR budget OR fiscal OR tax OR taxes',
-  budget: 'revenue OR budget OR fiscal OR tax OR taxes',
-  fiscal: 'revenue OR budget OR fiscal OR tax OR taxes',
-}
-
 /**
  * Full-text searches the bills cache by issue theme keyword.
- * Expands known theme names and synonyms to FTS5 OR queries for broader matching.
- * Results are filtered to bills sponsored by the given legislator.
- * Returns bills ordered by FTS5 relevance (BM25 rank).
+ * @deprecated Use searchBills({ query, sponsorId }) instead. Retained for test compatibility only — do not add new callers.
  *
  * @param sponsorId - Legislator ID (e.g. 'RRabbitt')
- * @param theme     - Issue theme keyword (e.g. 'healthcare', 'education', 'water')
+ * @param theme     - Issue theme keyword passed directly to FTS5
  */
 export function searchBillsByTheme(sponsorId: string, theme: string): Bill[] {
-  const normalized = theme.trim().toLowerCase()
+  const normalized = theme.trim()
   if (normalized === '') return []
-
-  const ftsQuery = THEME_QUERIES[normalized] ?? theme.trim()
 
   try {
     const rows = db
       .prepare<[string, string], BillRow>(
-        `SELECT b.id, b.session, b.title, b.summary, b.status, b.sponsor_id, b.vote_result, b.vote_date
+        `SELECT b.id, b.session, b.title, b.summary, b.status, b.sponsor_id, b.floor_sponsor_id, b.vote_result, b.vote_date
          FROM bill_fts
          JOIN bills b ON b.rowid = bill_fts.rowid
          WHERE bill_fts MATCH ?
            AND b.sponsor_id = ?
          ORDER BY bill_fts.rank`,
       )
-      .all(ftsQuery, sponsorId)
+      .all(normalized, sponsorId)
 
     return rows.map(rowToBill)
   } catch {
@@ -152,6 +113,159 @@ export function searchBillsByTheme(sponsorId: string, theme: string): Bill[] {
     // return empty results rather than propagating a SQLite error.
     return []
   }
+}
+
+/**
+ * Parses a bill ID string into a { prefix, num } object for zero-padding-agnostic matching.
+ * Internal helper — not exported. Tests exercise it indirectly via searchBills({ billId }).
+ *
+ * Examples:
+ *   "HB88"   → { prefix: "HB", num: 88 }
+ *   "HB0088" → { prefix: "HB", num: 88 }
+ *   "hb88"   → { prefix: "HB", num: 88 }
+ *   "HJR01"  → { prefix: "HJR", num: 1 }
+ *   "HB"     → null (no digits)
+ */
+function parseBillId(raw: string): { prefix: string; num: number } | null {
+  const match = /^([A-Za-z]+)(\d+)$/.exec(raw.trim())
+  if (!match) return null
+  return {
+    prefix: match[1]!.toUpperCase(),
+    num: parseInt(match[2]!, 10),
+  }
+}
+
+/**
+ * Searches the bills cache with all-optional composable filters.
+ * Returns a paginated SearchBillsResult with total count.
+ *
+ * @param params - Optional filters: query, billId, sponsorId, floorSponsorId, session, chamber, count, offset
+ */
+export function searchBills(params: SearchBillsParams): SearchBillsResult {
+  const {
+    query,
+    billId,
+    sponsorId,
+    floorSponsorId,
+    session,
+    chamber,
+    count = 50,
+    offset = 0,
+  } = params
+
+  const limit = Math.min(count, 100)
+
+  // Build non-FTS WHERE conditions
+  const conditions: string[] = []
+  const conditionArgs: unknown[] = []
+
+  if (billId !== undefined) {
+    const parsed = parseBillId(billId)
+    if (parsed) {
+      conditions.push('SUBSTR(id, 1, ?) = ? AND CAST(SUBSTR(id, ? + 1) AS INTEGER) = ?')
+      conditionArgs.push(parsed.prefix.length, parsed.prefix, parsed.prefix.length, parsed.num)
+    } else {
+      // Unrecognized format — fall back to exact string match
+      conditions.push('id = ?')
+      conditionArgs.push(billId.trim())
+    }
+  }
+
+  if (sponsorId !== undefined) {
+    conditions.push('sponsor_id = ?')
+    conditionArgs.push(sponsorId)
+  }
+
+  if (floorSponsorId !== undefined) {
+    conditions.push('floor_sponsor_id = ?')
+    conditionArgs.push(floorSponsorId)
+  }
+
+  if (session !== undefined) {
+    conditions.push('session = ?')
+    conditionArgs.push(session)
+  }
+
+  if (chamber === 'house') {
+    conditions.push("id LIKE 'H%'")
+  } else if (chamber === 'senate') {
+    conditions.push("id LIKE 'S%'")
+  }
+
+  // Determine if FTS5 path or direct table scan
+  const normalizedQuery = (query ?? '').trim()
+  const useFts = normalizedQuery !== ''
+
+  let total: number
+  let bills: Bill[]
+
+  if (useFts) {
+    // FTS5 path: fts conditions use table alias prefix; non-fts conditions use b. prefix
+    const bConditions = conditions.map((c) => {
+      // Add b. prefix to unaliased column references
+      return c
+        .replace(/\bid\b/g, 'b.id')
+        .replace(/\bsponsor_id\b/g, 'b.sponsor_id')
+        .replace(/\bfloor_sponsor_id\b/g, 'b.floor_sponsor_id')
+        .replace(/\bsession\b/g, 'b.session')
+    })
+
+    const nonFtsWhere =
+      bConditions.length > 0 ? 'AND ' + bConditions.join(' AND ') : ''
+
+    const countSql = `
+      SELECT COUNT(*) as total
+      FROM bill_fts
+      JOIN bills b ON b.rowid = bill_fts.rowid
+      WHERE bill_fts MATCH ?
+      ${nonFtsWhere}
+    `
+    const pageSql = `
+      SELECT b.id, b.session, b.title, b.summary, b.status, b.sponsor_id, b.floor_sponsor_id, b.vote_result, b.vote_date
+      FROM bill_fts
+      JOIN bills b ON b.rowid = bill_fts.rowid
+      WHERE bill_fts MATCH ?
+      ${nonFtsWhere}
+      ORDER BY bill_fts.rank
+      LIMIT ? OFFSET ?
+    `
+
+    const countArgs = [normalizedQuery, ...conditionArgs]
+    const pageArgs = [normalizedQuery, ...conditionArgs, limit, offset]
+
+    const countRow = db.prepare<unknown[], { total: number }>(countSql).get(...countArgs)
+    total = countRow?.total ?? 0
+
+    const rows = db.prepare<unknown[], BillRow>(pageSql).all(...pageArgs)
+    bills = rows.map(rowToBill)
+  } else {
+    // Direct table scan path
+    const whereClause =
+      conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : ''
+
+    const countSql = `
+      SELECT COUNT(*) as total FROM bills
+      ${whereClause}
+    `
+    const pageSql = `
+      SELECT id, session, title, summary, status, sponsor_id, floor_sponsor_id, vote_result, vote_date
+      FROM bills
+      ${whereClause}
+      ORDER BY session DESC, id ASC
+      LIMIT ? OFFSET ?
+    `
+
+    const countArgs = [...conditionArgs]
+    const pageArgs = [...conditionArgs, limit, offset]
+
+    const countRow = db.prepare<unknown[], { total: number }>(countSql).get(...countArgs)
+    total = countRow?.total ?? 0
+
+    const rows = db.prepare<unknown[], BillRow>(pageSql).all(...pageArgs)
+    bills = rows.map(rowToBill)
+  }
+
+  return { bills, total, count: bills.length, offset }
 }
 
 /**
@@ -187,12 +301,12 @@ export function writeBills(db: Database.Database, bills: Bill[]): void {
   if (bills.length === 0) return
 
   const stmt = db.prepare<
-    [string, string, string, string, string, string, string | null, string | null, string]
+    [string, string, string, string, string, string, string | null, string | null, string | null, string]
   >(`
     INSERT OR REPLACE INTO bills
-      (id, session, title, summary, status, sponsor_id, vote_result, vote_date, cached_at)
+      (id, session, title, summary, status, sponsor_id, floor_sponsor_id, vote_result, vote_date, cached_at)
     VALUES
-      (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
 
   const cachedAt = new Date().toISOString()
@@ -206,6 +320,7 @@ export function writeBills(db: Database.Database, bills: Bill[]): void {
         bill.summary,
         bill.status,
         bill.sponsorId,
+        bill.floorSponsorId ?? null,
         bill.voteResult ?? null,
         bill.voteDate ?? null,
         cachedAt,

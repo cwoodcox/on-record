@@ -1,6 +1,6 @@
 # Story 3.7: `search_bills` Interface Redesign
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -34,87 +34,63 @@ so that the chatbot can search across all cached bills, not only by a specific s
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Update `packages/types/index.ts` — `Bill`, `SearchBillsParams`, new `SearchBillsResult` (AC: 14–16)
-  - [ ] Add `floorSponsorId?: string` to the `Bill` interface (after `sponsorId`)
-  - [ ] Add `SearchBillsParams` interface (all fields optional, see Dev Notes for exact shape)
-  - [ ] Replace `SearchBillsResult` fields: remove `legislatorId: string` and `session: string`; add `total: number`, `count: number`, `offset: number`
-  - [ ] Update the "DO NOT rename" comment to reflect the updated fields
-  - [ ] Export `SearchBillsParams` from the package
+- [x] Task 1: Update `packages/types/index.ts` — `Bill`, `SearchBillsParams`, new `SearchBillsResult` (AC: 14–16)
+  - [x] Add `floorSponsorId?: string` to the `Bill` interface (after `sponsorId`)
+  - [x] Add `SearchBillsParams` interface (all fields optional, see Dev Notes for exact shape)
+  - [x] Replace `SearchBillsResult` fields: remove `legislatorId: string` and `session: string`; add `total: number`, `count: number`, `offset: number`
+  - [x] Update the "DO NOT rename" comment to reflect the updated fields
+  - [x] Export `SearchBillsParams` from the package
 
-- [ ] Task 2: Capture `floorSponsor` in the provider + schema migration (AC: 7, 15)
-  - [ ] `apps/mcp-server/src/providers/utah-legislature.ts`: add `floorSponsor: z.string().optional()` to `apiBillDetailSchema`
-  - [ ] `getBillDetail`: include `floorSponsorId: parsed.data.floorSponsor` in the returned `BillDetail` object (omit key if undefined — use `...(parsed.data.floorSponsor !== undefined && { floorSponsorId: parsed.data.floorSponsor })`)
-  - [ ] `getBillsBySession` bill-building block: include `...(detail.floorSponsorId !== undefined && { floorSponsorId: detail.floorSponsorId })` alongside the existing `voteResult`/`voteDate` pattern
-  - [ ] `apps/mcp-server/src/cache/schema.ts`: add `ALTER TABLE bills ADD COLUMN floor_sponsor_id TEXT` migration (run only when column is absent — check via `pragma table_info` before executing, same pattern as the existing PK migration guard)
-  - [ ] `apps/mcp-server/src/cache/bills.ts` — `BillRow` interface: add `floor_sponsor_id: string | null`
-  - [ ] `rowToBill`: map `floor_sponsor_id` → `bill.floorSponsorId` (same null-to-undefined pattern as `voteResult`/`voteDate`)
-  - [ ] `writeBills`: add `floor_sponsor_id` column to INSERT statement; pass `bill.floorSponsorId ?? null`
-  - [ ] `apps/mcp-server/src/providers/utah-legislature.test.ts`: add `floorSponsor: 'HARPEWA'` to `mockBillDetailResponse`; add test asserting `floorSponsorId: 'HARPEWA'` in the returned bill
+- [x] Task 2: Capture `floorSponsor` in the provider + schema migration (AC: 7, 15)
+  - [x] `apps/mcp-server/src/providers/utah-legislature.ts`: add `floorSponsor: z.string().optional()` to `apiBillDetailSchema`
+  - [x] `getBillDetail`: include `floorSponsorId: parsed.data.floorSponsor` in the returned `BillDetail` object (omit key if undefined — use `...(parsed.data.floorSponsor !== undefined && { floorSponsorId: parsed.data.floorSponsor })`)
+  - [x] `getBillsBySession` bill-building block: include `...(detail.floorSponsorId !== undefined && { floorSponsorId: detail.floorSponsorId })` alongside the existing `voteResult`/`voteDate` pattern
+  - [x] `apps/mcp-server/src/cache/schema.ts`: add `ALTER TABLE bills ADD COLUMN floor_sponsor_id TEXT` migration (run only when column is absent — check via `pragma table_info` before executing, same pattern as the existing PK migration guard); also added `floor_sponsor_id` to CREATE TABLE DDL for fresh installs
+  - [x] `apps/mcp-server/src/cache/bills.ts` — `BillRow` interface: add `floor_sponsor_id: string | null`
+  - [x] `rowToBill`: map `floor_sponsor_id` → `bill.floorSponsorId` (same null-to-undefined pattern as `voteResult`/`voteDate`)
+  - [x] `writeBills`: add `floor_sponsor_id` column to INSERT statement; pass `bill.floorSponsorId ?? null`
+  - [x] `apps/mcp-server/src/providers/utah-legislature.test.ts`: add `floorSponsor: 'HARPEWA'` to `mockBillDetailResponse`; add tests asserting `floorSponsorId` passthrough and omission
 
-- [ ] Task 3: Update `apps/mcp-server/src/cache/bills.ts` — add `searchBills`, keep `searchBillsByTheme` as deprecated (AC: 1–9, 13)
-  - [ ] Add `parseBillId(raw: string): { prefix: string; num: number } | null` (internal helper, not exported)
-    - Regex: `/^([A-Za-z]+)(\d+)$/` — extract letters prefix + numeric value as integer
-    - Returns `null` for unrecognized format (no letters-then-digits structure)
-    - See Dev Notes for exact SQL WHERE clause to use the parsed result
-  - [ ] Add `export function searchBills(params: SearchBillsParams): SearchBillsResult`
-    - Destructure `{ query, billId, sponsorId, floorSponsorId, session, chamber, count = 50, offset = 0 }` from params
-    - Clamp `limit = Math.min(count, 100)`
-    - Build WHERE conditions array and args array dynamically (see Dev Notes for exact SQL patterns)
-    - `floorSponsorId` filter: `conditions.push('floor_sponsor_id = ?'); conditionArgs.push(floorSponsorId)` — column exists after Task 2 migration
-    - Execute two queries: count query + page query (see Dev Notes)
-    - Return `{ bills, total, count: bills.length, offset }`
-    - Empty-MATCH guard: if `query` is provided but normalizes to `''`, skip FTS5 and treat as no-query path
-  - [ ] Mark `searchBillsByTheme` as `@deprecated` with JSDoc: "Use searchBills({ query, sponsorId }) instead. Retained for test compatibility only — do not add new callers."
-  - [ ] Remove `THEME_QUERIES` map — delete the entire constant. `searchBills` uses the raw FTS5 query directly (no expansion map)
+- [x] Task 3: Update `apps/mcp-server/src/cache/bills.ts` — add `searchBills`, keep `searchBillsByTheme` as deprecated (AC: 1–9, 13)
+  - [x] Add `parseBillId(raw: string): { prefix: string; num: number } | null` (internal helper, not exported)
+  - [x] Add `export function searchBills(params: SearchBillsParams): SearchBillsResult`
+  - [x] Mark `searchBillsByTheme` as `@deprecated` with JSDoc
+  - [x] Remove `THEME_QUERIES` map
 
-- [ ] Task 4: Rewrite `apps/mcp-server/src/tools/search-bills.ts` (AC: 1–13, 20, 21)
-  - [ ] Update imports: replace `searchBillsByTheme, getActiveSessionId` with `searchBills`; remove `getActiveSessionId` import
-  - [ ] New zod input schema (all optional — see Dev Notes for exact `.describe()` text)
-  - [ ] Handler: call `searchBills(params)` inside `retryWithDelay(..., 2, 1000)` — same retry config as before
-  - [ ] On success: return `JSON.stringify(result)` — no slicing (pagination handles size now)
-  - [ ] On success: log `{ source: 'mcp-tool', billCount: result.count, filters: loggableSummary }` where `loggableSummary` omits PII (no addresses, just the filter keys that were provided)
-  - [ ] On catch: `logger.error({ source: 'legislature-api' }, 'search_bills failed after retries')`; return AppError JSON
-  - [ ] AppError: `nature: 'Bill search is temporarily unavailable'`, `action: 'Try again in a few seconds. If the problem persists, the service may be temporarily down.'`
-  - [ ] Update tool description (see Dev Notes — must not enumerate categories or list values)
+- [x] Task 4: Rewrite `apps/mcp-server/src/tools/search-bills.ts` (AC: 1–13, 20, 21)
+  - [x] Update imports: replace `searchBillsByTheme, getActiveSessionId` with `searchBills`; remove `getActiveSessionId` import
+  - [x] New zod input schema (all optional)
+  - [x] Handler: call `searchBills(params)` inside `retryWithDelay(..., 2, 1000)`
+  - [x] On success: return `JSON.stringify(result)` — no slicing
+  - [x] On success: log `{ source: 'mcp-tool', billCount: result.count, filters: loggableSummary }`
+  - [x] On catch: `logger.error({ source: 'legislature-api' }, 'search_bills failed after retries')`; return AppError JSON
+  - [x] Update tool description
 
-- [ ] Task 5: Rewrite `apps/mcp-server/src/tools/search-bills.test.ts` (AC: 1–13, 18)
-  - [ ] Update mock: `vi.mock('../cache/bills.js', () => ({ searchBills: vi.fn() }))` — remove `searchBillsByTheme` and `getActiveSessionId` mocks
-  - [ ] Update `ToolHandler` type and `createMockServer` for new all-optional schema
-  - [ ] Test cases (see Dev Notes for full list)
+- [x] Task 5: Rewrite `apps/mcp-server/src/tools/search-bills.test.ts` (AC: 1–13, 18)
+  - [x] Update mock: `vi.mock('../cache/bills.js', () => ({ searchBills: vi.fn() }))`
+  - [x] Update `ToolHandler` type and `createMockServer` for new all-optional schema
+  - [x] All test cases implemented
 
-- [ ] Task 6: Update `apps/mcp-server/src/cache/bills.test.ts` — add `searchBills` + `parseBillId` tests (AC: 18)
-  - [ ] Import `searchBills` from the module (same dynamic import pattern used by the file)
-  - [ ] Add `describe('parseBillId (via searchBills)', ...)` — since `parseBillId` is not exported, test it indirectly via `searchBills({ billId })` against an in-memory DB
-  - [ ] Add `describe('searchBills', ...)` using real in-memory SQLite (same pattern as existing bills.test.ts describe blocks):
-    - No params: returns all bills (paginated)
-    - `sponsorId` filter: returns only matching bills
-    - `floorSponsorId` filter: returns only bills with matching `floor_sponsor_id` (write a bill with `floorSponsorId: 'HARPEWA'`, verify filter works)
-    - `session` filter: returns only matching session
-    - `chamber: 'house'`: returns only HB/HR/HJR/HCR bills
-    - `chamber: 'senate'`: returns only SB/SR/SJR/SCR bills
-    - `query` filter: FTS5 hits (write bills with matching titles, verify match)
-    - `billId` normalization: `"HB88"` matches `"HB0088"` in DB
-    - `count` + `offset` pagination: writes 5 bills, requests page 2 of size 2, gets bills 3–4
-    - `total` field: matches actual count of matching rows, not just page size
-    - Empty query guard: `query: ''` returns results (does not throw SQLite syntax error)
+- [x] Task 6: Update `apps/mcp-server/src/cache/bills.test.ts` — add `searchBills` + `parseBillId` tests (AC: 18)
+  - [x] Import `searchBills` from the module
+  - [x] Add `describe('parseBillId (via searchBills)', ...)` — indirect tests via `searchBills({ billId })`
+  - [x] Add `describe('searchBills', ...)` with all required test cases
 
-- [ ] Task 7: Check web app impact — `apps/web/src/` (AC: 14)
-  - [ ] Search for any import or use of `SearchBillsResult.legislatorId` or `SearchBillsResult.session` in `apps/web/src/`
-  - [ ] Confirm: as of this story, no web component uses these removed fields (verified in pre-story analysis — the web app uses `Bill` directly, not `SearchBillsResult.legislatorId`)
-  - [ ] If any usages are found, update them — they should be removable given the platform pivot to ChatGPT App
+- [x] Task 7: Check web app impact — `apps/web/src/` (AC: 14)
+  - [x] Confirmed: no web component uses `SearchBillsResult.legislatorId` or `SearchBillsResult.session`; `BillCard` uses `Bill.session` directly
 
-- [ ] Task 8: Update `system-prompt/agent-instructions.md` — tool description + result shape (AC: 14)
-  - [ ] Update any reference to `search_bills` input schema (remove `legislatorId`, `theme` as required fields)
-  - [ ] Update any reference to `SearchBillsResult` fields (remove `legislatorId`, `session`; add `total`, `count`, `offset`)
-  - [ ] NOTE: This is a minimal update. The full system prompt rewrite is Story 4-X (new system prompt). Only update the tool schema references here.
+- [x] Task 8: Update `system-prompt/agent-instructions.md` — tool description + result shape (AC: 14)
+  - [x] Updated `search_bills` call to use `{ sponsorId, query }` instead of `{ legislatorId, theme }`
+  - [x] Updated `SearchBillsResult` shape to show `total`, `count`, `offset` (removed `legislatorId`, `session`)
+  - [x] Updated bill ID lookup guidance to use `billId` parameter
 
-- [ ] Task 9: Final verification (AC: 17–21)
-  - [ ] `pnpm --filter mcp-server typecheck` exits 0
-  - [ ] `pnpm --filter mcp-server test` exits 0
-  - [ ] `pnpm --filter mcp-server lint` exits 0
-  - [ ] `pnpm typecheck` (workspace-wide) exits 0 — confirms packages/types consumers compile
-  - [ ] Confirm no `better-sqlite3` imports outside `apps/mcp-server/src/cache/`
-  - [ ] Confirm no `console.log` introduced
+- [x] Task 9: Final verification (AC: 17–21)
+  - [x] `pnpm --filter mcp-server typecheck` exits 0
+  - [x] `pnpm --filter mcp-server test` exits 0 (201 tests, all pass)
+  - [x] `pnpm --filter mcp-server lint` exits 0
+  - [x] `pnpm -r typecheck` exits 0 — confirms packages/types consumers compile
+  - [x] Confirmed no `better-sqlite3` imports outside `apps/mcp-server/src/cache/`
+  - [x] Confirmed no `console.log` introduced
 
 ## Dev Notes
 
@@ -486,4 +462,22 @@ claude-sonnet-4-6
 
 ### Completion Notes List
 
+- Removed `THEME_QUERIES` expansion map; `searchBillsByTheme` now passes raw query to FTS5; existing theme-expansion tests updated to test direct-matching behavior
+- Migration guard for `floor_sponsor_id` uses `billsCols.length > 0` check to avoid ALTER on non-existent table during fresh install; column also added to CREATE TABLE DDL
+- `SearchBillsParams` uses `as SearchBillsParams` cast in tool handler to satisfy `exactOptionalPropertyTypes: true` compatibility with zod `ShapeOutput` type
+- FTS5 path applies `b.` table alias prefix to all WHERE conditions via regex replacement when joining `bill_fts` with `bills`
+- 201 tests all pass (up from 197 pre-story): +4 provider tests (floorSponsor), +7 tool tests (rewrite), +16 cache tests (searchBills + parseBillId)
+
 ### File List
+
+| File | Action |
+|---|---|
+| `packages/types/index.ts` | MODIFIED — added `floorSponsorId?` to `Bill`, added `SearchBillsParams`, rewrote `SearchBillsResult` |
+| `apps/mcp-server/src/cache/schema.ts` | MODIFIED — added `floor_sponsor_id` migration + column to CREATE TABLE |
+| `apps/mcp-server/src/cache/bills.ts` | MODIFIED — added `searchBills`, `parseBillId`, `floor_sponsor_id` in BillRow/rowToBill/writeBills, removed THEME_QUERIES, deprecated `searchBillsByTheme` |
+| `apps/mcp-server/src/cache/bills.test.ts` | MODIFIED — updated `searchBillsByTheme` tests (expansion removed), added `searchBills` and `parseBillId` test blocks |
+| `apps/mcp-server/src/providers/utah-legislature.ts` | MODIFIED — added `floorSponsor` to schema, wired through `getBillDetail` and `getBillsBySession` |
+| `apps/mcp-server/src/providers/utah-legislature.test.ts` | MODIFIED — added `floorSponsor` to fixture, added 4 new floorSponsorId passthrough tests |
+| `apps/mcp-server/src/tools/search-bills.ts` | MODIFIED — new all-optional schema, new handler using `searchBills` |
+| `apps/mcp-server/src/tools/search-bills.test.ts` | MODIFIED — full rewrite of mock setup and test cases |
+| `system-prompt/agent-instructions.md` | MODIFIED — updated search_bills call signature and SearchBillsResult shape |

@@ -39,6 +39,7 @@ const apiBillDetailSchema = z.object({
   generalProvisions: z.string(),
   lastAction: z.string(),
   primeSponsor: z.string(),        // legislator ID, e.g. "WHYTESL"
+  floorSponsor: z.string().optional(), // cross-chamber floor sponsor legislator ID (e.g. "HARPEWA"); absent when no floor sponsor
   highlightedProvisions: z.string().optional(),
   voteResult: z.string().optional(),  // populated if API provides vote outcome
   voteDate: z.string().optional(),    // ISO 8601 date string, e.g. "2026-03-01"
@@ -177,6 +178,7 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
             summary: detail.summary,
             status: detail.status,
             sponsorId: detail.sponsorId,
+            ...(detail.floorSponsorId !== undefined && { floorSponsorId: detail.floorSponsorId }),
             ...(detail.voteResult !== undefined && { voteResult: detail.voteResult }),
             ...(detail.voteDate !== undefined && { voteDate: detail.voteDate }),
           })
@@ -235,6 +237,7 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
       summary: parsed.data.generalProvisions,
       status: parsed.data.lastAction,
       sponsorId: parsed.data.primeSponsor,
+      ...(parsed.data.floorSponsor !== undefined && { floorSponsorId: parsed.data.floorSponsor }),
       ...(parsed.data.highlightedProvisions !== undefined && { fullText: parsed.data.highlightedProvisions }),
       ...(parsed.data.voteResult !== undefined && { voteResult: parsed.data.voteResult }),
       ...(parsed.data.voteDate !== undefined && { voteDate: parsed.data.voteDate }),
