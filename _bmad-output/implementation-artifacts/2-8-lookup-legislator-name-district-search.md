@@ -1,36 +1,51 @@
-# Story 2-8: `lookup_legislator` — Name / District Search Modes
+# Story 2-8: `lookup_legislator` — ID / Name / District Search Modes
 
 Status: ready-for-dev
 
 ## Story
 
 As a **chatbot agent**,
-I want to call `lookup_legislator` by legislator name or by chamber + district number,
-so that I can retrieve legislator contact info after receiving district identifiers from `resolve_address`, or when the constituent already knows their rep by name — without needing an address at all.
+I want to call `lookup_legislator` by legislator ID, partial name, or chamber + district number,
+so that I can retrieve legislator contact info after a bill search (using the bill's `sponsorId`), after `resolve_address` returns district identifiers, or when the constituent knows their rep by name.
 
 ## Acceptance Criteria
 
-1. The `lookup_legislator` tool input schema changes from `{ street: string, zone: string }` to `{ name?: string, chamber?: 'house' | 'senate', district?: number }`. All parameters are optional individually; at least one complete mode must be provided.
-2. When `chamber` and `district` are both provided, the tool reads from `getLegislatorsByDistrict(chamber, district)` (existing cache function) and returns a `LookupLegislatorResult` JSON response.
-3. When `name` is provided (with or without `chamber`+`district`), the tool reads from `getLegislatorsByName(name)` (new cache function — partial case-insensitive match) and includes those results.
-4. When both modes are provided (all three params: `name`, `chamber`, `district`), both queries run; results are merged, deduplicated by `id`, and returned together.
-5. When no valid mode is provided (no `name` AND not both `chamber`+`district`), the tool returns structured AppError JSON with `source: 'mcp-tool'` and `nature` containing `'at least one search mode'`.
+1. The `lookup_legislator` tool input schema changes from `{ street: string, zone: string }` to `{ id?: string, name?: string, chamber?: 'house' | 'senate', district?: number }`. All parameters are optional individually; at least one complete mode must be provided.
+2. When `id` is provided, the tool reads from `getLegislatorById(id)` (new cache function — exact primary key match) and includes the result if found (mode C — ID lookup).
+3. When `chamber` and `district` are both provided, the tool reads from `getLegislatorsByDistrict(chamber, district)` (existing cache function) and includes those results (mode B — district lookup).
+4. When `name` is provided, the tool reads from `getLegislatorsByName(name)` (new cache function — partial case-insensitive match) and includes those results (mode A — name search).
+5. Any combination of modes is valid; all provided modes run and results are merged, deduplicated by `id`.
 6. When `chamber` is provided without `district` (or `district` without `chamber`), the tool returns structured AppError JSON with `source: 'mcp-tool'` and `nature` containing `'chamber and district'`.
-7. When all valid modes return empty cache results, the tool returns structured AppError JSON with `source: 'cache'` and `nature` containing `'No legislators found'`.
-8. `LookupLegislatorResult` in `packages/types/index.ts` has `resolvedAddress` made optional (`resolvedAddress?: string`). The new `lookup_legislator` response does NOT include `resolvedAddress` — that field is now returned by `resolve_address` independently.
-9. `getLegislatorsByName(name: string): Legislator[]` is added to `apps/mcp-server/src/cache/legislators.ts`; SQL: `WHERE name LIKE ?` with `%${name}%` pattern (SQLite LIKE is case-insensitive for ASCII).
-10. All error responses are structured JSON — `content: [{ type: 'text', text: JSON.stringify(appError) }]` — never a prose string.
-11. `pnpm --filter mcp-server typecheck` exits 0 and `pnpm --filter mcp-server test` exits 0.
+7. When no valid mode is provided (no `id`, no `name`, and not both `chamber`+`district`), the tool returns structured AppError JSON with `source: 'mcp-tool'` and `nature` containing `'at least one search mode'`.
+8. When all valid modes return empty cache results, the tool returns structured AppError JSON with `source: 'cache'` and `nature` containing `'No legislators found'`.
+9. `LookupLegislatorResult` in `packages/types/index.ts` has `resolvedAddress` made optional (`resolvedAddress?: string`). The new `lookup_legislator` response does NOT include `resolvedAddress` — that field is now returned by `resolve_address` independently.
+10. `getLegislatorById(id: string): Legislator | null` is added to `apps/mcp-server/src/cache/legislators.ts`; SQL: `WHERE id = ?` exact match on the primary key.
+11. `getLegislatorsByName(name: string): Legislator[]` is added to `apps/mcp-server/src/cache/legislators.ts`; SQL: `WHERE name LIKE ?` with `%${name}%` pattern (SQLite LIKE is case-insensitive for ASCII).
+12. All error responses are structured JSON — `content: [{ type: 'text', text: JSON.stringify(appError) }]` — never a prose string.
+13. `pnpm --filter mcp-server typecheck` exits 0 and `pnpm --filter mcp-server test` exits 0.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Update `packages/types/index.ts` — make `resolvedAddress` optional (AC: 8)
+- [ ] Task 1: Update `packages/types/index.ts` — make `resolvedAddress` optional (AC: 9)
   - [ ] Change `resolvedAddress: string` → `resolvedAddress?: string` in `LookupLegislatorResult`
   - [ ] No other changes to `packages/types/index.ts` — do not rename or modify other types
   - [ ] Note: `SearchBillsResult` shape changes are in story 3-7, not here
 
-- [ ] Task 2: Add `getLegislatorsByName` to `apps/mcp-server/src/cache/legislators.ts` (AC: 9)
-  - [ ] Add below `getLegislatorsByDistrict`:
+- [ ] Task 2: Add `getLegislatorById` and `getLegislatorsByName` to `apps/mcp-server/src/cache/legislators.ts` (AC: 10, 11)
+  - [ ] Add `getLegislatorById`:
+    ```typescript
+    export function getLegislatorById(id: string): Legislator | null {
+      const row = db
+        .prepare<[string], LegislatorRow>(
+          `SELECT id, chamber, district, name, email, phone, phone_label, session
+           FROM legislators
+           WHERE id = ?`,
+        )
+        .get(id)
+      return row ? mapRow(row) : null
+    }
+    ```
+  - [ ] Add `getLegislatorsByName`:
     ```typescript
     export function getLegislatorsByName(name: string): Legislator[] {
       const rows = db
@@ -40,44 +55,49 @@ so that I can retrieve legislator contact info after receiving district identifi
            WHERE name LIKE ?`,
         )
         .all(`%${name}%`)
-      return rows.map(/* same mapping logic as getLegislatorsByDistrict */)
+      return rows.map(mapRow)
     }
     ```
-  - [ ] Reuse the `LegislatorRow → Legislator` mapping (phone_label null → phoneTypeUnknown, present → phoneLabel)
-  - [ ] Named export only — no default export
+  - [ ] Extract the `LegislatorRow → Legislator` mapping into a local `mapRow` helper (used by all three query functions including existing `getLegislatorsByDistrict`)
+  - [ ] Named exports only — no default export
 
-- [ ] Task 3: Add `getLegislatorsByName` tests to `apps/mcp-server/src/cache/legislators.test.ts` (AC: 9, 11)
-  - [ ] Test: partial name match returns matching legislators (e.g. "Smith" matches "Jane Smith" and "Bob Smithson")
-  - [ ] Test: name match is case-insensitive — "smith" matches "Jane Smith"
-  - [ ] Test: name with no match returns empty array (no error)
-  - [ ] Test: phone_label null → `phoneTypeUnknown: true`; phone_label present → `phoneLabel`
+- [ ] Task 3: Add cache function tests to `apps/mcp-server/src/cache/legislators.test.ts` (AC: 10, 11, 13)
+  - [ ] `getLegislatorById`:
+    - [ ] Test: exact match on known ID returns the legislator
+    - [ ] Test: unknown ID returns `null`
+  - [ ] `getLegislatorsByName`:
+    - [ ] Test: partial name match returns matching legislators (e.g. "Smith" matches "Jane Smith" and "Bob Smithson")
+    - [ ] Test: name match is case-insensitive — "smith" matches "Jane Smith"
+    - [ ] Test: name with no match returns empty array (no error)
+  - [ ] Both functions: phone_label null → `phoneTypeUnknown: true`; phone_label present → `phoneLabel`
 
-- [ ] Task 4: Rewrite `apps/mcp-server/src/tools/legislator-lookup.ts` (AC: 1–7, 10)
+- [ ] Task 4: Rewrite `apps/mcp-server/src/tools/legislator-lookup.ts` (AC: 1–8, 12)
   - [ ] **Remove entirely:**
     - `PO_BOX_PATTERN` constant (no address input in this story)
     - Import of `resolveAddressToDistricts` from `'../lib/gis.js'`
     - Street/zone input schema
   - [ ] **New imports:**
-    - `getLegislatorsByDistrict` from `'../cache/legislators.js'` (keep existing)
-    - `getLegislatorsByName` from `'../cache/legislators.js'` (new)
+    - `getLegislatorById`, `getLegislatorsByDistrict`, `getLegislatorsByName` from `'../cache/legislators.js'`
     - `logger` from `'../lib/logger.js'`
-    - `createAppError, isAppError` from `'@on-record/types'`
+    - `createAppError` from `'@on-record/types'`
     - `LookupLegislatorResult, Legislator` types from `'@on-record/types'`
   - [ ] **New input schema (zod):**
     ```typescript
     {
+      id: z.string().min(1).optional()
+        .describe('Exact legislator ID (matches sponsorId on bill search results). Use when resolving a bill sponsor to their contact details.'),
       name: z.string().min(1).optional()
-        .describe('Partial legislator name (case-insensitive match). Provide when the constituent knows their rep by name, or when a legislator name is known from a bill search result.'),
+        .describe('Partial legislator name (case-insensitive match). Use when the constituent knows their rep by name.'),
       chamber: z.enum(['house', 'senate']).optional()
-        .describe('Legislative chamber — must be provided together with district.'),
+        .describe('Legislative chamber for district lookup — must be provided together with district.'),
       district: z.number().int().positive().optional()
         .describe('District number — must be provided together with chamber.'),
     }
     ```
-  - [ ] **Handler logic:**
-    1. Validate: if `chamber` provided without `district`, or `district` provided without `chamber` → return AppError `source: 'mcp-tool'`, `nature` containing `'chamber and district'`
-    2. Validate: if no `name` AND not both `chamber`+`district` → return AppError `source: 'mcp-tool'`, `nature` containing `'at least one search mode'`
-    3. Collect results:
+  - [ ] **Handler logic (validation first, then collect):**
+    1. If `chamber` provided without `district`, or `district` provided without `chamber` → return AppError `source: 'mcp-tool'`, `nature` containing `'chamber and district'`
+    2. If no `id` AND no `name` AND not both `chamber`+`district` → return AppError `source: 'mcp-tool'`, `nature` containing `'at least one search mode'`
+    3. Collect results (inside try/catch per CLAUDE.md):
        ```typescript
        const legislators: Legislator[] = []
        const seen = new Set<string>()
@@ -85,6 +105,10 @@ so that I can retrieve legislator contact info after receiving district identifi
          for (const leg of list) {
            if (!seen.has(leg.id)) { seen.add(leg.id); legislators.push(leg) }
          }
+       }
+       if (id !== undefined) {
+         const leg = getLegislatorById(id)
+         if (leg) addLegislators([leg])
        }
        if (chamber !== undefined && district !== undefined) {
          addLegislators(getLegislatorsByDistrict(chamber, district))
@@ -97,46 +121,58 @@ so that I can retrieve legislator contact info after receiving district identifi
     5. Build result: `{ legislators, session: legislators[0]!.session }` (no `resolvedAddress`)
     6. `logger.info({ source: 'mcp-tool', legislatorCount: legislators.length }, 'lookup_legislator succeeded')`
     7. Return `{ content: [{ type: 'text', text: JSON.stringify(result) }] }`
-  - [ ] Tool description MUST NOT enumerate valid chamber values or list search mode names — describe intent (e.g. "look up by name or district"), not implementation (CLAUDE.md anti-pattern)
+  - [ ] Keep ALL throwing code inside the try/catch — per CLAUDE.md error handling rule
+  - [ ] Tool description MUST NOT enumerate valid chamber values — describe intent, not implementation (CLAUDE.md anti-pattern)
   - [ ] Named export `registerLookupLegislatorTool(server: McpServer): void` — unchanged signature
   - [ ] No default export; no barrel file
 
-- [ ] Task 5: Rewrite `apps/mcp-server/src/tools/legislator-lookup.test.ts` (AC: 1–7, 10, 11)
-  - [ ] Mock `../cache/legislators.js` to export both `getLegislatorsByDistrict: vi.fn()` and `getLegislatorsByName: vi.fn()`
+- [ ] Task 5: Rewrite `apps/mcp-server/src/tools/legislator-lookup.test.ts` (AC: 1–8, 12, 13)
+  - [ ] Mock `../cache/legislators.js` to export `getLegislatorById: vi.fn()`, `getLegislatorsByDistrict: vi.fn()`, `getLegislatorsByName: vi.fn()`
   - [ ] Mock `../lib/logger.js` (Proxy — vi.spyOn fails; use vi.mock)
-  - [ ] **DO NOT** mock `lib/gis.js` — the new tool doesn't import it; mocking it would be noise
-  - [ ] **DO NOT** mock `env.js` — the new tool doesn't call `getEnv()` (no GIS calls)
+  - [ ] **DO NOT** mock `lib/gis.js` — the new tool doesn't import it
+  - [ ] **DO NOT** mock `env.js` — the new tool doesn't call `getEnv()`
   - [ ] Update `ToolHandler` type:
     ```typescript
-    type ToolHandler = (args: { name?: string; chamber?: 'house' | 'senate'; district?: number }) =>
-      Promise<{ content: Array<{ type: string; text: string }> }>
+    type ToolHandler = (args: {
+      id?: string
+      name?: string
+      chamber?: 'house' | 'senate'
+      district?: number
+    }) => Promise<{ content: Array<{ type: string; text: string }> }>
     ```
-  - [ ] **Test 1 — district mode (mode B):** `{ chamber: 'house', district: 29 }` → `getLegislatorsByDistrict` called with `('house', 29)` → result has `legislators` array, `session`; verify `toHaveBeenCalledWith('house', 29)`
-  - [ ] **Test 2 — name mode (mode A):** `{ name: 'Smith' }` → `getLegislatorsByName` called with `'Smith'` → result has `legislators`, `session`; verify `toHaveBeenCalledWith('Smith')`
-  - [ ] **Test 3 — both modes (merge/dedup):** `{ name: 'Lee', chamber: 'senate', district: 4 }` → both query fns called; return overlapping legislator sets; assert final `legislators` deduplicated (id appears once)
-  - [ ] **Test 4 — no valid mode:** `{}` → AppError with `source: 'mcp-tool'`; `nature` contains `'at least one search mode'`
-  - [ ] **Test 5 — partial pair (chamber only):** `{ chamber: 'house' }` → AppError with `source: 'mcp-tool'`; `nature` contains `'chamber and district'`
-  - [ ] **Test 6 — partial pair (district only):** `{ district: 14 }` → AppError with `source: 'mcp-tool'`; `nature` contains `'chamber and district'`
-  - [ ] **Test 7 — cache miss:** `{ chamber: 'house', district: 99 }` → `getLegislatorsByDistrict` returns `[]` → AppError with `source: 'cache'`; `nature` contains `'No legislators found'`
-  - [ ] **Test 8 — structured JSON always:** assert `content[0].type === 'text'` and `JSON.parse(content[0].text)` does not throw for both success and all error paths
-  - [ ] **Test 9 — toHaveBeenCalledWith verification:** ALL `mockReturnValue` stubs must have a corresponding `toHaveBeenCalledWith` assertion (CLAUDE.md requirement)
+  - [ ] **Test 1 — ID mode (mode C):** `{ id: 'DAILEJ' }` → `getLegislatorById` called with `'DAILEJ'` → result has `legislators` (length 1), `session`; verify `toHaveBeenCalledWith('DAILEJ')`
+  - [ ] **Test 2 — district mode (mode B):** `{ chamber: 'house', district: 29 }` → `getLegislatorsByDistrict` called with `('house', 29)` → result has `legislators`, `session`; verify `toHaveBeenCalledWith('house', 29)`
+  - [ ] **Test 3 — name mode (mode A):** `{ name: 'Smith' }` → `getLegislatorsByName` called with `'Smith'` → result has `legislators`, `session`; verify `toHaveBeenCalledWith('Smith')`
+  - [ ] **Test 4 — multi-mode merge/dedup:** `{ id: 'SMITHJ', name: 'Smith' }` → both query fns called; ID result and name results overlap on `'SMITHJ'`; assert `legislators` contains `'SMITHJ'` exactly once
+  - [ ] **Test 5 — no valid mode:** `{}` → AppError with `source: 'mcp-tool'`; `nature` contains `'at least one search mode'`
+  - [ ] **Test 6 — partial pair (chamber only):** `{ chamber: 'house' }` → AppError with `source: 'mcp-tool'`; `nature` contains `'chamber and district'`
+  - [ ] **Test 7 — partial pair (district only):** `{ district: 14 }` → AppError with `source: 'mcp-tool'`; `nature` contains `'chamber and district'`
+  - [ ] **Test 8 — cache miss:** `{ id: 'NOBODY' }` → `getLegislatorById` returns `null` → AppError with `source: 'cache'`; `nature` contains `'No legislators found'`
+  - [ ] **Test 9 — structured JSON always:** assert `content[0].type === 'text'` and `JSON.parse(content[0].text)` does not throw for success and all error paths
+  - [ ] **Test 10 — toHaveBeenCalledWith verification:** ALL `mockReturnValue` / `mockResolvedValue` stubs must have a corresponding `toHaveBeenCalledWith` assertion (CLAUDE.md requirement)
   - [ ] No `vi.useFakeTimers()` needed — no retry/async timing in this tool
   - [ ] Co-locate at `apps/mcp-server/src/tools/legislator-lookup.test.ts`
 
-- [ ] Task 6: Final verification (AC: 11)
+- [ ] Task 6: Final verification (AC: 13)
   - [ ] `pnpm --filter mcp-server typecheck` — zero errors
-  - [ ] `pnpm --filter mcp-server test` — all tests pass (including updated `legislator-lookup.test.ts` and `legislators.test.ts`)
+  - [ ] `pnpm --filter mcp-server test` — all tests pass
   - [ ] `pnpm --filter mcp-server lint` — zero ESLint violations, no `console.log`
   - [ ] Confirm `resolveAddressToDistricts` is NOT imported anywhere in `tools/legislator-lookup.ts`
   - [ ] Confirm `PO_BOX_PATTERN` is NOT in `tools/legislator-lookup.ts`
   - [ ] Confirm no `tools/index.ts` barrel file created
-  - [ ] Confirm `apps/mcp-server/src/index.ts` is UNCHANGED — `registerLookupLegislatorTool(server)` is already registered
+  - [ ] Confirm `apps/mcp-server/src/index.ts` is UNCHANGED
 
 ## Dev Notes
 
 ### Prerequisite Stories — MUST be done before this story
 
-**Story 2-7-resolve-address-mcp-tool (ready-for-dev) and 3-7-search-bills-interface-redesign (ready-for-dev) must be completed before this story is implemented.** Per the sprint-change-proposal implementation order: `search_bills redesign → resolve_address → lookup_legislator name/district`. Reason: `resolve_address` picks up the GIS responsibility that `lookup_legislator` is dropping here. If this story runs before `resolve_address` is done, the system temporarily loses all address-to-district capability.
+**Story 2-7-resolve-address-mcp-tool (ready-for-dev) and 3-7-search-bills-interface-redesign (ready-for-dev) must be completed before this story is implemented.** Per the sprint-change-proposal implementation order: `search_bills redesign → resolve_address → lookup_legislator`. Reason: `resolve_address` picks up the GIS responsibility that `lookup_legislator` is dropping here. If this story runs before `resolve_address` is done, the system temporarily loses all address-to-district capability.
+
+### The ID Mode — Why It Matters
+
+`Bill.sponsorId` and `Legislator.id` use the same key format (e.g. `"DAILEJ"` — abbreviated name + initials). These come from the same Utah Legislature API and match exactly. The `id` column is the primary key of the SQLite `legislators` table, so `getLegislatorById` is an O(1) lookup.
+
+This is the primary path for **bill → legislator** resolution: `search_bills` returns a `sponsorId`; the agent passes that directly to `lookup_legislator` as `{ id: sponsorId }`.
 
 ### Scope — What This Story IS and IS NOT
 
@@ -144,8 +180,8 @@ so that I can retrieve legislator contact info after receiving district identifi
 - `packages/types/index.ts` — `resolvedAddress?: string` (make optional)
 - `apps/mcp-server/src/tools/legislator-lookup.ts` — full rewrite (new schema, new handler)
 - `apps/mcp-server/src/tools/legislator-lookup.test.ts` — full rewrite (all old tests invalid)
-- `apps/mcp-server/src/cache/legislators.ts` — add `getLegislatorsByName`
-- `apps/mcp-server/src/cache/legislators.test.ts` — add `getLegislatorsByName` tests
+- `apps/mcp-server/src/cache/legislators.ts` — add `getLegislatorById` and `getLegislatorsByName`; extract `mapRow` helper
+- `apps/mcp-server/src/cache/legislators.test.ts` — add tests for both new functions
 
 **NOT in this story:**
 - `apps/mcp-server/src/index.ts` — `registerLookupLegislatorTool(server)` call is already there; no change needed
@@ -159,45 +195,41 @@ so that I can retrieve legislator contact info after receiving district identifi
 
 `LookupLegislatorResult.resolvedAddress` was populated by the old `lookup_legislator` (address mode) to let the LLM confirm the geocoded form of the address. In the new flow:
 - `resolve_address` returns `{ houseDistrict, senateDistrict, resolvedAddress }` — the canonical address comes from there
-- `lookup_legislator` (name/district mode) has no address to resolve
+- `lookup_legislator` (ID/name/district mode) has no address to resolve
 
-Making `resolvedAddress?: string` (optional) is the minimal breaking change. The new `lookup_legislator` omits it entirely; `resolve_address` returns it explicitly. `system-prompt/agent-instructions.md` references `resolvedAddress` in the tool output sample — that reference becomes stale until the system prompt is rewritten in Epic 4, which is acceptable.
-
-Do NOT change `resolvedAddress` to required or populate it with an empty string — leave it absent from the response entirely.
+Making `resolvedAddress?: string` (optional) is the minimal breaking change. The new `lookup_legislator` omits it entirely. Do NOT populate it with an empty string — leave it absent from the response entirely.
 
 ### Why All Old Tests Are Replaced
 
-The existing `legislator-lookup.test.ts` tests are all written against the `{ street, zone }` input schema and mock `fetch` for UGRC GIS calls. After this story, the tool does no GIS calls and takes `{ name?, chamber?, district? }` input. There is no value in patching the old tests — replace them entirely with tests for the new modes.
+The existing `legislator-lookup.test.ts` tests are all written against the `{ street, zone }` input schema and mock `fetch` for UGRC GIS calls. After this story, the tool does no GIS calls and takes `{ id?, name?, chamber?, district? }` input. There is no value in patching the old tests — replace them entirely.
 
 The old test file structure (mock McpServer helper, `createMockServer()` function, typed `ToolHandler`) is a good pattern to reuse — just update the types and remove the GIS-related mocks.
+
+### Validation Order Matters
+
+Check `chamber`/`district` pairing BEFORE checking for "at least one mode." This gives a more helpful error when the caller provides `{ chamber: 'house' }` — they get "chamber and district required" rather than "at least one search mode."
+
+### `mapRow` Helper Extraction
+
+The `LegislatorRow → Legislator` mapping logic is currently inlined in `getLegislatorsByDistrict`. Extract it to a private `mapRow(row: LegislatorRow): Legislator` function so all three query functions share it. This is the only refactor permitted in `legislators.ts` — do not change the function signatures or exports of existing functions.
 
 ### `getLegislatorsByName` — SQLite LIKE Semantics
 
 - `WHERE name LIKE '%Smith%'` is case-insensitive for ASCII in SQLite (default behavior, no pragma needed)
 - The `%` wildcards allow partial match at any position: "Lee" matches "Patricia Lee", "Lee Smith", "Stonelee"
-- SQLite LIKE does NOT use indexes effectively with a leading `%` — for the legislator table (≤ 104 rows), this is fine; no index optimization needed
+- SQLite LIKE does NOT use indexes effectively with a leading `%` — for the legislator table (≤ 104 rows), this is acceptable; no index needed
 - The `name` column stores the legislator's full display name (e.g. "Jennifer Dailey-Provost")
 
 ### Tool Description Anti-Pattern (CLAUDE.md)
 
-Do NOT enumerate valid chamber values (`'house' | 'senate'`) in the tool description. The parameter descriptions already define the type via Zod. The tool description text should say what the tool does, not list enum values. Example of what NOT to do:
-> "chamber: one of 'house' or 'senate'"
-
-This causes LLMs to treat them as the only valid inputs and blocks fuzzy input handling. Describe intent instead:
-> "Legislative chamber for district lookup — use with district."
+Do NOT enumerate valid chamber values (`'house' | 'senate'`) in the tool description text. Describe intent instead of implementation. Example of what NOT to do:
+> "chamber: must be one of 'house' or 'senate'"
 
 ### Merge / Dedup Strategy
 
-When both modes are provided:
-1. Run district mode first (exact match — higher precision)
-2. Run name mode second
-3. Dedup by `id` — first occurrence wins (district mode results take priority in the merged list)
-
-This is safe because the same legislator can theoretically appear in both results (e.g. user provides `name: "Lee"` and `chamber: 'senate', district: 4` — Sen. Lee appears in both). Dedup prevents duplicate entries in the response.
+All provided modes run; results are merged in order: ID → district → name. Dedup by `id` — first occurrence wins (ID mode results have highest priority). This is safe because the same legislator can appear across multiple mode results.
 
 ### Test Key Phrases for `toContain` Assertions (CLAUDE.md requirement)
-
-Error-path test assertions MUST use `toContain('key phrase')` on the `nature` or `action` field:
 
 | Scenario | Field | Key phrase |
 |---|---|---|
@@ -209,15 +241,17 @@ Error-path test assertions MUST use `toContain('key phrase')` on the `nature` or
 
 - `cache/legislators.ts` — `getLegislatorsByDistrict(chamber, district)` already exists [Source: apps/mcp-server/src/cache/legislators.ts]
 - `packages/types/index.ts` — `LookupLegislatorResult`, `Legislator` [Source: packages/types/index.ts]
-- Sprint change proposal — section 4.4 defines the new tool schema [Source: _bmad-output/planning-artifacts/sprint-change-proposal-2026-03-27.md#4.4]
-- Previous story (resolve_address) — for context on why GIS is removed [Source: _bmad-output/implementation-artifacts/2-7-resolve-address-mcp-tool.md]
-- No barrel files in `tools/` — import directly from the file [Source: CLAUDE.md]
-- `console.log` FORBIDDEN in `apps/mcp-server/` — only `console.error` (but use pino logger instead) [Source: CLAUDE.md]
+- `Bill.sponsorId` matches `Legislator.id` — same format, same API origin [Source: apps/mcp-server/src/cache/bills.ts:37]
+- Sprint change proposal — section 4.4 [Source: _bmad-output/planning-artifacts/sprint-change-proposal-2026-03-27.md#4.4]
+- Previous story (resolve_address) [Source: _bmad-output/implementation-artifacts/2-7-resolve-address-mcp-tool.md]
+- No barrel files in `tools/` [Source: CLAUDE.md]
+- `console.log` FORBIDDEN in `apps/mcp-server/` [Source: CLAUDE.md]
 - `toHaveBeenCalledWith` required on all `mockReturnValue` stubs [Source: CLAUDE.md]
+- Keep ALL throwing code inside try/catch [Source: CLAUDE.md]
 
 ### Project Structure Notes
 
-- New cache function goes in `apps/mcp-server/src/cache/legislators.ts` (only place with SQLite imports — Boundary 4)
+- New cache functions go in `apps/mcp-server/src/cache/legislators.ts` (only place with SQLite imports — Boundary 4)
 - `packages/types/index.ts` is the ONLY place shared types may live
 - `apps/mcp-server/src/index.ts` is unchanged — tool registration already exists
 
@@ -236,5 +270,5 @@ claude-sonnet-4-6
 - `packages/types/index.ts` — modified (make `resolvedAddress` optional in `LookupLegislatorResult`)
 - `apps/mcp-server/src/tools/legislator-lookup.ts` — full rewrite (new schema, new handler)
 - `apps/mcp-server/src/tools/legislator-lookup.test.ts` — full rewrite (new tests)
-- `apps/mcp-server/src/cache/legislators.ts` — modified (add `getLegislatorsByName`)
-- `apps/mcp-server/src/cache/legislators.test.ts` — modified (add `getLegislatorsByName` tests)
+- `apps/mcp-server/src/cache/legislators.ts` — modified (add `getLegislatorById`, `getLegislatorsByName`, extract `mapRow`)
+- `apps/mcp-server/src/cache/legislators.test.ts` — modified (add tests for both new functions)
