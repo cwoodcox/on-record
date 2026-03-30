@@ -18,6 +18,8 @@ stepsCompleted:
   - step-e-02-review
   - step-e-03-edit
   - step-e-03-edit-v2
+  - step-e-03-edit-v3
+  - step-e-03-edit-v4
 inputDocuments: []
 workflowType: 'prd'
 briefCount: 0
@@ -30,8 +32,8 @@ classification:
   complexity: high
   projectContext: greenfield
 date: '2026-02-18'
-lastEdited: '2026-02-21'
-lastEditedReason: 'Validation report remediation (2026-02-22 report)'
+lastEdited: '2026-03-30'
+lastEditedReason: 'Validation report remediation 2026-03-29 — draft quality goals, bio/committee data, FR41, Journey 1 platform update'
 editHistory:
   - date: '2026-02-19'
     changes: 'Fixed validation warnings: traceability cross-references, govtech compliance scope, NFR5 implementation leakage, FR25/FR26/FR27/FR33 measurability, added date field'
@@ -41,6 +43,10 @@ editHistory:
     changes: 'Validation report remediation: implementation leakage removed from FR10/FR11/FR27/FR35/NFR3/NFR8/NFR10/NFR11; measurement methods added to NFR2/NFR3/NFR8/NFR9/NFR11/NFR14/NFR15/NFR16/NFR17/NFR18; SMART improvements to FR8/FR11/FR14/FR16/FR18/FR28/FR29/FR33/FR36/FR38; FR3 traceability tag; added FR40 for Journey 4 community touchpoint; browser matrix table; traceability matrix section'
   - date: '2026-02-22'
     changes: 'Final polish: FR36 exponential backoff → increasing delay; NFR10 proportionality threshold defined (1.5x per 10x users); NFR16 measurement window added (rolling 30-day)'
+  - date: '2026-03-29'
+    changes: 'Sprint change proposal 2026-03-27 remediation: MVP Strategy updated (ChatGPT Apps SDK as primary launch path, BYOLLM as fallback, Claude marketplace as parallel effort); FR6 adds no-legislator bill search; FR7 clarifies vote record scope (sponsored bills only, OpenStates deferred); FR8 makes sponsorId optional with composable filters; FR13 generalizes issue framings to any relevant bills; FR25/FR26 updated for ChatGPT Apps SDK as primary verified platform; Phase 2 adds UI cards for legislator/bill display'
+  - date: '2026-03-30'
+    changes: 'Validation report remediation: FR4 adds bio and committee data to legislator response; FR27 fully rewritten with draft quality goals (specific legislation, bio commonality, committee overlap, user context gathering, constituent identity with district/city); NFR13 updated to ChatGPT App primary verification; FR41 added for ChatGPT App zero-friction install; Journey 1 updated for ChatGPT App primary experience; traceability matrix updated (row label, NFR12, FR41); FedRAMP N/A added to GovTech compliance scope'
 ---
 
 # Product Requirements Document — Write Your Legislator
@@ -90,7 +96,9 @@ Form letters get ignored. Legislators in heavily gerrymandered states like Utah 
 
 ### MVP Strategy
 
-The MVP exists to validate two questions: (1) Is the BYOLLM setup accessible enough for motivated but non-technical civic participants? (2) Does the output clear the voice-authenticity bar for real users? Launch target is a soft release at or after an Elevate Utah meeting — real users, not internal testing only. Resource model is solo developer, open-source from the start; volunteer contributions welcome as community connections develop. OpenStates is identified as a potential strategic partner for data and ecosystem.
+The MVP exists to validate two questions: (1) Does the output clear the voice-authenticity bar for real users? (2) Does the constituent workflow handle real-world use cases where the bill of concern was introduced by a different legislator? Launch target is a soft release at or after an Elevate Utah meeting — real users, not internal testing only. Resource model is solo developer, open-source from the start; volunteer contributions welcome as community connections develop. OpenStates is identified as a potential strategic partner for data and ecosystem.
+
+**Primary launch path — ChatGPT Apps SDK:** Publish as an app in ChatGPT's app store. The app connects to the MCP server for legislator lookup and bill search; AI compute runs on the user's own ChatGPT subscription (zero operator inference cost). The ChatGPT Apps SDK supports native MCP tool connectivity and custom in-chat UI. Technical research spike required before story work begins. **Parallel effort:** qualify for Anthropic's Claude app marketplace. BYOLLM (manual MCP setup by the user) remains a supported fallback path but is no longer the primary onboarding story.
 
 ### Phase 1 — MVP
 
@@ -109,6 +117,7 @@ The MVP exists to validate two questions: (1) Is the BYOLLM setup accessible eno
 
 ### Phase 2 — Growth
 
+- Custom in-chat UI cards for legislator and bill display within the ChatGPT Apps SDK interface
 - On-device LLM paths: browser-based (WebLLM, Transformers.js), local desktop (Ollama), Apple Intelligence / Core ML (iOS/macOS), Gemini Nano via Android AICore — evaluated before committing to hosted LLM budget
 - Hosted LLM option if BYOLLM and on-device paths prove insufficient (requires external budget)
 - Donation mechanism
@@ -144,7 +153,7 @@ Deb is 54, a middle school art teacher in Murray. She's attended three Elevate U
 
 A friend from Elevate Utah posts a link to Write Your Legislator on the group's Signal chat.
 
-Deb clicks through to the landing page, reads the two-paragraph explainer, and clicks "Open in Claude.ai" (she has a free account). The chatbot asks: *What brings you here today — is there something specific going on, or just a general feeling that something needs to be said?*
+Deb taps the link on her phone. It opens directly in ChatGPT — she has the app and a free account. No setup, no configuration. The assistant is already there: *What brings you here today — is there something specific going on, or just a general feeling that something needs to be said?*
 
 She types: "Prop 4. The legislature keeps ignoring it and now they want to repeal it entirely."
 
@@ -220,6 +229,7 @@ Write Your Legislator is public civic technology operated independently, not gov
 - **Security clearance:** N/A — no classified data, government network access, or personnel clearance requirements apply; all data used (legislative records, GIS lookups) is publicly available
 - **Section 508:** N/A — not a federally procured system; WCAG 2.1 AA is the applicable accessibility standard and meets equivalent outcomes for public-facing civic tech
 - **Data residency:** N/A — no regulated data types and no jurisdictional mandates apply; the tool collects only addresses transiently for legislator lookup with no cross-border data transfer requirements
+- **FedRAMP:** N/A — not a cloud service operated for or by federal agencies; all data used is publicly available and no government agency is a customer or operator of this system
 
 ### Transparency Requirements
 
@@ -329,14 +339,14 @@ First users will access the tool on phones directly after Elevate Utah meetings;
 - **FR1:** A constituent can enter their home address to identify their Utah state House and Senate representatives
 - **FR2:** The system can resolve a Utah street address to the correct legislative districts via GIS lookup
 - **FR3:** A constituent can view both their House and Senate representatives and select which one to contact *(supports Journey 1: Deb selects her senator from the identified legislators)*
-- **FR4:** The system can surface a legislator's name, chamber, district, email address, and phone number(s) with type label alongside identification results
+- **FR4:** The system can surface a legislator's name, chamber, district, email address, phone number(s) with type label, career and professional background from their bio, and committee memberships alongside identification results
 - **FR5:** The system can surface the contact number type (cell, district office, or chamber switchboard) where the API provides a type label, and explicitly flags the number as type-unknown when the label is absent *(supports Journey 2: Marcus uses phone/text to contact rep)*
 
 ### Legislative Research
 
-- **FR6:** The system can retrieve bills sponsored or co-sponsored by a specific Utah legislator for the active session, or the most recently completed session when the legislature is not in session
-- **FR7:** The system can retrieve a specific bill's summary, status, and the identified legislator's vote record
-- **FR8:** The system can search bills by issue theme filtered to a specific legislator, returning at least 1 result where a bill's title, summary, or subject tags match the entered theme keyword or a recognized synonym; supported theme categories include at minimum: healthcare, education, housing, redistricting, environment, and taxes
+- **FR6:** The system can retrieve bills sponsored or co-sponsored by a specific Utah legislator for the active session, or the most recently completed session when the legislature is not in session; the system can also retrieve bills by session, theme, bill ID, or chamber without a specific legislator filter
+- **FR7:** The system can retrieve a specific bill's summary, status, and the identified legislator's sponsorship role; vote record means bill outcome for bills the legislator sponsored or co-sponsored — how a legislator voted on bills introduced by others is not available from the Utah Legislature API and is deferred to a future OpenStates data source migration (the cache layer is designed to survive that migration unchanged)
+- **FR8:** The system can search bills by issue theme, bill ID, session, chamber, or sponsor, with all filters optional and composable; omitting the sponsor filter searches across all legislators; a themed search returns at least 1 result where a bill's title, summary, or subject tags match the entered theme keyword
 - **FR9:** The system can surface up to 5 bills matching the issue theme from the most recent 2 completed legislative sessions when the legislature is not in active session *(supports Journeys 1 & 2: inter-session constituent usage)*
 - **FR10:** The system can cache legislative data locally and serve all bill and legislator requests from cache, refreshing automatically within the bounds required by the data provider's rate limits *(supports Journey 3: Operator)*
 - **FR11:** The system can retrieve all bills associated with a specific legislator without requiring a full session scan, returning results in under 2 seconds *(supports Journey 3: Operator)*
@@ -344,7 +354,7 @@ First users will access the tool on phones directly after Elevate Utah meetings;
 ### Guided Issue Discovery
 
 - **FR12:** A constituent can describe their concerns in their own words, including personal stories and family situations, to initiate the drafting flow; at least one personal-impact detail must be captured before draft generation begins
-- **FR13:** The chatbot can guide a constituent who does not know which specific bill or issue they care about by presenting 2–3 issue framings derived from the legislator's record for the constituent to confirm or redirect before proceeding
+- **FR13:** The chatbot can guide a constituent who does not know which specific bill or issue they care about by presenting 2–3 issue framings derived from any relevant bills in the cache — including bills sponsored by other legislators — for the constituent to confirm or redirect before proceeding
 - **FR14:** A constituent can confirm or refine the issue and legislator context surfaced by the chatbot before draft generation begins; draft generation does not proceed until the constituent has provided at least one explicit confirmation or correction in the conversation flow
 - **FR15:** A constituent can specify the desired medium for their message (email or text/SMS)
 - **FR16:** A constituent can specify the desired formality level for their message from at least two distinct options (conversational or formal); the generated draft reflects the selected register in tone and vocabulary
@@ -365,11 +375,12 @@ First users will access the tool on phones directly after Elevate Utah meetings;
 
 ### Chatbot Platform Integration (BYOLLM / MCP)
 
-- **FR25:** The MCP legislator-lookup tool can be connected to and invoked by a user's existing chatbot platform (Claude.ai, ChatGPT, and compatible clients), verified by successful end-to-end address-to-legislator lookup within each supported platform's standard tool-connection flow
-- **FR26:** The MCP bill-search tool can be connected to and invoked by a user's existing chatbot platform, verified by successful legislator-scoped bill retrieval within each supported platform's standard tool-connection flow
-- **FR27:** The system can provide a guided system prompt that instructs a connected chatbot to execute the 4-step civic drafting flow end-to-end without manual intervention beyond initial setup, verified by step-completion in at least 4 of 5 independent test runs *(supports Journey 1: Deb opens Claude.ai)*
+- **FR25:** The MCP legislator-lookup tool can be connected to and invoked via the ChatGPT Apps SDK (primary path), verified by successful end-to-end address-to-legislator lookup within the published ChatGPT app; Claude.ai BYOLLM connection remains a supported secondary path, verified by successful lookup within Claude.ai's standard MCP tool-connection flow
+- **FR26:** The MCP bill-search tool can be connected to and invoked via the ChatGPT Apps SDK (primary path), verified by successful bill retrieval — including cross-legislator search — within the published ChatGPT app; Claude.ai BYOLLM connection remains a supported secondary path
+- **FR27:** The system can provide behavioral instructions that guide a connected AI assistant to produce drafts meeting the following quality goals: (1) cite specific legislation and the legislator's role in it; (2) reference the legislator's career or professional background from their bio where relevant to establish commonality; (3) reference committee memberships where subject matter overlaps with the constituent's concern; (4) if no direct bill or legislator connection exists, gather user context — job, community ties, lived experience — before drafting; (5) establish constituent identity with specificity using either district number (SD/HD format) or city — the tool is authoritative on district resolution and the agent does not ask the user to confirm it; verified by end-to-end draft completion across at least 4 of 5 independent test runs in the ChatGPT App *(supports Journey 1)*
 - **FR28:** A developer or civic tech contributor can install and run the MCP tools locally from the public repository, verified by successful address-to-legislator lookup and bill retrieval from a local instance using only repository documentation
 - **FR40:** A developer or civic tech contributor can submit bug reports, feature requests, and questions through the public repository's issue tracker *(supports Journey 4: Developer opens an issue asking about multi-state abstraction)*
+- **FR41:** A user can discover and install the app from the ChatGPT app store without any manual MCP server configuration, verified by a test user with no prior knowledge of the tool completing installation and initiating a conversation within the published ChatGPT App using only the app store listing *(supports Journey 1: primary zero-friction launch path)*
 
 ### Onboarding & Public Discovery
 
@@ -416,7 +427,7 @@ First users will access the tool on phones directly after Elevate Utah meetings;
 
 ### Integration
 
-- **NFR13:** MCP tools conform to the MCP specification version pinned at time of development, verified by successful tool invocation in Claude.ai and ChatGPT at time of release
+- **NFR13:** MCP tools conform to the MCP specification version pinned at time of development, verified by successful tool invocation within the published ChatGPT App (primary path) and Claude.ai BYOLLM connection (secondary path) at time of release
 - **NFR14:** Swapping the legislative data provider from the Utah Legislature API to a third-party source requires no changes to the MCP tool's public interface, verified by substituting a mock data provider and confirming all tool invocations return valid responses without interface modification
 - **NFR15:** GIS address lookup on API failure returns a human-readable error message identifying the failure source within 3 seconds, verified by simulating GIS API failure and confirming error response format and timing
 
@@ -432,9 +443,9 @@ Maps vision and success criteria through user journeys to requirements.
 
 | Vision / Success Criterion | Journey(s) | Functional Requirements | NFRs |
 |---|---|---|---|
-| Constituent produces credible, specific message | J1 (Deb), J2 (Marcus) | FR1–FR5, FR6–FR11, FR12–FR21 | NFR2, NFR3, NFR11 |
+| Constituent produces credible, specific message | J1 (Deb), J2 (Marcus) | FR1–FR5, FR6–FR11, FR12–FR21 | NFR2, NFR3, NFR11, NFR12 |
 | One-action message delivery | J1, J2 | FR22–FR24 | NFR4 |
-| BYOLLM / MCP platform interoperability | J1, J2 | FR25–FR27, FR40 | NFR13, NFR14 |
+| ChatGPT Apps SDK / MCP platform integration | J1, J2 | FR25–FR27, FR40, FR41 | NFR13, NFR14 |
 | Developer / contributor extensibility | J4 | FR28, FR33, FR40 | NFR18 |
 | Operator observability and resilience | J3 (Corey) | FR34, FR35, FR36, FR37, FR38, FR39 | NFR9, NFR10, NFR15, NFR16, NFR17 |
 | Public discoverability and trust | J1, J2 | FR29, FR30, FR31, FR32 | NFR1, NFR8 |
