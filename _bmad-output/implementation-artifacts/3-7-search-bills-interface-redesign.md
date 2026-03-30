@@ -14,7 +14,7 @@ so that the chatbot can search across all cached bills, not only by a specific s
 2. **Given** only `sponsorId` is provided, **when** the tool executes, **then** it returns all bills with that `sponsor_id` in the cache (paginated), in session-descending, bill-ID-ascending order
 3. **Given** only `query` is provided, **when** the tool executes, **then** it runs an FTS5 full-text search on bill title and summary and returns matches ordered by BM25 relevance
 4. **Given** both `query` and `sponsorId` are provided, **when** the tool executes, **then** results are restricted to FTS5 matches that also have the given `sponsor_id`
-5. **Given** `billId` is provided (e.g., `"HB88"` or `"HB0088"`), **when** the tool executes, **then** it normalizes the ID to a 4-digit-padded form (e.g., `"HB0088"`) and performs an exact match — other filters still apply
+5. **Given** `billId` is provided (e.g., `"HB88"` or `"HB0088"` or `"HB088"`), **when** the tool executes, **then** it parses the prefix (letters) and numeric value (integer) from the input and matches against bills where the stored prefix equals the parsed prefix AND the stored numeric suffix equals the same integer — zero-padding is not assumed to be a fixed digit count; other filters still apply
 6. **Given** `session` is provided, **when** the tool executes, **then** results are restricted to bills with that session value
 7. **Given** `chamber: 'house'` is provided, **when** the tool executes, **then** results are restricted to bills whose `id` starts with `'H'`; `chamber: 'senate'` restricts to `id` starting with `'S'`
 8. **Given** `count` and `offset` are provided, **when** the tool executes, **then** the response contains at most `count` bills starting at `offset`; `count` defaults to 50, max 100
@@ -25,7 +25,7 @@ so that the chatbot can search across all cached bills, not only by a specific s
 13. **Given** the updated `SearchBillsResult` type, **when** the caller inspects the result, **then** it contains: `bills: Bill[]`, `total: number`, `count: number`, `offset: number` — `legislatorId` and `session` fields are removed
 14. **Given** the updated `SearchBillsParams` type, **when** the caller inspects it, **then** all params are optional: `query?`, `billId?`, `sponsorId?`, `floorSponsorId?`, `session?`, `chamber?`, `count?`, `offset?` — the interface is defined even though `floorSponsorId` has no SQL implementation yet (see Dev Notes)
 15. `pnpm --filter mcp-server typecheck` exits 0
-16. `pnpm --filter mcp-server test` exits 0 (all pre-existing tests pass; new tests added for `searchBills` and `normalizeBillId`)
+16. `pnpm --filter mcp-server test` exits 0 (all pre-existing tests pass; new tests added for `searchBills` and `parseBillId`)
 17. `pnpm --filter mcp-server lint` exits 0
 18. No `console.log` introduced anywhere in `apps/mcp-server/`
 19. **Given** the codebase, **when** a developer searches for `better-sqlite3` imports, **then** they only appear inside `apps/mcp-server/src/cache/` (Boundary 4 enforced)
@@ -39,10 +39,10 @@ so that the chatbot can search across all cached bills, not only by a specific s
   - [ ] Export `SearchBillsParams` from the package
 
 - [ ] Task 2: Update `apps/mcp-server/src/cache/bills.ts` — add `searchBills`, keep `searchBillsByTheme` as deprecated (AC: 1–8, 12)
-  - [ ] Add `normalizeBillId(raw: string): string` (internal helper, not exported)
-    - Regex: `/^([A-Za-z]+)(\d+)$/` — extract letters prefix + number
-    - Zero-pad the numeric part to 4 digits: `${prefix.toUpperCase()}${String(num).padStart(4, '0')}`
-    - If no match (unrecognized format), return the input trimmed as-is
+  - [ ] Add `parseBillId(raw: string): { prefix: string; num: number } | null` (internal helper, not exported)
+    - Regex: `/^([A-Za-z]+)(\d+)$/` — extract letters prefix + numeric value as integer
+    - Returns `null` for unrecognized format (no letters-then-digits structure)
+    - See Dev Notes for exact SQL WHERE clause to use the parsed result
   - [ ] Add `export function searchBills(params: SearchBillsParams): SearchBillsResult`
     - Destructure `{ query, billId, sponsorId, floorSponsorId, session, chamber, count = 50, offset = 0 }` from params
     - Clamp `limit = Math.min(count, 100)`
@@ -72,7 +72,7 @@ so that the chatbot can search across all cached bills, not only by a specific s
 
 - [ ] Task 5: Update `apps/mcp-server/src/cache/bills.test.ts` — add `searchBills` + `normalizeBillId` tests (AC: 16)
   - [ ] Import `searchBills` from the module (same dynamic import pattern used by the file)
-  - [ ] Add `describe('normalizeBillId', ...)` — test via `searchBills` side effects or export internally for testing. Since `normalizeBillId` is not exported, test it indirectly via `searchBills({ billId })` against an in-memory DB
+  - [ ] Add `describe('parseBillId (via searchBills)', ...)` — since `parseBillId` is not exported, test it indirectly via `searchBills({ billId })` against an in-memory DB
   - [ ] Add `describe('searchBills', ...)` using real in-memory SQLite (same pattern as existing bills.test.ts describe blocks):
     - No params: returns all bills (paginated)
     - `sponsorId` filter: returns only matching bills
@@ -246,26 +246,49 @@ if (normalized === '') {
 
 ---
 
-### `normalizeBillId` Implementation
+### `parseBillId` Implementation
+
+The cache stores bill IDs verbatim from the Utah Legislature API (e.g., `"HB0001"`, `"SB0042"`). The API returns `z.string()` with no guaranteed digit count — zero-padding may vary by session. Therefore, **do not normalize to a fixed digit width**. Instead, parse the prefix and numeric value and use a SQL comparison on the integer:
 
 ```typescript
 // Internal to bills.ts — not exported
-function normalizeBillId(raw: string): string {
+function parseBillId(raw: string): { prefix: string; num: number } | null {
   const match = /^([A-Za-z]+)(\d+)$/.exec(raw.trim())
-  if (!match) return raw.trim()
-  const prefix = match[1]!.toUpperCase()
-  const num = parseInt(match[2]!, 10)
-  return `${prefix}${String(num).padStart(4, '0')}`
+  if (!match) return null
+  return {
+    prefix: match[1]!.toUpperCase(),
+    num: parseInt(match[2]!, 10),
+  }
 }
 ```
 
+**SQL usage for `billId` filter:**
+
+```typescript
+const parsed = parseBillId(billId)
+if (parsed) {
+  conditions.push('SUBSTR(id, 1, ?) = ? AND CAST(SUBSTR(id, ? + 1) AS INTEGER) = ?')
+  conditionArgs.push(parsed.prefix.length, parsed.prefix, parsed.prefix.length, parsed.num)
+} else {
+  // Unrecognized format — fall back to exact string match; will likely miss
+  conditions.push('id = ?')
+  conditionArgs.push(billId.trim())
+}
+```
+
+This correctly matches `"HB88"`, `"HB088"`, `"HB0088"`, `"HB00088"` against any stored form.
+
 Edge cases:
-- `"HB88"` → `"HB0088"` ✓
-- `"HB0088"` → `"HB0088"` (already normalized) ✓
-- `"HJR01"` → `"HJR0001"` ✓
-- `"hb88"` → `"HB0088"` (case-normalized) ✓
-- `"HB"` → `"HB"` (no digits, returned as-is) ✓
-- `"totally wrong"` → `"totally wrong"` (returned as-is, will miss in DB)
+- `"HB88"` → prefix `"HB"`, num `88` → matches `"HB0088"` in DB ✓
+- `"HB0088"` → prefix `"HB"`, num `88` → same match ✓
+- `"hb88"` → prefix `"HB"`, num `88` (case-normalized) ✓
+- `"HJR01"` → prefix `"HJR"`, num `1` → matches `"HJR0001"` ✓
+- `"HB"` → no digits → `parseBillId` returns `null`, falls back to exact match ✓
+- `"totally wrong"` → `null`, exact match fallback (will miss in DB) ✓
+
+**Task 2 subtask update:** rename internal helper from `normalizeBillId` to `parseBillId`; update bills.test.ts describe block name accordingly (`describe('parseBillId', ...)`).
+
+**AC16 update:** "new tests added for `searchBills` and `parseBillId`" — replace `normalizeBillId` references in tests with `parseBillId`.
 
 ---
 
