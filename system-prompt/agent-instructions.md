@@ -303,6 +303,7 @@ Output: { legislators: [...], session: string, resolvedAddress: string }
 
 **`search_bills`**
 ```
-Input:  { legislatorId: string, theme: string }
-Output: { bills: [...], legislatorId: string, session: string }
+Input:  { query?, billId?, sponsorId?, floorSponsorId?, session?, chamber?, count?, offset? }
+        (all parameters optional; omitting all returns all cached bills paginated)
+Output: { bills: [...], total: number, count: number, offset: number }
 ```

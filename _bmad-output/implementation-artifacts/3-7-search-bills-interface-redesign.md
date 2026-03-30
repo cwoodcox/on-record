@@ -1,6 +1,6 @@
 # Story 3.7: `search_bills` Interface Redesign
 
-Status: in-progress
+Status: review
 
 ## Story
 
@@ -94,9 +94,9 @@ so that the chatbot can search across all cached bills, not only by a specific s
 
 ### Review Follow-ups (AI)
 
-- [ ] [AI-Review][High] `system-prompt/agent-instructions.md` Inconsistency: The "Quick Reference: Tool Schemas" section still lists the old `search_bills` schema (`legislatorId`/`theme`). Update it to reflect the new optional, composable parameters and `SearchBillsResult` shape.
-- [ ] [AI-Review][Medium] Verify Web Usage: Explicitly confirm that no components in `apps/web/` are attempting to access the removed `legislatorId` or `session` fields from `SearchBillsResult`.
-- [ ] [AI-Review][Low] SQL Column Aliasing Guard: Review the regex replacement `replace(/\bsession\b/g, 'b.session')` in `searchBills` to ensure it doesn't inadvertently affect non-column instances of the word "session".
+- [x] [AI-Review][High] `system-prompt/agent-instructions.md` Inconsistency: The "Quick Reference: Tool Schemas" section still lists the old `search_bills` schema (`legislatorId`/`theme`). Update it to reflect the new optional, composable parameters and `SearchBillsResult` shape.
+- [x] [AI-Review][Medium] Verify Web Usage: Explicitly confirm that no components in `apps/web/` are attempting to access the removed `legislatorId` or `session` fields from `SearchBillsResult`.
+- [x] [AI-Review][Low] SQL Column Aliasing Guard: Review the regex replacement `replace(/\bsession\b/g, 'b.session')` in `searchBills` to ensure it doesn't inadvertently affect non-column instances of the word "session".
 
 ## Dev Notes
 

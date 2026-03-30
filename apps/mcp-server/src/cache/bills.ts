@@ -155,41 +155,52 @@ export function searchBills(params: SearchBillsParams): SearchBillsResult {
 
   const limit = Math.min(count, 100)
 
-  // Build non-FTS WHERE conditions
+  // Build WHERE conditions in parallel for both paths:
+  //   conditions[]  — unaliased, for direct table scan (Path B)
+  //   bConditions[] — b.-prefixed, for FTS5 JOIN path (Path A)
+  // Both arrays stay in sync; conditionArgs is shared (same arg order for both paths).
   const conditions: string[] = []
+  const bConditions: string[] = []
   const conditionArgs: unknown[] = []
 
   if (billId !== undefined) {
     const parsed = parseBillId(billId)
     if (parsed) {
       conditions.push('SUBSTR(id, 1, ?) = ? AND CAST(SUBSTR(id, ? + 1) AS INTEGER) = ?')
+      bConditions.push('SUBSTR(b.id, 1, ?) = ? AND CAST(SUBSTR(b.id, ? + 1) AS INTEGER) = ?')
       conditionArgs.push(parsed.prefix.length, parsed.prefix, parsed.prefix.length, parsed.num)
     } else {
       // Unrecognized format — fall back to exact string match
       conditions.push('id = ?')
+      bConditions.push('b.id = ?')
       conditionArgs.push(billId.trim())
     }
   }
 
   if (sponsorId !== undefined) {
     conditions.push('sponsor_id = ?')
+    bConditions.push('b.sponsor_id = ?')
     conditionArgs.push(sponsorId)
   }
 
   if (floorSponsorId !== undefined) {
     conditions.push('floor_sponsor_id = ?')
+    bConditions.push('b.floor_sponsor_id = ?')
     conditionArgs.push(floorSponsorId)
   }
 
   if (session !== undefined) {
     conditions.push('session = ?')
+    bConditions.push('b.session = ?')
     conditionArgs.push(session)
   }
 
   if (chamber === 'house') {
     conditions.push("id LIKE 'H%'")
+    bConditions.push("b.id LIKE 'H%'")
   } else if (chamber === 'senate') {
     conditions.push("id LIKE 'S%'")
+    bConditions.push("b.id LIKE 'S%'")
   }
 
   // Determine if FTS5 path or direct table scan
@@ -200,15 +211,6 @@ export function searchBills(params: SearchBillsParams): SearchBillsResult {
   let bills: Bill[]
 
   if (useFts) {
-    // FTS5 path: fts conditions use table alias prefix; non-fts conditions use b. prefix
-    const bConditions = conditions.map((c) => {
-      // Add b. prefix to unaliased column references
-      return c
-        .replace(/\bid\b/g, 'b.id')
-        .replace(/\bsponsor_id\b/g, 'b.sponsor_id')
-        .replace(/\bfloor_sponsor_id\b/g, 'b.floor_sponsor_id')
-        .replace(/\bsession\b/g, 'b.session')
-    })
 
     const nonFtsWhere =
       bConditions.length > 0 ? 'AND ' + bConditions.join(' AND ') : ''
