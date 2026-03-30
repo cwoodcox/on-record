@@ -1,4 +1,4 @@
-# Story 2-x: `resolve_address` MCP Tool
+# Story 2-7: `resolve_address` MCP Tool
 
 Status: ready-for-dev
 
@@ -35,7 +35,7 @@ so that I can obtain House and Senate district identifiers independently of a le
   - [ ] No other changes to `packages/types/index.ts` — do not rename or modify existing types
 
 - [ ] Task 2: Create `apps/mcp-server/src/tools/resolve-address.ts` (AC: 1–8)
-  - [ ] Copy `PO_BOX_PATTERN` from `legislator-lookup.ts` into this file (do NOT remove it from `legislator-lookup.ts` — that tool still has `{street, zone}` input until story 2-x-lookup-legislator-name-district-search)
+  - [ ] Copy `PO_BOX_PATTERN` from `legislator-lookup.ts` into this file (do NOT remove it from `legislator-lookup.ts` — that tool still has `{street, zone}` input until story 2-8-lookup-legislator-name-district-search)
     ```typescript
     const PO_BOX_PATTERN = /^p\.?o\.?\s*box\b/i
     ```
@@ -97,7 +97,7 @@ so that I can obtain House and Senate district identifiers independently of a le
 - Modifies `apps/mcp-server/src/index.ts` — registers the new tool
 
 **NOT in this story:**
-- `lookup_legislator` changes — address resolution stays in that tool until the NEXT story (`2-x-lookup-legislator-name-district-search`). Both tools may call `resolveAddressToDistricts` simultaneously — this is by design and temporary.
+- `lookup_legislator` changes — address resolution stays in that tool until the NEXT story (`2-8-lookup-legislator-name-district-search`). Both tools may call `resolveAddressToDistricts` simultaneously — this is by design and temporary.
 - Changes to `lib/gis.ts` — all GIS logic is already correct and complete there; do not touch it.
 - `SearchBillsResult` or `Bill` type changes — those are in story 3-7.
 
@@ -123,7 +123,7 @@ The tool's handler is a thin wrapper: P.O. Box pre-check → call `resolveAddres
 
 ### P.O. Box Duplication is Intentional (For Now)
 
-`PO_BOX_PATTERN` appears in both `resolve-address.ts` and `legislator-lookup.ts`. This is intentional — the next story (`2-x-lookup-legislator-name-district-search`) will remove the address input from `lookup_legislator`, at which point the P.O. Box check in `legislator-lookup.ts` becomes dead code and will be removed then. Do NOT move it to `lib/gis.ts` — it is a pre-call optimization specific to address-accepting tools.
+`PO_BOX_PATTERN` appears in both `resolve-address.ts` and `legislator-lookup.ts`. This is intentional — the next story (`2-8-lookup-legislator-name-district-search`) will remove the address input from `lookup_legislator`, at which point the P.O. Box check in `legislator-lookup.ts` becomes dead code and will be removed then. Do NOT move it to `lib/gis.ts` — it is a pre-call optimization specific to address-accepting tools.
 
 ### Test Key Phrases for `toContain` Assertions (CLAUDE.md requirement)
 

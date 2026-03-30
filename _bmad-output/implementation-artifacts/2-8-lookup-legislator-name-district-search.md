@@ -1,4 +1,4 @@
-# Story 2-x: `lookup_legislator` — Name / District Search Modes
+# Story 2-8: `lookup_legislator` — Name / District Search Modes
 
 Status: ready-for-dev
 
@@ -136,7 +136,7 @@ so that I can retrieve legislator contact info after receiving district identifi
 
 ### Prerequisite Stories — MUST be done before this story
 
-**Story 2-x-resolve-address-mcp-tool (ready-for-dev) and 3-7-search-bills-interface-redesign (ready-for-dev) must be completed before this story is implemented.** Per the sprint-change-proposal implementation order: `search_bills redesign → resolve_address → lookup_legislator name/district`. Reason: `resolve_address` picks up the GIS responsibility that `lookup_legislator` is dropping here. If this story runs before `resolve_address` is done, the system temporarily loses all address-to-district capability.
+**Story 2-7-resolve-address-mcp-tool (ready-for-dev) and 3-7-search-bills-interface-redesign (ready-for-dev) must be completed before this story is implemented.** Per the sprint-change-proposal implementation order: `search_bills redesign → resolve_address → lookup_legislator name/district`. Reason: `resolve_address` picks up the GIS responsibility that `lookup_legislator` is dropping here. If this story runs before `resolve_address` is done, the system temporarily loses all address-to-district capability.
 
 ### Scope — What This Story IS and IS NOT
 
@@ -210,7 +210,7 @@ Error-path test assertions MUST use `toContain('key phrase')` on the `nature` or
 - `cache/legislators.ts` — `getLegislatorsByDistrict(chamber, district)` already exists [Source: apps/mcp-server/src/cache/legislators.ts]
 - `packages/types/index.ts` — `LookupLegislatorResult`, `Legislator` [Source: packages/types/index.ts]
 - Sprint change proposal — section 4.4 defines the new tool schema [Source: _bmad-output/planning-artifacts/sprint-change-proposal-2026-03-27.md#4.4]
-- Previous story (resolve_address) — for context on why GIS is removed [Source: _bmad-output/implementation-artifacts/2-x-resolve-address-mcp-tool.md]
+- Previous story (resolve_address) — for context on why GIS is removed [Source: _bmad-output/implementation-artifacts/2-7-resolve-address-mcp-tool.md]
 - No barrel files in `tools/` — import directly from the file [Source: CLAUDE.md]
 - `console.log` FORBIDDEN in `apps/mcp-server/` — only `console.error` (but use pino logger instead) [Source: CLAUDE.md]
 - `toHaveBeenCalledWith` required on all `mockReturnValue` stubs [Source: CLAUDE.md]
