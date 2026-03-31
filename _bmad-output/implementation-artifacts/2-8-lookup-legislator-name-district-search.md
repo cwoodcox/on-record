@@ -1,6 +1,6 @@
 # Story 2-8: `lookup_legislator` — ID / Name / District Search Modes
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -26,13 +26,13 @@ so that I can retrieve legislator contact info after a bill search (using the bi
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Update `packages/types/index.ts` — make `resolvedAddress` optional (AC: 9)
-  - [ ] Change `resolvedAddress: string` → `resolvedAddress?: string` in `LookupLegislatorResult`
-  - [ ] No other changes to `packages/types/index.ts` — do not rename or modify other types
-  - [ ] Note: `SearchBillsResult` shape changes are in story 3-7, not here
+- [x] Task 1: Update `packages/types/index.ts` — make `resolvedAddress` optional (AC: 9)
+  - [x] Change `resolvedAddress: string` → `resolvedAddress?: string` in `LookupLegislatorResult`
+  - [x] No other changes to `packages/types/index.ts` — do not rename or modify other types
+  - [x] Note: `SearchBillsResult` shape changes are in story 3-7, not here
 
-- [ ] Task 2: Add `getLegislatorById` and `getLegislatorsByName` to `apps/mcp-server/src/cache/legislators.ts` (AC: 10, 11)
-  - [ ] Add `getLegislatorById`:
+- [x] Task 2: Add `getLegislatorById` and `getLegislatorsByName` to `apps/mcp-server/src/cache/legislators.ts` (AC: 10, 11)
+  - [x] Add `getLegislatorById`:
     ```typescript
     export function getLegislatorById(id: string): Legislator | null {
       const row = db
@@ -45,7 +45,7 @@ so that I can retrieve legislator contact info after a bill search (using the bi
       return row ? mapRow(row) : null
     }
     ```
-  - [ ] Add `getLegislatorsByName`:
+  - [x] Add `getLegislatorsByName`:
     ```typescript
     export function getLegislatorsByName(name: string): Legislator[] {
       const rows = db
@@ -58,30 +58,30 @@ so that I can retrieve legislator contact info after a bill search (using the bi
       return rows.map(mapRow)
     }
     ```
-  - [ ] Extract the `LegislatorRow → Legislator` mapping into a local `mapRow` helper (used by all three query functions including existing `getLegislatorsByDistrict`)
-  - [ ] Named exports only — no default export
+  - [x] Extract the `LegislatorRow → Legislator` mapping into a local `mapRow` helper (used by all three query functions including existing `getLegislatorsByDistrict`)
+  - [x] Named exports only — no default export
 
-- [ ] Task 3: Add cache function tests to `apps/mcp-server/src/cache/legislators.test.ts` (AC: 10, 11, 13)
-  - [ ] `getLegislatorById`:
-    - [ ] Test: exact match on known ID returns the legislator
-    - [ ] Test: unknown ID returns `null`
-  - [ ] `getLegislatorsByName`:
-    - [ ] Test: partial name match returns matching legislators (e.g. "Smith" matches "Jane Smith" and "Bob Smithson")
-    - [ ] Test: name match is case-insensitive — "smith" matches "Jane Smith"
-    - [ ] Test: name with no match returns empty array (no error)
-  - [ ] Both functions: phone_label null → `phoneTypeUnknown: true`; phone_label present → `phoneLabel`
+- [x] Task 3: Add cache function tests to `apps/mcp-server/src/cache/legislators.test.ts` (AC: 10, 11, 13)
+  - [x] `getLegislatorById`:
+    - [x] Test: exact match on known ID returns the legislator
+    - [x] Test: unknown ID returns `null`
+  - [x] `getLegislatorsByName`:
+    - [x] Test: partial name match returns matching legislators (e.g. "Smith" matches "Jane Smith" and "Bob Smithson")
+    - [x] Test: name match is case-insensitive — "smith" matches "Jane Smith"
+    - [x] Test: name with no match returns empty array (no error)
+  - [x] Both functions: phone_label null → `phoneTypeUnknown: true`; phone_label present → `phoneLabel`
 
-- [ ] Task 4: Rewrite `apps/mcp-server/src/tools/legislator-lookup.ts` (AC: 1–8, 12)
-  - [ ] **Remove entirely:**
+- [x] Task 4: Rewrite `apps/mcp-server/src/tools/legislator-lookup.ts` (AC: 1–8, 12)
+  - [x] **Remove entirely:**
     - `PO_BOX_PATTERN` constant (no address input in this story)
     - Import of `resolveAddressToDistricts` from `'../lib/gis.js'`
     - Street/zone input schema
-  - [ ] **New imports:**
+  - [x] **New imports:**
     - `getLegislatorById`, `getLegislatorsByDistrict`, `getLegislatorsByName` from `'../cache/legislators.js'`
     - `logger` from `'../lib/logger.js'`
     - `createAppError` from `'@on-record/types'`
     - `LookupLegislatorResult, Legislator` types from `'@on-record/types'`
-  - [ ] **New input schema (zod):**
+  - [x] **New input schema (zod):**
     ```typescript
     {
       id: z.string().min(1).optional()
@@ -94,7 +94,7 @@ so that I can retrieve legislator contact info after a bill search (using the bi
         .describe('District number — must be provided together with chamber.'),
     }
     ```
-  - [ ] **Handler logic (validation first, then collect):**
+  - [x] **Handler logic (validation first, then collect):**
     1. If `chamber` provided without `district`, or `district` provided without `chamber` → return AppError `source: 'mcp-tool'`, `nature` containing `'chamber and district'`
     2. If no `id` AND no `name` AND not both `chamber`+`district` → return AppError `source: 'mcp-tool'`, `nature` containing `'at least one search mode'`
     3. Collect results (inside try/catch per CLAUDE.md):
@@ -121,17 +121,17 @@ so that I can retrieve legislator contact info after a bill search (using the bi
     5. Build result: `{ legislators, session: legislators[0]!.session }` (no `resolvedAddress`)
     6. `logger.info({ source: 'mcp-tool', legislatorCount: legislators.length }, 'lookup_legislator succeeded')`
     7. Return `{ content: [{ type: 'text', text: JSON.stringify(result) }] }`
-  - [ ] Keep ALL throwing code inside the try/catch — per CLAUDE.md error handling rule
-  - [ ] Tool description MUST NOT enumerate valid chamber values — describe intent, not implementation (CLAUDE.md anti-pattern)
-  - [ ] Named export `registerLookupLegislatorTool(server: McpServer): void` — unchanged signature
-  - [ ] No default export; no barrel file
+  - [x] Keep ALL throwing code inside the try/catch — per CLAUDE.md error handling rule
+  - [x] Tool description MUST NOT enumerate valid chamber values — describe intent, not implementation (CLAUDE.md anti-pattern)
+  - [x] Named export `registerLookupLegislatorTool(server: McpServer): void` — unchanged signature
+  - [x] No default export; no barrel file
 
-- [ ] Task 5: Rewrite `apps/mcp-server/src/tools/legislator-lookup.test.ts` (AC: 1–8, 12, 13)
-  - [ ] Mock `../cache/legislators.js` to export `getLegislatorById: vi.fn()`, `getLegislatorsByDistrict: vi.fn()`, `getLegislatorsByName: vi.fn()`
-  - [ ] Mock `../lib/logger.js` (Proxy — vi.spyOn fails; use vi.mock)
-  - [ ] **DO NOT** mock `lib/gis.js` — the new tool doesn't import it
-  - [ ] **DO NOT** mock `env.js` — the new tool doesn't call `getEnv()`
-  - [ ] Update `ToolHandler` type:
+- [x] Task 5: Rewrite `apps/mcp-server/src/tools/legislator-lookup.test.ts` (AC: 1–8, 12, 13)
+  - [x] Mock `../cache/legislators.js` to export `getLegislatorById: vi.fn()`, `getLegislatorsByDistrict: vi.fn()`, `getLegislatorsByName: vi.fn()`
+  - [x] Mock `../lib/logger.js` (Proxy — vi.spyOn fails; use vi.mock)
+  - [x] **DO NOT** mock `lib/gis.js` — the new tool doesn't import it
+  - [x] **DO NOT** mock `env.js` — the new tool doesn't call `getEnv()`
+  - [x] Update `ToolHandler` type:
     ```typescript
     type ToolHandler = (args: {
       id?: string
@@ -140,27 +140,27 @@ so that I can retrieve legislator contact info after a bill search (using the bi
       district?: number
     }) => Promise<{ content: Array<{ type: string; text: string }> }>
     ```
-  - [ ] **Test 1 — ID mode (mode C):** `{ id: 'DAILEJ' }` → `getLegislatorById` called with `'DAILEJ'` → result has `legislators` (length 1), `session`; verify `toHaveBeenCalledWith('DAILEJ')`
-  - [ ] **Test 2 — district mode (mode B):** `{ chamber: 'house', district: 29 }` → `getLegislatorsByDistrict` called with `('house', 29)` → result has `legislators`, `session`; verify `toHaveBeenCalledWith('house', 29)`
-  - [ ] **Test 3 — name mode (mode A):** `{ name: 'Smith' }` → `getLegislatorsByName` called with `'Smith'` → result has `legislators`, `session`; verify `toHaveBeenCalledWith('Smith')`
-  - [ ] **Test 4 — multi-mode merge/dedup:** `{ id: 'SMITHJ', name: 'Smith' }` → both query fns called; ID result and name results overlap on `'SMITHJ'`; assert `legislators` contains `'SMITHJ'` exactly once
-  - [ ] **Test 5 — no valid mode:** `{}` → AppError with `source: 'mcp-tool'`; `nature` contains `'at least one search mode'`
-  - [ ] **Test 6 — partial pair (chamber only):** `{ chamber: 'house' }` → AppError with `source: 'mcp-tool'`; `nature` contains `'chamber and district'`
-  - [ ] **Test 7 — partial pair (district only):** `{ district: 14 }` → AppError with `source: 'mcp-tool'`; `nature` contains `'chamber and district'`
-  - [ ] **Test 8 — cache miss:** `{ id: 'NOBODY' }` → `getLegislatorById` returns `null` → AppError with `source: 'cache'`; `nature` contains `'No legislators found'`
-  - [ ] **Test 9 — structured JSON always:** assert `content[0].type === 'text'` and `JSON.parse(content[0].text)` does not throw for success and all error paths
-  - [ ] **Test 10 — toHaveBeenCalledWith verification:** ALL `mockReturnValue` / `mockResolvedValue` stubs must have a corresponding `toHaveBeenCalledWith` assertion (CLAUDE.md requirement)
-  - [ ] No `vi.useFakeTimers()` needed — no retry/async timing in this tool
-  - [ ] Co-locate at `apps/mcp-server/src/tools/legislator-lookup.test.ts`
+  - [x] **Test 1 — ID mode (mode C):** `{ id: 'DAILEJ' }` → `getLegislatorById` called with `'DAILEJ'` → result has `legislators` (length 1), `session`; verify `toHaveBeenCalledWith('DAILEJ')`
+  - [x] **Test 2 — district mode (mode B):** `{ chamber: 'house', district: 29 }` → `getLegislatorsByDistrict` called with `('house', 29)` → result has `legislators`, `session`; verify `toHaveBeenCalledWith('house', 29)`
+  - [x] **Test 3 — name mode (mode A):** `{ name: 'Smith' }` → `getLegislatorsByName` called with `'Smith'` → result has `legislators`, `session`; verify `toHaveBeenCalledWith('Smith')`
+  - [x] **Test 4 — multi-mode merge/dedup:** `{ id: 'SMITHJ', name: 'Smith' }` → both query fns called; ID result and name results overlap on `'SMITHJ'`; assert `legislators` contains `'SMITHJ'` exactly once
+  - [x] **Test 5 — no valid mode:** `{}` → AppError with `source: 'mcp-tool'`; `nature` contains `'at least one search mode'`
+  - [x] **Test 6 — partial pair (chamber only):** `{ chamber: 'house' }` → AppError with `source: 'mcp-tool'`; `nature` contains `'chamber and district'`
+  - [x] **Test 7 — partial pair (district only):** `{ district: 14 }` → AppError with `source: 'mcp-tool'`; `nature` contains `'chamber and district'`
+  - [x] **Test 8 — cache miss:** `{ id: 'NOBODY' }` → `getLegislatorById` returns `null` → AppError with `source: 'cache'`; `nature` contains `'No legislators found'`
+  - [x] **Test 9 — structured JSON always:** assert `content[0].type === 'text'` and `JSON.parse(content[0].text)` does not throw for success and all error paths
+  - [x] **Test 10 — toHaveBeenCalledWith verification:** ALL `mockReturnValue` / `mockResolvedValue` stubs must have a corresponding `toHaveBeenCalledWith` assertion (CLAUDE.md requirement)
+  - [x] No `vi.useFakeTimers()` needed — no retry/async timing in this tool
+  - [x] Co-locate at `apps/mcp-server/src/tools/legislator-lookup.test.ts`
 
-- [ ] Task 6: Final verification (AC: 13)
-  - [ ] `pnpm --filter mcp-server typecheck` — zero errors
-  - [ ] `pnpm --filter mcp-server test` — all tests pass
-  - [ ] `pnpm --filter mcp-server lint` — zero ESLint violations, no `console.log`
-  - [ ] Confirm `resolveAddressToDistricts` is NOT imported anywhere in `tools/legislator-lookup.ts`
-  - [ ] Confirm `PO_BOX_PATTERN` is NOT in `tools/legislator-lookup.ts`
-  - [ ] Confirm no `tools/index.ts` barrel file created
-  - [ ] Confirm `apps/mcp-server/src/index.ts` is UNCHANGED
+- [x] Task 6: Final verification (AC: 13)
+  - [x] `pnpm --filter mcp-server typecheck` — zero errors
+  - [x] `pnpm --filter mcp-server test` — all tests pass
+  - [x] `pnpm --filter mcp-server lint` — zero ESLint violations, no `console.log`
+  - [x] Confirm `resolveAddressToDistricts` is NOT imported anywhere in `tools/legislator-lookup.ts`
+  - [x] Confirm `PO_BOX_PATTERN` is NOT in `tools/legislator-lookup.ts`
+  - [x] Confirm no `tools/index.ts` barrel file created
+  - [x] Confirm `apps/mcp-server/src/index.ts` is UNCHANGED
 
 ## Dev Notes
 
@@ -265,6 +265,13 @@ claude-sonnet-4-6
 
 ### Completion Notes List
 
+- Extracted `mapRow` helper from inline mapping in `getLegislatorsByDistrict`; all three cache functions share it.
+- `getLegislatorById` uses O(1) primary key lookup; `getLegislatorsByName` uses SQLite LIKE with leading/trailing `%` (acceptable for ≤104 rows per spec).
+- Full rewrite of `legislator-lookup.ts`: removed GIS/address concerns (now in `resolve_address` tool), new schema `{ id?, name?, chamber?, district? }`, validation-first handler order (chamber/district pair check before "at least one mode" check).
+- Full rewrite of `legislator-lookup.test.ts`: 10 tests replacing old GIS-based tests. No `vi.useFakeTimers()` needed (no async retry logic). All `mockReturnValue` stubs have `toHaveBeenCalledWith` assertions.
+- `resolvedAddress` made optional in `LookupLegislatorResult`; new tool omits it entirely. `resolve_address` tool is unchanged.
+- All 209 tests pass, typecheck clean, lint clean.
+
 ### File List
 
 - `packages/types/index.ts` — modified (make `resolvedAddress` optional in `LookupLegislatorResult`)
@@ -272,3 +279,7 @@ claude-sonnet-4-6
 - `apps/mcp-server/src/tools/legislator-lookup.test.ts` — full rewrite (new tests)
 - `apps/mcp-server/src/cache/legislators.ts` — modified (add `getLegislatorById`, `getLegislatorsByName`, extract `mapRow`)
 - `apps/mcp-server/src/cache/legislators.test.ts` — modified (add tests for both new functions)
+
+## Change Log
+
+- 2026-03-30: Full implementation — made `resolvedAddress` optional in types, added `getLegislatorById`/`getLegislatorsByName` cache functions with `mapRow` extraction, rewrote `lookup_legislator` tool with new ID/name/district schema, rewrote tool tests (10 tests). 209 tests passing, typecheck + lint clean.

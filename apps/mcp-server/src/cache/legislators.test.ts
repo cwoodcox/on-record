@@ -20,13 +20,22 @@ vi.mock('./db.js', () => ({ db: testDb }))
 
 // Import after mock is registered — use dynamic import inside beforeAll to avoid
 // TS1309 (top-level await not allowed in CommonJS modules).
-import type { getLegislatorsByDistrict as GetFn, writeLegislators as WriteFn } from './legislators.js'
-let getLegislatorsByDistrict: typeof GetFn
+import type {
+  getLegislatorsByDistrict as GetByDistrictFn,
+  getLegislatorById as GetByIdFn,
+  getLegislatorsByName as GetByNameFn,
+  writeLegislators as WriteFn,
+} from './legislators.js'
+let getLegislatorsByDistrict: typeof GetByDistrictFn
+let getLegislatorById: typeof GetByIdFn
+let getLegislatorsByName: typeof GetByNameFn
 let writeLegislators: typeof WriteFn
 
 beforeAll(async () => {
   const mod = await import('./legislators.js')
   getLegislatorsByDistrict = mod.getLegislatorsByDistrict
+  getLegislatorById = mod.getLegislatorById
+  getLegislatorsByName = mod.getLegislatorsByName
   writeLegislators = mod.writeLegislators
 })
 
@@ -228,7 +237,7 @@ describe('legislators cache', () => {
       expect(result[0]?.phoneTypeUnknown).toBeUndefined()
     })
 
-    it('round-trips all Legislator fields correctly', () => {
+    it('round-trips all Legislator fields correctly (getLegislatorsByDistrict)', () => {
       const original = makeLegislator({
         id: 'leg-rt',
         chamber: 'senate',
@@ -253,4 +262,108 @@ describe('legislators cache', () => {
       expect(leg?.session).toBe(original.session)
     })
   })
+
+  // ── getLegislatorById ────────────────────────────────────────────────────
+
+  describe('getLegislatorById', () => {
+    it('returns the legislator for an exact ID match', () => {
+      writeLegislators(testDb, [makeLegislator({ id: 'DAILEJ', name: 'Jennifer Dailey-Provost' })])
+
+      const result = getLegislatorById('DAILEJ')
+      expect(result).not.toBeNull()
+      expect(result?.id).toBe('DAILEJ')
+      expect(result?.name).toBe('Jennifer Dailey-Provost')
+    })
+
+    it('returns null for an unknown ID', () => {
+      const result = getLegislatorById('NOBODY')
+      expect(result).toBeNull()
+    })
+
+    it('phone_label null → phoneTypeUnknown: true', () => {
+      const leg: import('@on-record/types').Legislator = {
+        id: 'UNKNWN',
+        chamber: 'house',
+        district: 5,
+        name: 'Unknown Phone',
+        email: 'up@utah.gov',
+        phone: '801-555-0001',
+        phoneTypeUnknown: true,
+        session: '2026GS',
+      }
+      writeLegislators(testDb, [leg])
+
+      const result = getLegislatorById('UNKNWN')
+      expect(result?.phoneTypeUnknown).toBe(true)
+      expect(result?.phoneLabel).toBeUndefined()
+    })
+
+    it('phone_label present → phoneLabel field set', () => {
+      writeLegislators(testDb, [makeLegislator({ id: 'LABELD', phoneLabel: 'district office' })])
+
+      const result = getLegislatorById('LABELD')
+      expect(result?.phoneLabel).toBe('district office')
+      expect(result?.phoneTypeUnknown).toBeUndefined()
+    })
+  })
+
+  // ── getLegislatorsByName ─────────────────────────────────────────────────
+
+  describe('getLegislatorsByName', () => {
+    it('returns matching legislators for a partial name', () => {
+      writeLegislators(testDb, [
+        makeLegislator({ id: 'SMITHJ', name: 'Jane Smith' }),
+        makeLegislator({ id: 'SMITHB', name: 'Bob Smithson', district: 11 }),
+        makeLegislator({ id: 'JONESE', name: 'Eric Jones', district: 12 }),
+      ])
+
+      const result = getLegislatorsByName('Smith')
+      expect(result).toHaveLength(2)
+      const ids = result.map((l) => l.id)
+      expect(ids).toContain('SMITHJ')
+      expect(ids).toContain('SMITHB')
+    })
+
+    it('name match is case-insensitive — "smith" matches "Jane Smith"', () => {
+      writeLegislators(testDb, [makeLegislator({ id: 'SMITHJ', name: 'Jane Smith' })])
+
+      const result = getLegislatorsByName('smith')
+      expect(result).toHaveLength(1)
+      expect(result[0]?.id).toBe('SMITHJ')
+    })
+
+    it('returns empty array when no name matches', () => {
+      writeLegislators(testDb, [makeLegislator({ id: 'SMITHJ', name: 'Jane Smith' })])
+
+      const result = getLegislatorsByName('Zzznotaname')
+      expect(result).toEqual([])
+    })
+
+    it('phone_label null → phoneTypeUnknown: true', () => {
+      const leg: import('@on-record/types').Legislator = {
+        id: 'NOLAB',
+        chamber: 'senate',
+        district: 3,
+        name: 'No Label',
+        email: 'nl@utah.gov',
+        phone: '801-555-0002',
+        phoneTypeUnknown: true,
+        session: '2026GS',
+      }
+      writeLegislators(testDb, [leg])
+
+      const result = getLegislatorsByName('No Label')
+      expect(result[0]?.phoneTypeUnknown).toBe(true)
+      expect(result[0]?.phoneLabel).toBeUndefined()
+    })
+
+    it('phone_label present → phoneLabel field set', () => {
+      writeLegislators(testDb, [makeLegislator({ id: 'LABLN', name: 'Labeled Name', phoneLabel: 'cell' })])
+
+      const result = getLegislatorsByName('Labeled Name')
+      expect(result[0]?.phoneLabel).toBe('cell')
+      expect(result[0]?.phoneTypeUnknown).toBeUndefined()
+    })
+  })
 })
+

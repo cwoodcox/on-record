@@ -1,19 +1,16 @@
 // apps/mcp-server/src/tools/legislator-lookup.ts
-// MCP tool: lookup_legislator — geocodes a Utah address to legislative districts,
-// then reads legislator data from the SQLite cache.
+// MCP tool: lookup_legislator — resolves a legislator by ID, partial name, or chamber + district.
 // Boundary 4: only cache/ imports better-sqlite3 — this file must not import it.
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { logger } from '../lib/logger.js'
-import { createAppError, isAppError } from '@on-record/types'
-import type { LookupLegislatorResult } from '@on-record/types'
-import { getLegislatorsByDistrict } from '../cache/legislators.js'
-import { resolveAddressToDistricts } from '../lib/gis.js'
-
-// ── Error classification constants ───────────────────────────────────────────
-
-/** Detects P.O. Box addresses before making the GIS call (saves latency). */
-const PO_BOX_PATTERN = /^p\.?o\.?\s*box\b/i
+import { createAppError } from '@on-record/types'
+import type { LookupLegislatorResult, Legislator } from '@on-record/types'
+import {
+  getLegislatorById,
+  getLegislatorsByDistrict,
+  getLegislatorsByName,
+} from '../cache/legislators.js'
 
 // ── Tool registration ────────────────────────────────────────────────────────
 
@@ -26,99 +23,139 @@ const PO_BOX_PATTERN = /^p\.?o\.?\s*box\b/i
 export function registerLookupLegislatorTool(server: McpServer): void {
   server.tool(
     'lookup_legislator',
-    "Identifies a constituent's Utah House and Senate legislators from their home address via GIS lookup. Returns structured JSON with legislator name, chamber, district, email, and phone contact information.",
+    'Retrieves legislator contact info by legislator ID (use sponsorId from bill search results), by partial name (when constituent knows their rep by name), or by legislative chamber and district number (use houseDistrict/senateDistrict from resolve_address). Returns structured JSON with legislator name, chamber, district, email, and phone.',
     {
-      street: z
+      id: z
         .string()
         .min(1)
-        .describe('Street portion only: number and street name. Example: "123 S State St"'),
-      zone: z
+        .optional()
+        .describe(
+          'Exact legislator ID (matches sponsorId on bill search results). Use when resolving a bill sponsor to their contact details.',
+        ),
+      name: z
         .string()
         .min(1)
-        .describe('City name or 5-digit ZIP code. Example: "Salt Lake City" or "84111"'),
+        .optional()
+        .describe(
+          'Partial legislator name (case-insensitive match). Use when the constituent knows their rep by name.',
+        ),
+      chamber: z
+        .enum(['house', 'senate'])
+        .optional()
+        .describe(
+          'Legislative chamber for district lookup — must be provided together with district.',
+        ),
+      district: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe('District number — must be provided together with chamber.'),
     },
-    async ({ street, zone }) => {
-      // 0. P.O. Box pre-check — detect before making the GIS call (saves latency) (FR37)
-      if (PO_BOX_PATTERN.test(street.trim())) {
-        logger.error(
-          { source: 'gis-api', address: '[REDACTED]', errorType: 'po-box' },
-          'P.O. Box address submitted — cannot geocode',
-        )
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(
-                createAppError(
-                  'gis-api',
-                  'P.O. Box addresses cannot be geocoded to a legislative district',
-                  'Use your street address (e.g., 123 Main St) rather than a P.O. Box',
-                ),
-              ),
-            },
-          ],
-        }
-      }
-
-      // 1. GIS lookup — resolveAddressToDistricts handles retries internally (FR36)
-      //    Throws AppError for all failures (semantic and transient).
-      let geocodeResult: Awaited<ReturnType<typeof resolveAddressToDistricts>>
+    async ({ id, name, chamber, district }) => {
       try {
-        geocodeResult = await resolveAddressToDistricts(street, zone)
-      } catch (err) {
-        if (isAppError(err)) {
-          return { content: [{ type: 'text', text: JSON.stringify(err) }] }
+        // 1. Validate chamber/district pairing before checking for any valid mode
+        if (
+          (chamber !== undefined && district === undefined) ||
+          (district !== undefined && chamber === undefined)
+        ) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(
+                  createAppError(
+                    'mcp-tool',
+                    'chamber and district must both be provided for district lookup',
+                    'Provide both chamber (e.g. "house" or "senate") and district number together.',
+                  ),
+                ),
+              },
+            ],
+          }
         }
+
+        // 2. Require at least one complete search mode
+        const hasId = id !== undefined
+        const hasName = name !== undefined
+        const hasDistrict = chamber !== undefined && district !== undefined
+
+        if (!hasId && !hasName && !hasDistrict) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(
+                  createAppError(
+                    'mcp-tool',
+                    'at least one search mode is required: id, name, or chamber + district',
+                    'Provide an id, a name, or both chamber and district to search for legislators.',
+                  ),
+                ),
+              },
+            ],
+          }
+        }
+
+        // 3. Collect results — all provided modes run; dedup by id (first occurrence wins)
+        const legislators: Legislator[] = []
+        const seen = new Set<string>()
+
+        function addLegislators(list: Legislator[]): void {
+          for (const leg of list) {
+            if (!seen.has(leg.id)) {
+              seen.add(leg.id)
+              legislators.push(leg)
+            }
+          }
+        }
+
+        if (id !== undefined) {
+          const leg = getLegislatorById(id)
+          if (leg) addLegislators([leg])
+        }
+
+        if (chamber !== undefined && district !== undefined) {
+          addLegislators(getLegislatorsByDistrict(chamber, district))
+        }
+
+        if (name !== undefined) {
+          addLegislators(getLegislatorsByName(name))
+        }
+
+        // 4. Cache miss — no legislators found across all modes
+        if (legislators.length === 0) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(
+                  createAppError(
+                    'cache',
+                    'No legislators found matching the provided search criteria',
+                    'Verify the legislator ID, name, or district and try again.',
+                  ),
+                ),
+              },
+            ],
+          }
+        }
+
+        // 5. Build result — no resolvedAddress (that comes from resolve_address tool)
+        const result: LookupLegislatorResult = {
+          legislators,
+          session: legislators[0]!.session,
+        }
+
+        logger.info(
+          { source: 'mcp-tool', legislatorCount: legislators.length },
+          'lookup_legislator succeeded',
+        )
+
+        return { content: [{ type: 'text', text: JSON.stringify(result) }] }
+      } catch (err) {
         throw err
       }
-
-      const districts = geocodeResult
-
-      // 2. Read from cache — empty array means cache miss
-      const houseLegislators = getLegislatorsByDistrict('house', districts.houseDistrict)
-      const senateLegislators = getLegislatorsByDistrict('senate', districts.senateDistrict)
-      const legislators = [...houseLegislators, ...senateLegislators]
-
-      // 3. Cache miss — no legislators found for resolved districts
-      if (legislators.length === 0) {
-        logger.error(
-          {
-            source: 'cache',
-            address: '[REDACTED]',
-            houseDistrict: districts.houseDistrict,
-            senateDistrict: districts.senateDistrict,
-          },
-          'No legislators found for resolved districts',
-        )
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(
-                createAppError(
-                  'cache',
-                  'No legislators found for resolved districts',
-                  'Verify your address is in Utah and try again',
-                ),
-              ),
-            },
-          ],
-        }
-      }
-
-      // 4. Build response — resolvedAddress IS in MCP JSON, NEVER in logs
-      const result: LookupLegislatorResult = {
-        legislators,
-        session: legislators[0]!.session,
-        resolvedAddress: geocodeResult.resolvedAddress,
-      }
-
-      logger.info(
-        { source: 'mcp-tool', address: '[REDACTED]', legislatorCount: legislators.length },
-        'lookup_legislator succeeded',
-      )
-
-      return { content: [{ type: 'text', text: JSON.stringify(result) }] }
     },
   )
 }

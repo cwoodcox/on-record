@@ -24,6 +24,26 @@ interface LegislatorRow {
   session: string
 }
 
+// ── Row → Legislator mapping helper ─────────────────────────────────────────
+
+function mapRow(row: LegislatorRow): Legislator {
+  const base = {
+    id: row.id,
+    chamber: row.chamber as 'house' | 'senate',
+    district: row.district,
+    name: row.name,
+    email: row.email,
+    phone: row.phone,
+    session: row.session,
+  }
+
+  // phone_label NULL → phoneTypeUnknown: true; present → phoneLabel
+  if (row.phone_label === null) {
+    return { ...base, phoneTypeUnknown: true }
+  }
+  return { ...base, phoneLabel: row.phone_label }
+}
+
 /**
  * Reads legislators from the SQLite cache for a specific chamber and district.
  * Returns an empty array on cache miss — the tool handler treats this as an error.
@@ -45,23 +65,41 @@ export function getLegislatorsByDistrict(
     )
     .all(chamber, district)
 
-  return rows.map((row): Legislator => {
-    const base = {
-      id: row.id,
-      chamber: row.chamber as 'house' | 'senate',
-      district: row.district,
-      name: row.name,
-      email: row.email,
-      phone: row.phone,
-      session: row.session,
-    }
+  return rows.map(mapRow)
+}
 
-    // phone_label NULL → phoneTypeUnknown: true; present → phoneLabel
-    if (row.phone_label === null) {
-      return { ...base, phoneTypeUnknown: true }
-    }
-    return { ...base, phoneLabel: row.phone_label }
-  })
+/**
+ * Reads a single legislator from the cache by exact ID match.
+ * Returns null on cache miss.
+ *
+ * @param id - Legislator ID (e.g. "DAILEJ" — matches sponsorId on bill search results)
+ */
+export function getLegislatorById(id: string): Legislator | null {
+  const row = db
+    .prepare<[string], LegislatorRow>(
+      `SELECT id, chamber, district, name, email, phone, phone_label, session
+       FROM legislators
+       WHERE id = ?`,
+    )
+    .get(id)
+  return row ? mapRow(row) : null
+}
+
+/**
+ * Reads legislators from the cache by partial name match (case-insensitive).
+ * Returns an empty array when no match is found.
+ *
+ * @param name - Partial name to search (e.g. "Smith" matches "Jane Smith")
+ */
+export function getLegislatorsByName(name: string): Legislator[] {
+  const rows = db
+    .prepare<[string], LegislatorRow>(
+      `SELECT id, chamber, district, name, email, phone, phone_label, session
+       FROM legislators
+       WHERE name LIKE ?`,
+    )
+    .all(`%${name}%`)
+  return rows.map(mapRow)
 }
 
 /**

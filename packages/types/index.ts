@@ -76,7 +76,7 @@ export function createAppError(
 export interface LookupLegislatorResult {
   legislators: Legislator[]
   session: string
-  resolvedAddress: string // actual address in MCP response; always '[REDACTED]' in logs
+  resolvedAddress?: string // optional — returned by resolve_address; omitted from lookup_legislator (ID/name/district modes)
 }
 
 export interface ResolveAddressResult {
