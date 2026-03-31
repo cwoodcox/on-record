@@ -1,6 +1,6 @@
 # Story 2-7: `resolve_address` MCP Tool
 
-Status: review
+Status: done
 
 ## Story
 
