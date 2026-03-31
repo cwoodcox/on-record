@@ -22,8 +22,9 @@ logger.info({ source: 'cache' }, 'Sessions seeded')
 import { UtahLegislatureProvider } from './providers/utah-legislature.js'
 import { warmUpLegislatorsCache, scheduleLegislatorsRefresh, warmUpBillsCache, scheduleBillsRefresh } from './cache/refresh.js'
 
-// STEP 2.7: MCP tool registrations (Story 2.4, 3.5)
+// STEP 2.7: MCP tool registrations (Story 2.4, 2.7, 3.5)
 import { registerLookupLegislatorTool } from './tools/legislator-lookup.js'
+import { registerResolveAddressTool } from './tools/resolve-address.js'
 import { registerSearchBillsTool } from './tools/search-bills.js'
 
 // STEP 3: Framework imports
@@ -105,6 +106,7 @@ app.post('/mcp', async (c) => {
     })
 
     registerLookupLegislatorTool(server) // Story 2.4
+    registerResolveAddressTool(server)   // Story 2.7
     registerSearchBillsTool(server)      // Story 3.5
 
     // @ts-expect-error -- StreamableHTTPServerTransport.onclose is typed as `(() => void) | undefined`

@@ -79,6 +79,12 @@ export interface LookupLegislatorResult {
   resolvedAddress: string // actual address in MCP response; always '[REDACTED]' in logs
 }
 
+export interface ResolveAddressResult {
+  houseDistrict: number
+  senateDistrict: number
+  resolvedAddress: string // geocoder's canonical address form; always '[REDACTED]' in logs
+}
+
 export interface SearchBillsParams {
   query?: string           // freeform FTS5 full-text search on bill title + summary
   billId?: string          // bill ID match — prefix + numeric value parsed for zero-padding normalization
