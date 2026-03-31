@@ -1,6 +1,6 @@
 # Story 2-8: `lookup_legislator` — ID / Name / District Search Modes
 
-Status: review
+Status: done
 
 ## Story
 
