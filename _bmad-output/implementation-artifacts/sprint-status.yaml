@@ -91,7 +91,7 @@ development_status:
 
   # ─── Epic 3: additions (sprint-change-proposal-2026-03-27) ─────────────────
   # search_bills redesign: all-optional filters, pagination, normalized billId
-  3-7-search-bills-interface-redesign: review
+  3-7-search-bills-interface-redesign: done
 
   # ─── Epic 4: Constituent Can Get a Voiced, Cited Draft ─────────────────────
   # Correct-course 2026-03-27: 4-step wizard replaced with rules-based system

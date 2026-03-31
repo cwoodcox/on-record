@@ -1,6 +1,6 @@
 # Story 3.7: `search_bills` Interface Redesign
 
-Status: review
+Status: done
 
 ## Story
 
