@@ -10,9 +10,10 @@ const atkinson = Atkinson_Hyperlegible({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://getonrecord.org"),
   title: "On Record — Contact Your Utah Legislator",
   description:
-    "Write your Utah state representative or senator in minutes. On Record helps you find your legislator, surface their voting record, and send a personal, cited message — using AI you already have.",
+    "Write your Utah state legislator in minutes. On Record finds your representative, surfaces their voting record, and helps you draft a personal, cited message.",
   keywords:
     "contact Utah legislator, write my state representative Utah, email Utah state senator",
   openGraph: {

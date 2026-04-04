@@ -1,48 +1,32 @@
-import type { Metadata } from 'next'
-
-export const metadata: Metadata = {
-  title: 'On Record — Contact Your Utah Legislator',
-  description:
-    'Write your Utah state representative or senator in minutes. On Record guides you through the process using your own chatbot.',
-  openGraph: {
-    title: 'On Record — Contact Your Utah Legislator',
-    description:
-      'Write your Utah state representative or senator in minutes.',
-    images: [{ url: '/og-image.png', width: 1200, height: 630 }],
-    type: 'website',
-    url: 'https://getonrecord.org',
-  },
-}
-
 export default function HomePage() {
   return (
     <>
       {/* Skip to main content — visually hidden until focused */}
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-[#c47d2e] focus:px-4 focus:py-2 focus:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#c47d2e]"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-on-record-accent focus:px-4 focus:py-2 focus:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-on-record-accent"
       >
         Skip to main content
       </a>
 
       {/* Header / Top Bar */}
-      <header className="bg-[#1e3a4f] px-6 py-4">
+      <header className="bg-on-record-primary px-6 py-4">
         <div className="mx-auto max-w-4xl">
           <span className="text-xl font-bold tracking-tight text-white">
             On{" "}
-            <span className="text-[#c47d2e]">Record</span>
+            <span className="text-on-record-accent">Record</span>
           </span>
         </div>
       </header>
 
-      <main id="main-content" className="bg-[#fafaf8] text-[#1a1a1a] dark:bg-[#0f1f2b] dark:text-[#e8e4dc]">
+      <main id="main-content" className="bg-on-record-surface text-on-record-text dark:bg-on-record-surface dark:text-on-record-text">
         {/* Section 1: Hero */}
         <section className="px-6 py-16 sm:py-24">
           <div className="mx-auto max-w-4xl">
-            <h1 className="mb-6 text-4xl font-bold leading-tight tracking-tight text-[#1e3a4f] dark:text-[#e8e4dc] sm:text-5xl">
+            <h1 className="mb-6 text-4xl font-bold leading-tight tracking-tight text-on-record-primary dark:text-on-record-text sm:text-5xl">
               Write your Utah legislator in minutes — in your own voice.
             </h1>
-            <p className="mb-10 max-w-2xl text-lg leading-relaxed text-[#1a1a1a] dark:text-[#e8e4dc]">
+            <p className="mb-10 max-w-2xl text-lg leading-relaxed text-on-record-text dark:text-on-record-text">
               On Record works inside Claude.ai or ChatGPT — an AI subscription
               you already have. No new account. No extra cost. Just tell it what
               matters to you, and it finds your representative and helps you
@@ -50,7 +34,7 @@ export default function HomePage() {
             </p>
             <a
               href="/setup"
-              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg bg-[#c47d2e] px-8 py-3 text-lg font-bold text-white transition-colors hover:bg-[#a8681f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c47d2e] focus-visible:ring-offset-2"
+              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg bg-on-record-accent px-8 py-3 text-lg font-bold text-white transition-colors hover:bg-[#a8681f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-on-record-accent focus-visible:ring-offset-2"
             >
               Get started →
             </a>
@@ -58,40 +42,40 @@ export default function HomePage() {
         </section>
 
         {/* Section 2: How it works */}
-        <section className="border-t border-[#1e3a4f]/10 bg-white px-6 py-16 dark:bg-[#0a1520] dark:border-white/10">
+        <section className="border-t border-on-record-primary/10 bg-white px-6 py-16 dark:bg-on-record-primary dark:border-white/10">
           <div className="mx-auto max-w-4xl">
-            <h2 className="mb-10 text-2xl font-bold text-[#1e3a4f] dark:text-[#e8e4dc]">
+            <h2 className="mb-10 text-2xl font-bold text-on-record-primary dark:text-on-record-text">
               How it works
             </h2>
             <ol className="space-y-8">
               <li className="flex gap-5">
                 <span
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1e3a4f] text-lg font-bold text-white"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-on-record-primary text-lg font-bold text-white"
                   aria-hidden="true"
                 >
                   1
                 </span>
                 <div>
-                  <p className="text-lg font-semibold text-[#1e3a4f] dark:text-[#e8e4dc]">
+                  <p className="text-lg font-semibold text-on-record-primary dark:text-on-record-text">
                     Connect On Record to your AI assistant
                   </p>
-                  <p className="mt-1 text-base text-[#1a1a1a] dark:text-[#e8e4dc]/80">
+                  <p className="mt-1 text-base text-on-record-text dark:text-on-record-text/80">
                     Takes about 2 minutes. Works with Claude.ai and ChatGPT.
                   </p>
                 </div>
               </li>
               <li className="flex gap-5">
                 <span
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1e3a4f] text-lg font-bold text-white"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-on-record-primary text-lg font-bold text-white"
                   aria-hidden="true"
                 >
                   2
                 </span>
                 <div>
-                  <p className="text-lg font-semibold text-[#1e3a4f] dark:text-[#e8e4dc]">
+                  <p className="text-lg font-semibold text-on-record-primary dark:text-on-record-text">
                     Tell it what you care about and your home address
                   </p>
-                  <p className="mt-1 text-base text-[#1a1a1a] dark:text-[#e8e4dc]/80">
+                  <p className="mt-1 text-base text-on-record-text dark:text-on-record-text/80">
                     It looks up your district and finds the right people to
                     contact automatically.
                   </p>
@@ -99,17 +83,17 @@ export default function HomePage() {
               </li>
               <li className="flex gap-5">
                 <span
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1e3a4f] text-lg font-bold text-white"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-on-record-primary text-lg font-bold text-white"
                   aria-hidden="true"
                 >
                   3
                 </span>
                 <div>
-                  <p className="text-lg font-semibold text-[#1e3a4f] dark:text-[#e8e4dc]">
+                  <p className="text-lg font-semibold text-on-record-primary dark:text-on-record-text">
                     Get a personal, cited message to send — in your words, not a
                     template
                   </p>
-                  <p className="mt-1 text-base text-[#1a1a1a] dark:text-[#e8e4dc]/80">
+                  <p className="mt-1 text-base text-on-record-text dark:text-on-record-text/80">
                     Your message refers to bills your legislator has actually
                     worked on. It sounds like you, not a form letter.
                   </p>
@@ -122,36 +106,36 @@ export default function HomePage() {
         {/* Section 3: Who it's for */}
         <section className="px-6 py-16">
           <div className="mx-auto max-w-4xl">
-            <h2 className="mb-8 text-2xl font-bold text-[#1e3a4f] dark:text-[#e8e4dc]">
+            <h2 className="mb-8 text-2xl font-bold text-on-record-primary dark:text-on-record-text">
               Who it&apos;s for
             </h2>
-            <blockquote className="rounded-xl border-l-4 border-[#c47d2e] bg-white px-8 py-6 shadow-sm dark:bg-[#0a1520]">
-              <p className="text-lg leading-relaxed text-[#1a1a1a] dark:text-[#e8e4dc]">
+            <blockquote className="rounded-xl border-l-4 border-on-record-accent bg-white px-8 py-6 shadow-sm dark:bg-on-record-primary">
+              <p className="text-lg leading-relaxed text-on-record-text dark:text-on-record-text">
                 &ldquo;I went to a town hall last month and left wanting to do
                 more. I&rsquo;ve never written to my representative before — I
                 didn&rsquo;t know how to start or what to say. On Record helped
                 me write something real in about ten minutes.&rdquo;
               </p>
-              <footer className="mt-4 text-sm font-semibold text-[#1e3a4f] dark:text-[#c47d2e]">
+              <footer className="mt-4 text-sm font-semibold text-on-record-primary dark:text-on-record-accent">
                 — Deb, Salt Lake City resident
               </footer>
             </blockquote>
-            <ul className="mt-8 space-y-3 text-base text-[#1a1a1a] dark:text-[#e8e4dc]">
+            <ul className="mt-8 space-y-3 text-base text-on-record-text dark:text-on-record-text">
               <li className="flex items-start gap-3">
-                <span className="mt-1 text-[#c47d2e]" aria-hidden="true">
+                <span className="mt-1 text-on-record-accent" aria-hidden="true">
                   ✓
                 </span>
                 You care about something happening in Utah — schools, water,
                 housing, healthcare — and want your voice heard.
               </li>
               <li className="flex items-start gap-3">
-                <span className="mt-1 text-[#c47d2e]" aria-hidden="true">
+                <span className="mt-1 text-on-record-accent" aria-hidden="true">
                   ✓
                 </span>
                 You already use Claude.ai or ChatGPT.
               </li>
               <li className="flex items-start gap-3">
-                <span className="mt-1 text-[#c47d2e]" aria-hidden="true">
+                <span className="mt-1 text-on-record-accent" aria-hidden="true">
                   ✓
                 </span>
                 You want to send a personal note, not sign a pre-written
@@ -162,37 +146,37 @@ export default function HomePage() {
         </section>
 
         {/* Section 4: FAQ */}
-        <section className="border-t border-[#1e3a4f]/10 bg-white px-6 py-16 dark:bg-[#0a1520] dark:border-white/10">
+        <section className="border-t border-on-record-primary/10 bg-white px-6 py-16 dark:bg-on-record-primary dark:border-white/10">
           <div className="mx-auto max-w-4xl">
-            <h2 className="mb-8 text-2xl font-bold text-[#1e3a4f] dark:text-[#e8e4dc]">
+            <h2 className="mb-8 text-2xl font-bold text-on-record-primary dark:text-on-record-text">
               Questions
             </h2>
             <dl className="space-y-8">
               <div>
-                <dt className="text-lg font-semibold text-[#1e3a4f] dark:text-[#e8e4dc]">
+                <dt className="text-lg font-semibold text-on-record-primary dark:text-on-record-text">
                   Do I need to create an account?
                 </dt>
-                <dd className="mt-2 text-base leading-relaxed text-[#1a1a1a] dark:text-[#e8e4dc]/80">
+                <dd className="mt-2 text-base leading-relaxed text-on-record-text dark:text-on-record-text/80">
                   No. On Record connects to the AI tool you already use. There
                   is no separate login, no password to remember, and no personal
                   data stored by On Record.
                 </dd>
               </div>
               <div>
-                <dt className="text-lg font-semibold text-[#1e3a4f] dark:text-[#e8e4dc]">
+                <dt className="text-lg font-semibold text-on-record-primary dark:text-on-record-text">
                   Does this cost anything?
                 </dt>
-                <dd className="mt-2 text-base leading-relaxed text-[#1a1a1a] dark:text-[#e8e4dc]/80">
+                <dd className="mt-2 text-base leading-relaxed text-on-record-text dark:text-on-record-text/80">
                   On Record itself is free. You need a subscription to Claude.ai
                   or ChatGPT (which many people already have). There is no
                   additional charge for using On Record with those tools.
                 </dd>
               </div>
               <div>
-                <dt className="text-lg font-semibold text-[#1e3a4f] dark:text-[#e8e4dc]">
+                <dt className="text-lg font-semibold text-on-record-primary dark:text-on-record-text">
                   Does it write the message for me?
                 </dt>
-                <dd className="mt-2 text-base leading-relaxed text-[#1a1a1a] dark:text-[#e8e4dc]/80">
+                <dd className="mt-2 text-base leading-relaxed text-on-record-text dark:text-on-record-text/80">
                   It helps you write it. You tell the AI what you care about in
                   your own words, and it drafts a message that reflects your
                   concern — citing real bills your legislator has worked on. You
@@ -200,10 +184,10 @@ export default function HomePage() {
                 </dd>
               </div>
               <div>
-                <dt className="text-lg font-semibold text-[#1e3a4f] dark:text-[#e8e4dc]">
+                <dt className="text-lg font-semibold text-on-record-primary dark:text-on-record-text">
                   Does it work outside of Utah?
                 </dt>
-                <dd className="mt-2 text-base leading-relaxed text-[#1a1a1a] dark:text-[#e8e4dc]/80">
+                <dd className="mt-2 text-base leading-relaxed text-on-record-text dark:text-on-record-text/80">
                   Right now, On Record covers Utah state legislators only. We
                   plan to expand to other states in the future.
                 </dd>
