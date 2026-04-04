@@ -36,3 +36,4 @@ evals/.venv/
 coverage/
 playwright-report/
 test-results/
+apps/web/out
