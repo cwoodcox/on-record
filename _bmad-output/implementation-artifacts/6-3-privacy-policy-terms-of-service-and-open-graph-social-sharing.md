@@ -1,6 +1,6 @@
 # Story 6-3: Privacy Policy, Terms of Service, and Open Graph Social Sharing
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -20,7 +20,7 @@ So that I trust On Record's data practices, understand the terms of use, and can
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create `apps/web/src/components/Footer.tsx` (AC: 3)
+- [x] Task 1: Create `apps/web/src/components/Footer.tsx` (AC: 3)
   - [ ] Simple semantic `<footer>` with links to `/privacy` and `/terms` using Next.js `<Link>` from `next/link`
   - [ ] Uses Tailwind design tokens (no hardcoded hex values) — use `text-[color:var(--on-record-accent)]` pattern or Tailwind token classes
   - [ ] Meets 44×44px touch target minimum for all links (NFR12)
@@ -29,13 +29,13 @@ So that I trust On Record's data practices, understand the terms of use, and can
   - [ ] No barrel file (`components/index.ts`) — named export from `Footer.tsx` directly
   - [ ] No `'use client'` directive — footer is a server component
 
-- [ ] Task 2: Add `Footer` to root layout (AC: 3)
+- [x] Task 2: Add `Footer` to root layout (AC: 3)
   - [ ] Import `Footer` from `'../components/Footer'` in `apps/web/src/app/layout.tsx`
   - [ ] Place `<Footer />` inside `<body>` after `{children}`
   - [ ] Do NOT add 'use client' to layout — keep it a server component
   - [ ] Layout already imports `globals.css` — no additional CSS imports needed
 
-- [ ] Task 3: Add Open Graph metadata to landing page (AC: 4)
+- [x] Task 3: Add Open Graph metadata to landing page (AC: 4)
   - [ ] In `apps/web/src/app/page.tsx`, update or add the `metadata` export (Next.js App Router `Metadata` type from `next`):
     ```typescript
     export const metadata: Metadata = {
@@ -53,13 +53,13 @@ So that I trust On Record's data practices, understand the terms of use, and can
   - [ ] If `page.tsx` already exports metadata (from Story 6.1 implementation), merge OG tags into that object rather than creating a second export
   - [ ] `og:image` references `/og-image.png` (relative path is correct — Next.js resolves from `public/`)
 
-- [ ] Task 4: Add `og-image.png` placeholder to `public/` (AC: 5)
+- [x] Task 4: Add `og-image.png` placeholder to `public/` (AC: 5)
   - [ ] Create a valid 1200×630 PNG at `apps/web/public/og-image.png`
   - [ ] The image can be a simple branded placeholder (dark navy background `#1e3a4f`, white "On Record" text) — it does NOT need to be production-quality for this story; the acceptance criterion is only that a valid file exists at the correct path and dimensions
   - [ ] Do NOT use the existing SVG assets (`next.svg`, `vercel.svg`) as the OG image
   - [ ] Standard OG image dimensions: 1200×630px (2:1 aspect ratio is correct for most platforms)
 
-- [ ] Task 5: Create `apps/web/src/app/privacy/page.tsx` (AC: 1, 6)
+- [x] Task 5: Create `apps/web/src/app/privacy/page.tsx` (AC: 1, 6)
   - [ ] File path: `apps/web/src/app/privacy/page.tsx`
   - [ ] No `'use client'` directive — statically generated server component
   - [ ] Export `metadata: Metadata` with `{ title: 'Privacy Policy — On Record' }`
@@ -74,7 +74,7 @@ So that I trust On Record's data practices, understand the terms of use, and can
   - [ ] Uses Tailwind prose-style layout; respects design tokens (no hardcoded hex)
   - [ ] Skip link compatibility: page has a `<main id="main-content">` or equivalent for skip link target (NFR11)
 
-- [ ] Task 6: Create `apps/web/src/app/terms/page.tsx` (AC: 2, 6)
+- [x] Task 6: Create `apps/web/src/app/terms/page.tsx` (AC: 2, 6)
   - [ ] File path: `apps/web/src/app/terms/page.tsx`
   - [ ] No `'use client'` directive — statically generated server component
   - [ ] Export `metadata: Metadata` with `{ title: 'Terms of Service — On Record' }`
@@ -89,7 +89,7 @@ So that I trust On Record's data practices, understand the terms of use, and can
   - [ ] Plain language — 8th grade reading level target where possible (legal sections may use standard legal phrasing)
   - [ ] Uses same Tailwind layout pattern as `/privacy`
 
-- [ ] Task 7: Final verification (AC: 7)
+- [x] Task 7: Final verification (AC: 7)
   - [ ] `pnpm --filter web typecheck` — zero TypeScript errors
   - [ ] `pnpm --filter web build` — successful build, no 404 for `/privacy`, `/terms`, or `/og-image.png`
   - [ ] Confirm `Footer.tsx` does NOT have `'use client'`
@@ -238,9 +238,18 @@ pnpm --filter web lint
 
 ### Agent Model Used
 
+claude-sonnet-4-6
+
 ### Debug Log References
 
+None.
+
 ### Completion Notes List
+
+- `Footer.tsx`, `layout.tsx` (Footer import + render), and `page.tsx` (OG metadata) were already implemented before this session.
+- `og-image.png` (1200×630px) was pre-generated and placed at `apps/web/public/og-image.png`.
+- Created `apps/web/src/app/privacy/page.tsx` and `apps/web/src/app/terms/page.tsx` — both are static server components with no `'use client'`, exporting `metadata` with page titles.
+- `pnpm --filter web typecheck` exits 0; `pnpm --filter web build` exits 0 with `/privacy` and `/terms` as static (○) routes.
 
 ### File List
 

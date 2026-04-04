@@ -1,3 +1,19 @@
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'On Record — Contact Your Utah Legislator',
+  description:
+    'Write your Utah state representative or senator in minutes. On Record guides you through the process using your own chatbot.',
+  openGraph: {
+    title: 'On Record — Contact Your Utah Legislator',
+    description:
+      'Write your Utah state representative or senator in minutes.',
+    images: [{ url: '/og-image.png', width: 1200, height: 630 }],
+    type: 'website',
+    url: 'https://getonrecord.org',
+  },
+}
+
 export default function HomePage() {
   return (
     <>
@@ -197,45 +213,6 @@ export default function HomePage() {
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="bg-[#1e3a4f] px-6 py-10 text-white dark:bg-[#0a1520]">
-        <div className="mx-auto max-w-4xl">
-          <nav aria-label="Footer navigation">
-            <ul className="flex flex-wrap gap-6 text-sm">
-              <li>
-                <a
-                  href="/setup"
-                  className="min-h-[44px] min-w-[44px] inline-flex items-center text-white/80 underline-offset-4 hover:text-white hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c47d2e]"
-                >
-                  Set up On Record
-                </a>
-              </li>
-              <li>
-                <a
-                  href="/privacy"
-                  className="min-h-[44px] min-w-[44px] inline-flex items-center text-white/80 underline-offset-4 hover:text-white hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c47d2e]"
-                >
-                  Privacy
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://github.com/cwoodcox/on-record"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="min-h-[44px] min-w-[44px] inline-flex items-center text-white/80 underline-offset-4 hover:text-white hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c47d2e]"
-                >
-                  GitHub
-                </a>
-              </li>
-            </ul>
-          </nav>
-          <p className="mt-6 text-xs text-white/50">
-            © {new Date().getFullYear()} On Record. Open source. Not affiliated
-            with the Utah State Legislature.
-          </p>
-        </div>
-      </footer>
     </>
   );
 }

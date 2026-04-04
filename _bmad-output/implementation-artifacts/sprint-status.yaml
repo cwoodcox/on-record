@@ -120,7 +120,7 @@ development_status:
   epic-6: in-progress
   6-1-seo-optimized-landing-page: review
   6-2-byollm-setup-flow-with-platform-specific-instructions: backlog
-  6-3-privacy-policy-and-open-graph-social-sharing: ready-for-dev
+  6-3-privacy-policy-and-open-graph-social-sharing: review
   6-4-readingpreferences-component-dark-mode-opendyslexic: backlog
   epic-6-retrospective: optional
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Atkinson_Hyperlegible } from "next/font/google";
 import "./globals.css";
+import { Footer } from "../components/Footer";
 
 const atkinson = Atkinson_Hyperlegible({
   subsets: ["latin"],
@@ -22,6 +23,7 @@ export const metadata: Metadata = {
     siteName: "On Record",
     locale: "en_US",
     type: "website",
+    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
   },
   alternates: {
     canonical: "https://getonrecord.org",
@@ -37,6 +39,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${atkinson.variable} font-sans antialiased`}>
         {children}
+        <Footer />
       </body>
     </html>
   );
