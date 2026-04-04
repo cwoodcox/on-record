@@ -5,7 +5,7 @@
 - **Story ID:** 6.1
 - **Story Key:** 6-1-seo-optimized-landing-page
 - **Epic:** 6 — Anyone Can Discover and Set Up the Tool
-- **Status:** ready-for-dev
+- **Status:** review
 - **Date Created:** 2026-03-31
 
 ---
@@ -301,3 +301,63 @@ Story 6.4 adds dark mode / ReadingPreferences toggle in the footer. This story s
 - The brand tokens in `globals.css` (already present from Story 2.6) are ready to use — do not re-declare them.
 - `apps/web/src/components/` contains `BillCard`, `CitationTag`, `ErrorBanner`, `LegislatorCard` — these are NOT used on the landing page. Do not import them.
 - Check whether `playwright.config.ts` exists at the monorepo root. If not, create a minimal one. If it does exist, add the landing page test to the existing suite.
+
+---
+
+## Tasks/Subtasks
+
+- [x] Task 1: Update `globals.css` — swap `--font-geist-sans` for `--font-atkinson` in `@theme inline`
+- [x] Task 2: Update `layout.tsx` — replace Geist font imports with `Atkinson_Hyperlegible`, replace scaffold metadata with On Record SEO metadata
+- [x] Task 3: Replace `page.tsx` with full SEO-optimized landing page (hero, how-it-works, who-it's-for, FAQ, header, footer)
+- [x] Task 4: Install `@playwright/test@1.58.2` as workspace root devDependency
+- [x] Task 5: Create `playwright.config.ts` at monorepo root with webServer config pointing at `http://localhost:3000`
+- [x] Task 6: Create `e2e/landing-page.spec.ts` with all 6 test cases from story spec
+- [x] Task 7: Run E2E tests — all 12 pass (6 cases × 2 browser projects); fix footer link text ambiguity
+- [x] Task 8: Run production build — confirms `/` is `○ (Static)` (SSG)
+- [x] Task 9: Run MCP server tests — 209 tests pass, no regressions
+
+---
+
+## Dev Agent Record
+
+### Implementation Plan
+
+1. Update `globals.css` font token (`--font-geist-sans` → `--font-atkinson`)
+2. Rewrite `layout.tsx`: Atkinson Hyperlegible via `next/font/google`, full On Record `Metadata` export (title, description, keywords, openGraph, alternates.canonical)
+3. Rewrite `page.tsx`: static Server Component (no `'use client'`), full landing page with skip link, header, hero with amber CTA to `/setup`, how-it-works 3-step, who-it's-for with Deb vignette, FAQ, footer with nav region
+4. Install `@playwright/test@1.58.2` at workspace root (`-w` flag)
+5. Create `playwright.config.ts` with webServer auto-start, chromium + mobile projects
+6. Create `e2e/landing-page.spec.ts` with all 6 spec-defined test cases
+
+### Completion Notes
+
+- All 6 story spec E2E tests pass on both Desktop Chromium and Mobile Chrome (12 total runs)
+- Landing page confirmed as `○ (Static)` — SSG at build time, zero client JS
+- No `'use client'` directive in `page.tsx`
+- Atkinson Hyperlegible replaces Geist via `next/font/google` — no CDN/link tag
+- All brand tokens from `globals.css` used — no inline styles, no new colors
+- Skip link is first focusable element via `sr-only focus:not-sr-only` pattern
+- Footer link text changed to "Set up On Record" (vs hero "Get started →") to avoid test locator ambiguity with the Playwright regex `/get started|connect on record/i`
+- CTA `<a>` has `min-h-[44px]` + `py-3` making actual height ~52px on all viewports
+- `canonical` handled via `metadata.alternates.canonical` — no manual `<link>` tag
+- No Open Graph image added (deferred to 6.3)
+- 209 MCP server unit tests pass — zero regressions
+- `pnpm-lock.yaml` updated with `@playwright/test@1.58.2`
+
+---
+
+## File List
+
+- `apps/web/src/app/page.tsx` — replaced (full landing page)
+- `apps/web/src/app/layout.tsx` — updated (Atkinson font, On Record metadata)
+- `apps/web/src/app/globals.css` — updated (`--font-atkinson` token)
+- `playwright.config.ts` — created (monorepo root, webServer config)
+- `e2e/landing-page.spec.ts` — created (6 E2E test cases)
+- `package.json` — updated (`@playwright/test@1.58.2` devDependency)
+- `pnpm-lock.yaml` — updated (lockfile sync)
+
+---
+
+## Change Log
+
+- 2026-03-31: Implemented Story 6.1 — SEO-Optimized Landing Page. Replaced Next.js scaffold in `page.tsx` and `layout.tsx` with full On Record branded landing page. Switched font from Geist to Atkinson Hyperlegible. Added Playwright E2E test suite (12 tests passing, 0 regressions). Page confirmed statically generated at build time.
