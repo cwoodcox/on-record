@@ -27,16 +27,15 @@ export default function HomePage() {
               Write your Utah legislator in minutes — in your own voice.
             </h1>
             <p className="mb-10 max-w-2xl text-lg leading-relaxed text-on-record-text dark:text-on-record-text">
-              On Record works inside Claude.ai or ChatGPT — an AI subscription
-              you already have. No new account. No extra cost. Just tell it what
-              matters to you, and it finds your representative and helps you
-              write a real, personal message.
+              On Record lives inside ChatGPT. Tell it what matters to you, and
+              it finds your representative and helps you write a real, personal
+              message — grounded in what your legislator has actually done.
             </p>
             <a
-              href="/setup"
+              href="#"
               className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg bg-on-record-accent px-8 py-3 text-lg font-bold text-white transition-colors hover:bg-[#a8681f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-on-record-accent focus-visible:ring-offset-2"
             >
-              Get started →
+              Open in ChatGPT →
             </a>
           </div>
         </section>
@@ -57,10 +56,10 @@ export default function HomePage() {
                 </span>
                 <div>
                   <p className="text-lg font-semibold text-on-record-primary dark:text-on-record-text">
-                    Connect On Record to your AI assistant
+                    Open On Record in ChatGPT
                   </p>
                   <p className="mt-1 text-base text-on-record-text dark:text-on-record-text/80">
-                    Takes about 2 minutes. Works with Claude.ai and ChatGPT.
+                    One click. No setup. Free to add to your ChatGPT account.
                   </p>
                 </div>
               </li>
@@ -132,7 +131,7 @@ export default function HomePage() {
                 <span className="mt-1 text-on-record-accent" aria-hidden="true">
                   ✓
                 </span>
-                You already use Claude.ai or ChatGPT.
+                You have a ChatGPT account (free or paid).
               </li>
               <li className="flex items-start gap-3">
                 <span className="mt-1 text-on-record-accent" aria-hidden="true">
@@ -167,9 +166,7 @@ export default function HomePage() {
                   Does this cost anything?
                 </dt>
                 <dd className="mt-2 text-base leading-relaxed text-on-record-text dark:text-on-record-text/80">
-                  On Record itself is free. You need a subscription to Claude.ai
-                  or ChatGPT (which many people already have). There is no
-                  additional charge for using On Record with those tools.
+                  On Record is free to add to your ChatGPT account.
                 </dd>
               </div>
               <div>
