@@ -25,9 +25,8 @@ export default function TermsPage() {
           <p className="mb-4 leading-relaxed">
             On Record is a free, open-source civic tool that helps Utah
             residents identify their state legislators and draft personal,
-            cited messages to send to them. It works through AI assistants you
-            already use — Claude.ai or ChatGPT — by connecting to the On Record
-            MCP server.
+            cited messages to send to them. It is available as an app in
+            ChatGPT — no setup required.
           </p>
           <p className="leading-relaxed">
             On Record is not affiliated with the Utah State Legislature, any
