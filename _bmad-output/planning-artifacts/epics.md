@@ -740,18 +740,25 @@ So that I can connect the MCP tools without needing to know what MCP means or ho
 
 ---
 
-### Story 6.3: Privacy Policy and Open Graph Social Sharing
+### Story 6.3: Privacy Policy, Terms of Service, and Open Graph Social Sharing
 
 As a **visitor**,
-I want to access the privacy policy from the landing page and share the tool on social media with a proper preview,
-So that I trust On Record's data practices and can easily spread the word through my network.
+I want to access the privacy policy and terms of service from the landing page and share the tool on social media with a proper preview,
+So that I trust On Record's data practices, understand the terms of use, and can easily spread the word through my network.
 
 **Acceptance Criteria:**
 
 **Given** a visitor is on the landing page
 **When** they click the privacy policy link in the footer
-**Then** the policy is accessible at a stable URL (FR32)
+**Then** the policy is accessible at `getonrecord.org/privacy` (FR32)
 **And** the policy states: address is collected for legislator lookup only, retained for session duration only, not sold or shared with third parties, and is not persistently stored
+
+**Given** a visitor is on the landing page
+**When** they click the terms of service link in the footer
+**Then** the terms are accessible at `getonrecord.org/terms`
+**And** the terms cover: description of the service, appropriate use, no warranty, limitation of liability, governing law (Utah), and contact information
+**And** the footer links to both `/privacy` and `/terms` on every page
+
 **And** Open Graph meta tags on the landing page include: `og:title`, `og:description`, `og:image` (referencing `public/og-image.png`) for social sharing previews (FR30)
 **And** the `og-image.png` is sized 1200×630px following standard Open Graph dimensions
 
