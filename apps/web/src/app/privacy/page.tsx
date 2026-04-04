@@ -23,13 +23,23 @@ export default function PrivacyPage() {
             What data we collect
           </h2>
           <p className="mb-4 leading-relaxed">
-            On Record asks for your home address so it can identify your Utah
-            state representatives and senators. That is the only information it
-            collects.
+            On Record runs inside ChatGPT. Everything you share in your
+            conversation — your name, your concerns, your story — stays within
+            ChatGPT and is governed by{' '}
+            <a
+              href="https://openai.com/policies/privacy-policy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[color:var(--on-record-accent)] underline underline-offset-4 hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--on-record-accent)] focus-visible:ring-offset-2"
+            >
+              OpenAI&apos;s Privacy Policy
+            </a>
+            .
           </p>
           <p className="leading-relaxed">
-            We do not collect your name, email address, phone number, or any
-            other personal details.
+            On Record receives only what ChatGPT passes to its tools: your home
+            address, used to look up your legislative district. That is the only
+            information On Record ever sees.
           </p>
         </section>
 
@@ -74,6 +84,19 @@ export default function PrivacyPage() {
             geocoding API, operated by the State of Utah, which is required to
             determine your legislative district. No other third party receives
             your address.
+          </p>
+        </section>
+
+        <section className="mb-10">
+          <h2 className="mb-4 text-xl font-bold text-[color:var(--on-record-primary)]">
+            Legislative research
+          </h2>
+          <p className="leading-relaxed">
+            On Record looks up publicly available information about Utah
+            legislators and bills on your behalf — the same data anyone can find
+            on the Utah Legislature website. These lookups are not linked to your
+            address or to you personally. On Record does not build a profile of
+            your interests or track which legislators or bills you asked about.
           </p>
         </section>
 
