@@ -86,7 +86,7 @@ development_status:
   # ─── Epic 2: additions (sprint-change-proposal-2026-03-27) ─────────────────
   # resolve_address: new tool (extract GIS resolution from lookup_legislator)
   # lookup_legislator-name-district-search: enhance with name/district modes
-  2-7-resolve-address-mcp-tool: review
+  2-7-resolve-address-mcp-tool: done
   2-8-lookup-legislator-name-district-search: done
 
   # ─── Epic 3: additions (sprint-change-proposal-2026-03-27) ─────────────────
