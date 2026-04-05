@@ -118,9 +118,9 @@ development_status:
 
   # ─── Epic 6: Anyone Can Discover and Set Up the Tool ───────────────────────
   epic-6: in-progress
-  6-1-seo-optimized-landing-page: review
+  6-1-seo-optimized-landing-page: done
   6-2-byollm-setup-flow-with-platform-specific-instructions: backlog
-  6-3-privacy-policy-and-open-graph-social-sharing: review
+  6-3-privacy-policy-and-open-graph-social-sharing: done
   6-4-readingpreferences-component-dark-mode-opendyslexic: backlog
   epic-6-retrospective: optional
 
@@ -139,6 +139,15 @@ development_status:
   8-2-local-development-setup-verification: backlog
   8-3-public-repository-issue-tracker-and-contributing-guide: backlog
   epic-8-retrospective: optional
+
+  # ─── Epic 9: Deploy MCP Server to Cloudflare Workers ───────────────────────
+  epic-9: in-progress
+  9-1-wrangler-scaffold-and-workers-entrypoint: ready-for-dev
+  9-2-migrate-cache-layer-to-d1-async-api: backlog
+  9-3-replace-node-cron-with-cron-trigger-scheduler: backlog
+  9-4-add-cloudflare-rate-limiting-to-workers-entrypoint: backlog
+  9-5-cicd-wrangler-deploy-to-cloudflare-workers: backlog
+  epic-9-retrospective: optional
 
   # ─── Epic E5: Automated Conversation Eval Harness ───────────────────────────
   epic-e5: in-progress
