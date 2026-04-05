@@ -3,40 +3,51 @@ import { rateLimiter } from 'hono-rate-limiter'
 import type { MiddlewareHandler } from 'hono'
 import { logger } from '../lib/logger.js'
 
-export const rateLimitMiddleware: MiddlewareHandler = rateLimiter({
-  windowMs: 60 * 1000, // 1-minute window
-  limit: 60,           // 60 requests per IP per window (NFR8)
-  standardHeaders: 'draft-6',
-  keyGenerator: (c) => {
-    // Railway's reverse proxy appends the real client IP to x-forwarded-for and
-    // does not strip client-supplied values, so the first entry in the chain is
-    // the client IP as seen by Railway — accurate for single-hop deployments.
-    // KNOWN RISK (MVP-accepted): a client that reaches Railway through additional
-    // proxies could inject a spoofed first entry. Mitigate post-MVP by verifying
-    // Railway's documented proxy trust behaviour or switching to a proxy-aware
-    // library. See story 1.2 Review Follow-ups for tracking.
-    const forwardedFor = c.req.header('x-forwarded-for')
-    const realIp = c.req.header('x-real-ip')
-    const ip = forwardedFor?.split(',')[0]?.trim() ?? realIp ?? 'unknown'
-    return ip
-  },
-  handler: (c, _next, options) => {
-    logger.warn(
-      {
-        source: 'rate-limiter',
-        limit: options.limit,
-        windowMs: options.windowMs,
-        ip: c.req.header('x-forwarded-for') ?? 'unknown',
+// hono-rate-limiter calls setInterval during store initialization.
+// Cloudflare Workers prohibits timers in global scope (module-init time).
+// The underlying handler is created lazily — on first HTTP request — to keep
+// module initialization free of side effects in the Workers execution model.
+let _handler: MiddlewareHandler | undefined
+
+export const rateLimitMiddleware: MiddlewareHandler = (c, next) => {
+  if (!_handler) {
+    _handler = rateLimiter({
+      windowMs: 60 * 1000, // 1-minute window
+      limit: 60,           // 60 requests per IP per window (NFR8)
+      standardHeaders: 'draft-6',
+      keyGenerator: (c) => {
+        // Railway's reverse proxy appends the real client IP to x-forwarded-for and
+        // does not strip client-supplied values, so the first entry in the chain is
+        // the client IP as seen by Railway — accurate for single-hop deployments.
+        // KNOWN RISK (MVP-accepted): a client that reaches Railway through additional
+        // proxies could inject a spoofed first entry. Mitigate post-MVP by verifying
+        // Railway's documented proxy trust behaviour or switching to a proxy-aware
+        // library. See story 1.2 Review Follow-ups for tracking.
+        const forwardedFor = c.req.header('x-forwarded-for')
+        const realIp = c.req.header('x-real-ip')
+        const ip = forwardedFor?.split(',')[0]?.trim() ?? realIp ?? 'unknown'
+        return ip
       },
-      'Rate limit exceeded — returning 429'
-    )
-    return c.json(
-      {
-        source: 'app',
-        nature: 'Rate limit exceeded',
-        action: 'Wait 60 seconds before retrying',
+      handler: (c, _next, options) => {
+        logger.warn(
+          {
+            source: 'rate-limiter',
+            limit: options.limit,
+            windowMs: options.windowMs,
+            ip: c.req.header('x-forwarded-for') ?? 'unknown',
+          },
+          'Rate limit exceeded — returning 429'
+        )
+        return c.json(
+          {
+            source: 'app',
+            nature: 'Rate limit exceeded',
+            action: 'Wait 60 seconds before retrying',
+          },
+          429
+        )
       },
-      429
-    )
-  },
-})
+    })
+  }
+  return _handler(c, next)
+}
