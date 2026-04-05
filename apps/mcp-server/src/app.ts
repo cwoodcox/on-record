@@ -55,6 +55,12 @@ app.post('/mcp', async (c) => {
   if (sessionId && transports.has(sessionId)) {
     // Existing session — reuse transport
     transport = transports.get(sessionId)!
+  } else if (sessionId) {
+    // Session ID provided but not found — stale or invalid ID, do not silently create a new session
+    return c.json(
+      { source: 'app', nature: 'unknown session', action: 'Start a new session by posting without Mcp-Session-Id' },
+      404,
+    )
   } else {
     // New session — create transport and connect a fresh McpServer instance
     transport = new WebStandardStreamableHTTPServerTransport({
@@ -91,7 +97,10 @@ app.get('/mcp', async (c) => {
   const transport = sessionId ? transports.get(sessionId) : undefined
 
   if (!transport) {
-    return c.json({ error: 'No active MCP session. POST /mcp first to initialize.' }, 404)
+    return c.json(
+      { source: 'app', nature: 'no active MCP session', action: 'POST /mcp first to initialize a session' },
+      404,
+    )
   }
 
   return transport.handleRequest(c.req.raw)
@@ -102,7 +111,10 @@ app.delete('/mcp', async (c) => {
   const transport = sessionId ? transports.get(sessionId) : undefined
 
   if (!transport) {
-    return c.json({ error: 'No active MCP session to close.' }, 404)
+    return c.json(
+      { source: 'app', nature: 'no active MCP session', action: 'POST /mcp first to initialize a session' },
+      404,
+    )
   }
 
   return transport.handleRequest(c.req.raw)

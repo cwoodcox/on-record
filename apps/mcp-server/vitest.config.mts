@@ -26,6 +26,8 @@ export default defineConfig({
             'src/tools/**/*.test.ts',
             'src/providers/**/*.test.ts',
             'src/env.test.ts',
+            'src/app.test.ts',
+            'src/worker.test.ts',
           ],
         },
       },

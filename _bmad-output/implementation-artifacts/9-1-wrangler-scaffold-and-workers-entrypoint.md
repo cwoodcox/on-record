@@ -1,6 +1,6 @@
 # Story 9.1: Wrangler Scaffold and Workers Entrypoint
 
-Status: review
+Status: in-progress
 
 ## Story
 
@@ -193,6 +193,8 @@ CLAUDE.md enforces: `console.log` FORBIDDEN in `apps/mcp-server/` — only `cons
 | `apps/mcp-server/package.json` | MODIFY | Add `"deploy": "wrangler deploy"` script; add `@cloudflare/vitest-pool-workers` devDependency |
 | `package.json` (root) | MODIFY | Add `wrangler` to devDependencies |
 | `pnpm-lock.yaml` | MODIFIED (auto) | Updated when `pnpm install` runs — commit updated lockfile |
+| `apps/mcp-server/src/app.test.ts` | CREATE | Tests for MCP route 404 error handling and error format convention |
+| `apps/mcp-server/src/worker.test.ts` | CREATE | Test for Workers env.DB binding validation |
 
 ## Dev Agent Record
 
@@ -221,3 +223,16 @@ CLAUDE.md enforces: `console.log` FORBIDDEN in `apps/mcp-server/` — only `cons
 | 2026-04-05 | Modified `apps/mcp-server/src/middleware/rate-limit.ts` | Lazy `_handler` init to avoid `setInterval` in Workers global scope |
 | 2026-04-05 | Modified `apps/mcp-server/package.json` | Add `deploy` script; add `@cloudflare/vitest-pool-workers`; bump vitest to `^4.1.0` |
 | 2026-04-05 | Modified root `package.json` | Add `wrangler: "^4.0.0"` to devDependencies; add `workerd` to `onlyBuiltDependencies` |
+| 2026-04-05 | Modified `apps/mcp-server/src/app.ts` | Fix session ID shadowing (404 on unknown sessionId); fix 404 error format to `{ source, nature, action }` on GET/DELETE /mcp |
+| 2026-04-05 | Modified `apps/mcp-server/src/worker.ts` | Add env.DB binding validation in fetch handler (AC 6 — reads Workers env, not process.env) |
+| 2026-04-05 | Created `apps/mcp-server/src/app.test.ts` | Tests for session lookup 404 responses and error format convention |
+| 2026-04-05 | Created `apps/mcp-server/src/worker.test.ts` | Test for missing D1 binding → 500 with `{ source, nature, action }` |
+| 2026-04-05 | Modified `apps/mcp-server/vitest.config.mts` | Add app.test.ts and worker.test.ts to workers pool |
+
+### Review Findings
+
+- [x] [Review][Patch] Session ID Shadowing Risk [apps/mcp-server/src/app.ts:50] — If a client provides an unknown sessionId, the server silently creates a new one instead of erroring.
+- [x] [Review][Patch] Convention Violation: 404 Error Format [apps/mcp-server/src/app.ts] — Missing session errors use `error` field instead of `{ source, nature, action }`.
+- [x] [Review][Patch] Missing Env Validation in worker.ts [apps/mcp-server/src/worker.ts] — Violates AC 6; Workers entrypoint lacks validation of the `env` binding object.
+- [x] [Review][Defer] In-Memory Session Store / Affinity [apps/mcp-server/src/app.ts] — Session state is lost on isolate restart/eviction; affinity not guaranteed. Deferred (MVP limitation).
+- [x] [Review][Defer] IP Spoofing Risk [apps/mcp-server/src/middleware/rate-limit.ts] — trusts x-forwarded-for without verification. Deferred (already marked as KNOWN RISK in code).
