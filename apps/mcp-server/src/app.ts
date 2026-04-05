@@ -43,7 +43,6 @@ const app = new Hono()
 app.use('*', loggingMiddleware)
 app.use('*', corsMiddleware)
 app.use('/mcp', rateLimitMiddleware)
-app.use('/health', rateLimitMiddleware)
 
 // ── MCP route handlers ─────────────────────────────────────────────────────
 // All handlers use the fetch-compatible WebStandard transport (Request → Response).
