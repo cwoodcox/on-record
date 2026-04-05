@@ -1,0 +1,195 @@
+# Story 9.1: Wrangler Scaffold and Workers Entrypoint
+
+Status: ready-for-dev
+
+## Story
+
+As a **developer**,
+I want wrangler configured and a Workers entrypoint in place alongside the existing Node.js entry,
+so that mcp-server can be type-checked and bundled for Cloudflare Workers while local Node.js development continues uninterrupted.
+
+## Acceptance Criteria
+
+1. **Given** the Hono app, MCP routes, and Node.js bootstrap are all inline in index.ts **when** the scaffold is complete **then** a shared `src/app.ts` exports the Hono app instance with all middleware and MCP route handlers
+2. **And** MCP route handlers in app.ts use the fetch-compatible `transport.handleRequest(c.req.raw)` → `Response` overload (no `IncomingMessage`/`ServerResponse` in app.ts)
+3. **And** index.ts imports from app.ts and retains only the Node.js-specific bootstrap: `serve()`, `drainResponse`, `process.on('unhandledRejection')`, cache warm-up, and cron scheduler setup
+4. **Given** app.ts exists with the shared Hono app **when** `src/worker.ts` is created **then** it exports `export default { fetch: app.fetch, scheduled(_event: ScheduledEvent, _env: Env, _ctx: ExecutionContext): void {} }` (scheduled is a stub)
+5. **And** worker.ts contains no mutable module-level state
+6. **And** env validation in worker.ts reads from the Workers `env` binding object — not `process.env`
+7. **Given** wrangler.toml is created in apps/mcp-server/ **when** its contents are read **then** it includes: `name = "on-record-mcp"`, a current `compatibility_date`, `nodejs_compat = true`, `main = "src/worker.ts"`, a `[[d1_databases]]` stanza with `binding = "DB"` and `database_name = "on-record-cache"`, and `[triggers] crons = []` as a placeholder
+8. **And** secrets (UGRC_API_KEY etc.) are NOT in wrangler.toml
+9. **Given** wrangler.toml with the D1 binding **when** `wrangler types` is run from apps/mcp-server/ **then** `worker-configuration.d.ts` is generated with `interface Env { DB: D1Database }`
+10. **And** it is committed to version control (not gitignored)
+11. **And** `@cloudflare/workers-types` is NOT added to package.json (wrangler types is the sole source)
+12. **Given** the pnpm workspaces structure **when** wrangler is installed **then** it appears in the root `package.json` devDependencies (not in apps/mcp-server/package.json)
+13. **And** a `"deploy": "wrangler deploy"` script is added to apps/mcp-server/package.json
+14. **Given** the existing Vitest setup **when** `@cloudflare/vitest-pool-workers` is installed and vitest.config.ts updated to use the workers pool **then** `pnpm --filter mcp-server test` passes with all existing tests green
+15. **And** `pnpm --filter mcp-server typecheck` passes with zero errors including worker.ts
+16. **Given** wrangler.toml and worker.ts are in place **when** `wrangler dev` is run from apps/mcp-server/ **then** the dev server starts on a local port without compilation or config errors (D1-backed tool calls will fail until 9.2 — expected, not a failure criterion)
+17. **Given** index.ts is refactored to import from app.ts **when** `pnpm --filter mcp-server dev` is run (Node.js path) **then** mcp-server starts and serves MCP tool calls identically to before this story
+
+## Tasks / Subtasks
+
+- [ ] Task 1: Create `src/app.ts` — shared Hono app (AC 1–3)
+  - [ ] Create `apps/mcp-server/src/app.ts`
+  - [ ] Move `const transports` Map, all middleware registrations (`loggingMiddleware`, `corsMiddleware`, `rateLimitMiddleware`), and all `/mcp` route handlers (POST, GET, DELETE) and `/health` route into app.ts
+  - [ ] Rewrite POST /mcp to use fetch-compatible overload: `const response = await transport.handleRequest(c.req.raw)` returning the response directly — no `IncomingMessage`/`ServerResponse` and no `drainResponse`
+  - [ ] Rewrite GET /mcp and DELETE /mcp handlers the same way (fetch-compatible, return the Response from `transport.handleRequest(c.req.raw)`)
+  - [ ] Export `app` as a named export: `export { app }`
+
+- [ ] Task 2: Refactor `src/index.ts` to import from app.ts (AC 3, 17)
+  - [ ] Replace the inline Hono app definition with `import { app } from './app.js'`
+  - [ ] Remove all MCP route handler definitions and middleware registrations from index.ts (they now live in app.ts)
+  - [ ] Retain: `validateEnv()`, logger, db/schema/sessions init, provider instantiation, warm-up calls, `serve()`, `drainResponse`, `process.on('unhandledRejection')`, `scheduleLegislatorsRefresh`, `scheduleBillsRefresh`
+  - [ ] Verify `pnpm --filter mcp-server dev` starts and serves MCP tool calls correctly
+
+- [ ] Task 3: Create `src/worker.ts` — Workers entrypoint (AC 4–6)
+  - [ ] Create `apps/mcp-server/src/worker.ts`
+  - [ ] Import `app` from `./app.js`
+  - [ ] Export the Workers default export: `export default { fetch: app.fetch, scheduled(_event: ScheduledEvent, _env: Env, _ctx: ExecutionContext): void {} }`
+  - [ ] Use `Env` type from `./worker-configuration.js` (generated by `wrangler types` in Task 4 — add after generation) — or manually declare `type Env = import('./worker-configuration.js').Env` after Task 4 generates it
+  - [ ] Confirm no mutable module-level state (`let`, `var`, or `const` with mutable value at module scope — the `transports` Map lives in app.ts, not worker.ts; that is acceptable per AC)
+  - [ ] Confirm no `process.env` references in worker.ts — env validation reads from `env` binding parameter passed by the Workers runtime
+
+- [ ] Task 4: Create `wrangler.toml` and run `wrangler types` (AC 7–11)
+  - [ ] Create `apps/mcp-server/wrangler.toml` with the exact shape described in AC 7
+  - [ ] Use `database_id = "placeholder-replace-in-9.2"` for the D1 stanza (a real database_id is not required until 9.2 — `wrangler types` works with a placeholder)
+  - [ ] Run `wrangler types` from `apps/mcp-server/` — this generates `worker-configuration.d.ts`
+  - [ ] Confirm generated file contains `interface Env { DB: D1Database }` (plus any other bindings present)
+  - [ ] Commit `worker-configuration.d.ts` to version control — do NOT add it to `.gitignore`
+  - [ ] Confirm `@cloudflare/workers-types` is absent from package.json (use `grep` to verify)
+
+- [ ] Task 5: Install wrangler at monorepo root (AC 12–13)
+  - [ ] Add `wrangler` to root `package.json` devDependencies (`"wrangler": "^3.x"` — use latest 3.x compatible with the wrangler.toml `compatibility_date`)
+  - [ ] Add `"deploy": "wrangler deploy"` to `apps/mcp-server/package.json` `scripts`
+  - [ ] Run `pnpm install` from monorepo root and commit the updated `pnpm-lock.yaml`
+
+- [ ] Task 6: Install `@cloudflare/vitest-pool-workers` and create vitest.config.ts (AC 14–15)
+  - [ ] Add `@cloudflare/vitest-pool-workers` to `apps/mcp-server/package.json` devDependencies (use version compatible with vitest ^4.x — check `@cloudflare/vitest-pool-workers` peer deps before pinning)
+  - [ ] Create `apps/mcp-server/vitest.config.ts` using `defineWorkersConfig` from `@cloudflare/vitest-pool-workers/config` pointing to `./wrangler.toml`
+  - [ ] Run `pnpm install` from monorepo root and commit updated `pnpm-lock.yaml`
+  - [ ] Run `pnpm --filter mcp-server test` — all existing tests must pass (zero regressions)
+  - [ ] Run `pnpm --filter mcp-server typecheck` — zero errors including worker.ts
+
+- [ ] Task 7: Verify `wrangler dev` starts without errors (AC 16)
+  - [ ] Run `wrangler dev` from `apps/mcp-server/`
+  - [ ] Confirm dev server starts on local port without compilation or wrangler config errors
+  - [ ] Note: D1-backed tool calls ARE expected to fail at this point (not a failure criterion)
+
+## Dev Notes
+
+### Critical: fetch-compatible transport.handleRequest overload
+
+The current `index.ts` MCP handlers use the Node.js overload of `StreamableHTTPServerTransport.handleRequest`:
+```ts
+// Node.js only — DO NOT put this in app.ts
+await transport.handleRequest(nodeEnv.incoming, nodeEnv.outgoing, body)
+await drainResponse(nodeEnv.outgoing)
+```
+
+`app.ts` MUST use the fetch-compatible overload instead:
+```ts
+// Fetch-compatible — works in Workers AND Node.js via @hono/node-server
+const response = await transport.handleRequest(c.req.raw)
+return response
+```
+
+The `c.req.raw` is the Web API `Request`. `transport.handleRequest(Request)` returns a `Promise<Response>`. Return that Response from the Hono handler directly. No `drainResponse` needed. `@hono/node-server` handles bridging the Web API Response back to the Node.js socket transparently.
+
+The same fetch-compatible pattern applies to GET /mcp (SSE stream) and DELETE /mcp handlers.
+
+### drainResponse stays in index.ts but is no longer called
+
+With the fetch-compatible overload in app.ts, `drainResponse` is no longer called by the MCP route handlers. The AC explicitly says to retain it in index.ts — it stays as dead code for now (cleanup deferred to post-9.5 decommission). Do NOT remove it.
+
+### transports Map lives in app.ts
+
+The `transports` Map is mutable module-level state. It belongs in `app.ts`, not `worker.ts`. The AC only prohibits mutable module-level state in worker.ts. The Map in app.ts is acceptable for 9.1. In Cloudflare Workers, isolates can be reused between requests (warm Workers), so the Map will persist within an isolate's lifetime — this is the desired behaviour for MCP session affinity.
+
+### app.ts Hono typing
+
+The current `index.ts` uses `c.env` as `{ incoming: IncomingMessage; outgoing: ServerResponse }` (Node.js env). In app.ts, `c.env` will be typed as `Env` (Workers bindings) when typed with `new Hono<{ Bindings: Env }>()`. However, since app.ts uses the fetch-compatible transport overload (no `c.env.incoming`/`c.env.outgoing`), there is no conflict. You can declare:
+```ts
+const app = new Hono()
+```
+with no explicit Bindings type in app.ts — the Workers bindings are passed through `app.fetch` at the edge and are not directly used in app.ts in this story (D1 bindings are wired in 9.2).
+
+### worker.ts env bindings
+
+The `Env` type in worker.ts comes from `worker-configuration.d.ts` generated by `wrangler types`. After Task 4, import it:
+```ts
+import type { Env } from './worker-configuration.js'
+```
+
+Secrets (UGRC_API_KEY, UTAH_LEGISLATURE_API_KEY) set via `wrangler secret put` do NOT appear in wrangler.toml and thus NOT in the generated `Env` type. They will be added to the Workers Env type in story 9.2 when env validation is fully migrated. For 9.1, the worker.ts stub only needs the `Env` type for the `scheduled` handler signature — it doesn't validate secrets yet.
+
+### wrangler.toml shape
+
+```toml
+name = "on-record-mcp"
+main = "src/worker.ts"
+compatibility_date = "2024-09-23"
+nodejs_compat = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "on-record-cache"
+database_id = "placeholder-replace-in-9.2"
+
+[triggers]
+crons = []
+```
+
+Do NOT put secrets in wrangler.toml. Secrets are added via `wrangler secret put UGRC_API_KEY` etc. (9.2/9.5 concern).
+
+### wrangler installed at root — not in apps/mcp-server
+
+Per CLAUDE.md epic constraint: `wrangler` goes in root `package.json` devDependencies. Running `wrangler` commands from `apps/mcp-server/` resolves the binary from the monorepo root `node_modules/.bin`. This is the required pattern — do NOT add wrangler to `apps/mcp-server/package.json`.
+
+### vitest.config.ts with workers pool
+
+```ts
+import { defineWorkersConfig } from '@cloudflare/vitest-pool-workers/config'
+
+export default defineWorkersConfig({
+  test: {
+    poolOptions: {
+      workers: {
+        wrangler: { configPath: './wrangler.toml' },
+      },
+    },
+  },
+})
+```
+
+The `@cloudflare/vitest-pool-workers` package must be compatible with vitest ^4.0.18. Check the package's peer dependency requirements before installing. If there is no vitest 4.x compatible release of `@cloudflare/vitest-pool-workers`, escalate before proceeding — do NOT downgrade vitest.
+
+### worker-configuration.d.ts must be committed
+
+After `wrangler types` generates it, add it to git. Check that `.gitignore` does not exclude it. The file is a checked-in generated file (like `pnpm-lock.yaml`).
+
+### pnpm lockfile discipline
+
+Per CLAUDE.md: run `pnpm install` after any change to package specifiers and commit the updated `pnpm-lock.yaml`. Two install passes may be needed — once for wrangler (Task 5) and once for @cloudflare/vitest-pool-workers (Task 6). Batch into one install pass if both packages are added before running `pnpm install`.
+
+### No console.log in apps/mcp-server/
+
+CLAUDE.md enforces: `console.log` FORBIDDEN in `apps/mcp-server/` — only `console.error` is allowed (ESLint enforced). Use `logger.info`/`logger.warn`/`logger.error` from `./lib/logger.js` for any new logging.
+
+### ESLint / typecheck green
+
+`pnpm --filter mcp-server lint` and `pnpm --filter mcp-server typecheck` must exit 0 after all changes. The existing ESLint config checks for `console.log` and import boundaries (better-sqlite3 confined to `cache/`). worker.ts must not import better-sqlite3.
+
+## File List
+
+| File | Action | Notes |
+|------|--------|-------|
+| `apps/mcp-server/src/app.ts` | CREATE | Shared Hono app — middleware + MCP handlers (fetch-compatible) |
+| `apps/mcp-server/src/worker.ts` | CREATE | Workers entrypoint — `export default { fetch, scheduled stub }` |
+| `apps/mcp-server/src/index.ts` | MODIFY | Strip Hono setup, import app from app.ts, retain Node.js bootstrap |
+| `apps/mcp-server/wrangler.toml` | CREATE | wrangler config with D1 binding, crons placeholder, nodejs_compat |
+| `apps/mcp-server/worker-configuration.d.ts` | GENERATED | Created by `wrangler types` — commit to git |
+| `apps/mcp-server/vitest.config.ts` | CREATE | Workers pool config via `defineWorkersConfig` |
+| `apps/mcp-server/package.json` | MODIFY | Add `"deploy": "wrangler deploy"` script; add `@cloudflare/vitest-pool-workers` devDependency |
+| `package.json` (root) | MODIFY | Add `wrangler` to devDependencies |
+| `pnpm-lock.yaml` | MODIFIED (auto) | Updated when `pnpm install` runs — commit updated lockfile |
