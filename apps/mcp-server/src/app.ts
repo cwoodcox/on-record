@@ -43,81 +43,109 @@ const app = new Hono()
 app.use('*', loggingMiddleware)
 app.use('*', corsMiddleware)
 app.use('/mcp', rateLimitMiddleware)
+app.use('/health', rateLimitMiddleware)
 
 // ── MCP route handlers ─────────────────────────────────────────────────────
 // All handlers use the fetch-compatible WebStandard transport (Request → Response).
 // No IncomingMessage/ServerResponse here — compatible with Workers and Node.js.
 app.post('/mcp', async (c) => {
-  const sessionId = c.req.header('mcp-session-id')
+  try {
+    const sessionId = c.req.header('mcp-session-id')
 
-  let transport: WebStandardStreamableHTTPServerTransport
+    let transport: WebStandardStreamableHTTPServerTransport
 
-  if (sessionId && transports.has(sessionId)) {
-    // Existing session — reuse transport
-    transport = transports.get(sessionId)!
-  } else if (sessionId) {
-    // Session ID provided but not found — stale or invalid ID, do not silently create a new session
-    return c.json(
-      { source: 'app', nature: 'unknown session', action: 'Start a new session by posting without Mcp-Session-Id' },
-      404,
-    )
-  } else {
-    // New session — create transport and connect a fresh McpServer instance
-    transport = new WebStandardStreamableHTTPServerTransport({
-      sessionIdGenerator: () => crypto.randomUUID(),
-      onsessioninitialized: (newSessionId) => {
-        transports.set(newSessionId, transport)
-        logger.info({ source: 'app', sessionId: newSessionId }, 'MCP session initialized')
-      },
-    })
+    if (sessionId && transports.has(sessionId)) {
+      // Existing session — reuse transport
+      transport = transports.get(sessionId)!
+    } else if (sessionId) {
+      // Session ID provided but not found — stale or invalid ID, do not silently create a new session
+      return c.json(
+        { source: 'app', nature: 'unknown session', action: 'Start a new session by posting without Mcp-Session-Id' },
+        404,
+      )
+    } else {
+      // New session — create transport and connect a fresh McpServer instance
+      transport = new WebStandardStreamableHTTPServerTransport({
+        sessionIdGenerator: () => crypto.randomUUID(),
+        onsessioninitialized: (newSessionId) => {
+          transports.set(newSessionId, transport)
+          logger.info({ source: 'app', sessionId: newSessionId }, 'MCP session initialized')
+        },
+      })
 
-    transport.onclose = () => {
-      const sid = transport.sessionId
-      if (sid) {
-        transports.delete(sid)
-        logger.info({ source: 'app', sessionId: sid }, 'MCP session closed')
+      transport.onclose = () => {
+        const sid = transport.sessionId
+        if (sid) {
+          transports.delete(sid)
+          logger.info({ source: 'app', sessionId: sid }, 'MCP session closed')
+        }
       }
+
+      const server = new McpServer({
+        name: 'on-record',
+        version: '1.0.0',
+      })
+
+      if (_registerTools) _registerTools(server)
+
+      await server.connect(transport)
     }
 
-    const server = new McpServer({
-      name: 'on-record',
-      version: '1.0.0',
-    })
-
-    if (_registerTools) _registerTools(server)
-
-    await server.connect(transport)
+    return await transport.handleRequest(c.req.raw)
+  } catch (err) {
+    const error = err as Error
+    logger.error({ source: 'app', error: error.message, stack: error.stack }, 'MCP POST request failed')
+    return c.json(
+      { source: 'app', nature: 'internal error during MCP request', action: 'Check server logs' },
+      500,
+    )
   }
-
-  return transport.handleRequest(c.req.raw)
 })
 
 app.get('/mcp', async (c) => {
-  const sessionId = c.req.header('mcp-session-id')
-  const transport = sessionId ? transports.get(sessionId) : undefined
+  try {
+    const sessionId = c.req.header('mcp-session-id')
+    const transport = sessionId ? transports.get(sessionId) : undefined
 
-  if (!transport) {
+    if (!transport) {
+      return c.json(
+        { source: 'app', nature: 'no active MCP session', action: 'POST /mcp first to initialize a session' },
+        404,
+      )
+    }
+
+    return await transport.handleRequest(c.req.raw)
+  } catch (err) {
+    const error = err as Error
+    logger.error({ source: 'app', error: error.message, stack: error.stack }, 'MCP GET request failed')
     return c.json(
-      { source: 'app', nature: 'no active MCP session', action: 'POST /mcp first to initialize a session' },
-      404,
+      { source: 'app', nature: 'internal error during MCP request', action: 'Check server logs' },
+      500,
     )
   }
-
-  return transport.handleRequest(c.req.raw)
 })
 
 app.delete('/mcp', async (c) => {
-  const sessionId = c.req.header('mcp-session-id')
-  const transport = sessionId ? transports.get(sessionId) : undefined
+  try {
+    const sessionId = c.req.header('mcp-session-id')
+    const transport = sessionId ? transports.get(sessionId) : undefined
 
-  if (!transport) {
+    if (!transport) {
+      return c.json(
+        { source: 'app', nature: 'no active MCP session', action: 'POST /mcp first to initialize a session' },
+        404,
+      )
+    }
+
+    return await transport.handleRequest(c.req.raw)
+  } catch (err) {
+    const error = err as Error
+    logger.error({ source: 'app', error: error.message, stack: error.stack }, 'MCP DELETE request failed')
     return c.json(
-      { source: 'app', nature: 'no active MCP session', action: 'POST /mcp first to initialize a session' },
-      404,
+      { source: 'app', nature: 'internal error during MCP request', action: 'Check server logs' },
+      500,
     )
   }
-
-  return transport.handleRequest(c.req.raw)
 })
 
 // ── Health check ───────────────────────────────────────────────────────────
