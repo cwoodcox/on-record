@@ -1,6 +1,6 @@
 # Story 9.3: Replace node-cron with Cron Trigger Scheduler
 
-Status: review
+Status: done
 
 ## Story
 
