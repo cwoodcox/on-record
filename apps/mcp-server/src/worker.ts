@@ -4,9 +4,15 @@ import { app, setupMcpServer } from './app.js'
 import { registerLookupLegislatorTool } from './tools/legislator-lookup.js'
 import { registerResolveAddressTool } from './tools/resolve-address.js'
 import { registerSearchBillsTool } from './tools/search-bills.js'
+import { initWorkerEnv } from './env.js'
+import { warmUpLegislatorsCache, warmUpBillsCache } from './cache/refresh.js'
+import { UtahLegislatureProvider } from './providers/utah-legislature.js'
+import { logger } from './lib/logger.js'
 
 export default {
   fetch(request: Request, env: Env, ctx: ExecutionContext): Response | Promise<Response> {
+    initWorkerEnv(env)
+
     // Validate required Workers bindings before routing.
     if (!env.DB) {
       return Response.json(
@@ -29,8 +35,20 @@ export default {
 
     return app.fetch(request, env, ctx)
   },
-  scheduled(_event: ScheduledEvent, _env: Env, _ctx: ExecutionContext): void {
-    // Stub — implemented in Story 9.3 with Cron Trigger handlers.
-    // env.DB (D1 binding) and env API keys are available from _env in 9.3.
+  scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): void {
+    initWorkerEnv(env)
+    const provider = new UtahLegislatureProvider()
+    ctx.waitUntil(
+      (async () => {
+        if (event.cron === '0 6 * * *') {
+          await warmUpLegislatorsCache(env.DB, provider)
+          logger.info({ source: 'cache' }, 'Legislators cache refreshed via cron trigger')
+        }
+        const sessions = await warmUpBillsCache(env.DB, provider)
+        logger.info({ source: 'cache', sessions }, 'Bills cache refreshed via cron trigger')
+      })().catch((err: unknown) => {
+        logger.error({ source: 'cache', err }, 'Scheduled cache refresh failed')
+      })
+    )
   },
 }

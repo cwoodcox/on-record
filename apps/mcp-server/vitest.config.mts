@@ -20,6 +20,7 @@ export default defineConfig({
         ],
         test: {
           name: 'workers',
+          setupFiles: ['src/workers-pool-setup.ts'],
           include: [
             'src/middleware/**/*.test.ts',
             'src/tools/**/*.test.ts',

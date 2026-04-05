@@ -44,3 +44,22 @@ export function getEnv(): Env {
   return _env
 }
 
+/**
+ * Initializes the internal Env from Cloudflare Workers bindings.
+ * Idempotent — no-op if _env is already set (safe across multiple requests in the same isolate).
+ * Call at the start of every Workers handler (fetch, scheduled) before any code that uses getEnv().
+ */
+export function initWorkerEnv(workerEnv: Cloudflare.Env): void {
+  if (_env) return
+  _env = {
+    PORT: Number(workerEnv.PORT) || 3001,
+    NODE_ENV: (['development', 'production', 'test'] as const).includes(
+      workerEnv.NODE_ENV as 'development' | 'production' | 'test'
+    )
+      ? (workerEnv.NODE_ENV as 'development' | 'production' | 'test')
+      : 'production',
+    UTAH_LEGISLATURE_API_KEY: workerEnv.UTAH_LEGISLATURE_API_KEY ?? '',
+    UGRC_API_KEY: workerEnv.UGRC_API_KEY ?? '',
+  }
+}
+
