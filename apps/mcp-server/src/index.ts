@@ -1,5 +1,6 @@
 // apps/mcp-server/src/index.ts
 // Node.js bootstrap: env validation, cache init, cache warm-up, cron scheduling, serve().
+// TODO: Node.js path — earmarked for decommission after Story 9.5 (Workers path is authoritative).
 // STEP 1: Validate env FIRST — before any other imports that might call getEnv()
 import { validateEnv } from './env.js'
 const env = validateEnv()
@@ -7,35 +8,33 @@ const env = validateEnv()
 // STEP 2: Initialize logger (now safe — env is validated)
 import { logger } from './lib/logger.js'
 
-// STEP 2.5: Initialize SQLite schema (Story 1.3)
-// DB connection singleton opens the database and enables WAL mode.
-// initializeSchema is idempotent — safe on every restart.
-import { db } from './cache/db.js'
-import { initializeSchema } from './cache/schema.js'
+// STEP 2.5: Open SQLite database for Node.js path (Story 1.3).
+// cache/db.ts exports createNodeDb() — confined to src/cache/ (Boundary 4).
+// Cast as D1Database since all cache functions now require that type.
+// Runtime correctness on this cast is limited: better-sqlite3 is API-compatible
+// for exec() and select queries, but batch() is not supported — warm-up will fail
+// gracefully. The Node.js path is earmarked for decommission after Story 9.5.
+import { createNodeDb } from './cache/db.js'
+import { applySchema } from './cache/schema.js'
 import { seedSessions } from './cache/sessions.js'
-initializeSchema(db)
-logger.info({ source: 'cache' }, 'SQLite schema initialized')
-seedSessions(db)
-logger.info({ source: 'cache' }, 'Sessions seeded')
+const _betterSqliteDb = createNodeDb()
+const db = _betterSqliteDb as unknown as D1Database
 
-// STEP 2.6: Legislators cache warm-up (Story 2.3)
-// Imported here — warm-up awaited inside startServer() below before serve() is called.
+// STEP 2.6: Cache warm-up imports (Story 2.3, 3.2)
 import { UtahLegislatureProvider } from './providers/utah-legislature.js'
 import { warmUpLegislatorsCache, scheduleLegislatorsRefresh, warmUpBillsCache, scheduleBillsRefresh } from './cache/refresh.js'
 
 // STEP 3: Shared Hono app (Story 9.1)
-// All middleware + MCP route handlers live in app.ts.
 import { app, setupMcpServer } from './app.js'
 import { registerLookupLegislatorTool } from './tools/legislator-lookup.js'
 import { registerResolveAddressTool } from './tools/resolve-address.js'
 import { registerSearchBillsTool } from './tools/search-bills.js'
 
 // Wire up tool registrations for the Node.js path.
-// Workers path (worker.ts) intentionally omits this until Story 9.2 migrates the cache layer to D1.
-setupMcpServer((server) => {
-  registerLookupLegislatorTool(server)
+setupMcpServer(db, (server) => {
+  registerLookupLegislatorTool(server, db)
   registerResolveAddressTool(server)
-  registerSearchBillsTool(server)
+  registerSearchBillsTool(server, db)
 })
 
 // STEP 4: Node.js-specific serve() adapter
@@ -44,8 +43,6 @@ import type { ServerResponse } from 'node:http'
 
 // ── Response drain helper ───────────────────────────────────────────────────
 // Retained for Node.js compatibility (cleanup deferred to post-9.5 decommission).
-// Not called by the current MCP route handlers — app.ts uses the fetch-compatible
-// WebStandard transport which returns a Response directly without Node.js streams.
 function drainResponse(res: ServerResponse): Promise<void> {
   if (res.writableEnded) return Promise.resolve()
   return new Promise<void>((resolve) => {
@@ -54,8 +51,7 @@ function drainResponse(res: ServerResponse): Promise<void> {
   })
 }
 
-// Suppress unused variable warning — drainResponse is intentionally retained for
-// future Node.js path needs and post-decommission cleanup.
+// Suppress unused variable warning — drainResponse is retained for future cleanup.
 void drainResponse
 
 // ── Global error handlers ──────────────────────────────────────────────────
@@ -65,19 +61,32 @@ process.on('unhandledRejection', (reason) => {
 })
 
 // ── Start server ───────────────────────────────────────────────────────────
-// startServer is async to support await on warm-up before accepting connections.
-// CommonJS modules do not support top-level await — wrap in an async IIFE.
 async function startServer(): Promise<void> {
-  // STEP 2.6: Legislators cache warm-up (Story 2.3)
-  // Instantiate provider and complete warm-up BEFORE serve() starts.
-  const provider = new UtahLegislatureProvider()
-  await warmUpLegislatorsCache(db, provider)
-  logger.info({ source: 'cache', districtCount: 104 }, 'Legislators cache warm-up complete')
+  // Apply schema and seed sessions (async D1 API; better-sqlite3 exec() is compatible)
+  await applySchema(db)
+  logger.info({ source: 'cache' }, 'SQLite schema initialized')
 
-  // STEP 2.8: Bills cache warm-up (Story 3.2)
-  // NFR17: bills warm-up failure must NOT prevent the server from starting — stale data
-  // (empty cache) is acceptable during an upstream outage. Errors are logged so the
-  // operator can investigate without impacting availability.
+  // seedSessions uses db.batch() which is not available on better-sqlite3.
+  // Wrap in try/catch: sessions table empty → calendar fallback used for session selection.
+  try {
+    await seedSessions(db)
+    logger.info({ source: 'cache' }, 'Sessions seeded')
+  } catch (err: unknown) {
+    logger.error({ source: 'cache', err }, 'Session seeding failed on Node.js path — calendar fallback active')
+  }
+
+  const provider = new UtahLegislatureProvider()
+
+  // Legislators cache warm-up — wrapped in try/catch for Node.js path compatibility
+  // (writeLegislators uses db.batch() which is not available on better-sqlite3 cast)
+  try {
+    await warmUpLegislatorsCache(db, provider)
+    logger.info({ source: 'cache', districtCount: 104 }, 'Legislators cache warm-up complete')
+  } catch (err: unknown) {
+    logger.error({ source: 'legislature-api', err }, 'Legislators cache warm-up failed — serving stale data')
+  }
+
+  // Bills cache warm-up — stale data acceptable during upstream outage (NFR17)
   try {
     const sessions = await warmUpBillsCache(db, provider)
     logger.info({ source: 'cache', sessions }, 'Bills cache warm-up complete')

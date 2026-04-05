@@ -1,7 +1,8 @@
 // apps/mcp-server/src/cache/refresh.ts
 // Legislators and bills cache warm-up and refresh schedulers.
+// scheduleLegislatorsRefresh and scheduleBillsRefresh use node-cron — Node.js path only.
+// In the Workers path these are replaced by Cron Triggers (Story 9.3).
 // Cron callback must NOT be async or throw — async work is wrapped with .catch().
-import type Database from 'better-sqlite3'
 import { schedule } from 'node-cron'
 import { logger } from '../lib/logger.js'
 import type { LegislatureDataProvider } from '../providers/types.js'
@@ -17,14 +18,13 @@ const SENATE_DISTRICTS = Array.from({ length: 29 }, (_, i) => i + 1)
 
 /**
  * Fetches all Utah legislative districts in parallel and writes results to cache.
- * 104 total calls (75 house + 29 senate) using Promise.all — acceptable burst on startup
- * since legislators refresh at most once per day.
+ * 104 total calls (75 house + 29 senate) using Promise.all.
  *
- * @param db       - Injected SQLite database instance (dependency injection — Boundary 4)
+ * @param db       - D1Database instance
  * @param provider - Data provider (UtahLegislatureProvider or test mock)
  */
 export async function warmUpLegislatorsCache(
-  db: Database.Database,
+  db: D1Database,
   provider: LegislatureDataProvider,
 ): Promise<void> {
   const houseCalls = HOUSE_DISTRICTS.map((district) =>
@@ -36,23 +36,19 @@ export async function warmUpLegislatorsCache(
 
   const allResults = await Promise.all([...houseCalls, ...senateCalls])
 
-  // Flatten all Legislator[] arrays into a single array for a single transactional write
   const legislators = allResults.flat()
-  writeLegislators(db, legislators)
+  await writeLegislators(db, legislators)
 }
 
 /**
  * Registers a daily cron job to refresh the legislators cache at 6 AM (0 6 * * *).
- * The cron callback is synchronous and wraps the async warm-up with .catch() to
- * prevent uncaught rejections from surfacing to callers.
- * On failure: logs with source 'legislature-api'; stale data continues to be served (NFR17).
- * On success: logs with source 'cache'.
+ * Node.js path only — Workers path uses Cron Triggers (Story 9.3).
  *
- * @param db       - Injected SQLite database instance (dependency injection — Boundary 4)
+ * @param db       - D1Database instance
  * @param provider - Data provider
  */
 export function scheduleLegislatorsRefresh(
-  db: Database.Database,
+  db: D1Database,
   provider: LegislatureDataProvider,
 ): void {
   schedule('0 6 * * *', () => {
@@ -69,35 +65,29 @@ export function scheduleLegislatorsRefresh(
 /**
  * Fetches bills for the active session (or the 2 most recent completed sessions during
  * inter-session periods) and writes results to cache.
- * During active session: 1 API call. During inter-session: 2 parallel API calls.
- * Both fit within the ≤1 refresh per hour rate limit (calls happen in a single refresh cycle).
- * Propagates errors from the provider — caller (index.ts) handles gracefully with .catch().
  *
- * @param db       - Injected SQLite database instance (dependency injection — Boundary 4)
- * @param provider - Data provider (UtahLegislatureProvider or test mock)
+ * @param db       - D1Database instance
+ * @param provider - Data provider
  */
 export async function warmUpBillsCache(
-  db: Database.Database,
+  db: D1Database,
   provider: LegislatureDataProvider,
 ): Promise<string[]> {
-  const sessions = getSessionsForRefresh(db)
+  const sessions = await getSessionsForRefresh(db)
   const allBills = await Promise.all(sessions.map((s) => provider.getBillsBySession(s)))
-  writeBills(db, allBills.flat())
+  await writeBills(db, allBills.flat())
   return sessions
 }
 
 /**
- * Registers an hourly cron job to refresh the bills cache at the top of every hour (0 * * * *).
- * The cron callback is synchronous and wraps the async warm-up with .catch() to
- * prevent uncaught rejections from surfacing to callers.
- * On failure: logs with source 'legislature-api'; stale data continues to be served (NFR17).
- * On success: logs with source 'cache'.
+ * Registers an hourly cron job to refresh the bills cache at the top of every hour.
+ * Node.js path only — Workers path uses Cron Triggers (Story 9.3).
  *
- * @param db       - Injected SQLite database instance (dependency injection — Boundary 4)
+ * @param db       - D1Database instance
  * @param provider - Data provider
  */
 export function scheduleBillsRefresh(
-  db: Database.Database,
+  db: D1Database,
   provider: LegislatureDataProvider,
 ): void {
   schedule('0 * * * *', () => {

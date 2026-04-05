@@ -1,12 +1,13 @@
 // apps/mcp-server/src/worker.ts
 // Cloudflare Workers entrypoint.
-// No mutable module-level state — only imports and the default export.
-import { app } from './app.js'
+import { app, setupMcpServer } from './app.js'
+import { registerLookupLegislatorTool } from './tools/legislator-lookup.js'
+import { registerResolveAddressTool } from './tools/resolve-address.js'
+import { registerSearchBillsTool } from './tools/search-bills.js'
 
 export default {
   fetch(request: Request, env: Env, ctx: ExecutionContext): Response | Promise<Response> {
     // Validate required Workers bindings before routing.
-    // Reads from the Workers env binding object — not process.env (AC 6).
     if (!env.DB) {
       return Response.json(
         {
@@ -17,6 +18,15 @@ export default {
         { status: 500 },
       )
     }
+
+    // Wire D1 binding into tool registrations (idempotent — overwrites on each request,
+    // but env.DB is consistent within an isolate and tool closures capture the binding).
+    setupMcpServer(env.DB, (server) => {
+      registerLookupLegislatorTool(server, env.DB)
+      registerResolveAddressTool(server)
+      registerSearchBillsTool(server, env.DB)
+    })
+
     return app.fetch(request, env, ctx)
   },
   scheduled(_event: ScheduledEvent, _env: Env, _ctx: ExecutionContext): void {

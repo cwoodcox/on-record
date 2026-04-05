@@ -1,82 +1,65 @@
 // apps/mcp-server/src/cache/schema.test.ts
-// Tests for initializeSchema using an in-memory SQLite database.
-// Does NOT import the db singleton from cache/db.ts — tests are isolated from disk.
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import Database from 'better-sqlite3'
-import { initializeSchema } from './schema.js'
+// Tests for applySchema using the D1 binding provided by the workers pool.
+// Schema is authoritative in migrations/001-initial-schema.sql; applySchema()
+// applies the same DDL (SCHEMA_SQL) to a D1 database for tests and Node.js startup.
+import { describe, it, expect, beforeAll } from 'vitest'
+import { env } from 'cloudflare:test'
+import { applySchema } from './schema.js'
 
-describe('initializeSchema', () => {
-  let db: Database.Database
-
-  beforeEach(() => {
-    // Fresh in-memory DB per test — isolated, fast, no disk I/O
-    db = new Database(':memory:')
+describe('applySchema', () => {
+  beforeAll(async () => {
+    await applySchema(env.DB)
   })
 
-  afterEach(() => {
-    // Explicitly close the in-memory DB to release WAL/shm handles and avoid resource leaks
-    db.close()
-  })
-
-  it('creates the legislators table', () => {
-    initializeSchema(db)
-    const result = db
+  it('creates the legislators table', async () => {
+    const result = await env.DB
       .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='legislators'")
-      .get()
+      .first<{ name: string }>()
     expect(result).toBeDefined()
   })
 
-  it('creates the bills table', () => {
-    initializeSchema(db)
-    const result = db
+  it('creates the bills table', async () => {
+    const result = await env.DB
       .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='bills'")
-      .get()
+      .first<{ name: string }>()
     expect(result).toBeDefined()
   })
 
-  it('creates the bill_fts virtual table', () => {
-    initializeSchema(db)
-    const result = db
+  it('creates the bill_fts virtual table', async () => {
+    const result = await env.DB
       .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='bill_fts'")
-      .get()
+      .first<{ name: string }>()
     expect(result).toBeDefined()
   })
 
-  it('creates the events table', () => {
-    initializeSchema(db)
-    const result = db
+  it('creates the events table', async () => {
+    const result = await env.DB
       .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='events'")
-      .get()
+      .first<{ name: string }>()
     expect(result).toBeDefined()
   })
 
-  it('is idempotent — calling twice does not throw', () => {
-    expect(() => {
-      initializeSchema(db)
-      initializeSchema(db)
-    }).not.toThrow()
+  it('is idempotent — calling twice does not throw', async () => {
+    await expect(applySchema(env.DB)).resolves.toBeUndefined()
   })
 
-  it('creates idx_bills_session index', () => {
-    initializeSchema(db)
-    const result = db
+  it('creates idx_bills_session index', async () => {
+    const result = await env.DB
       .prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_bills_session'")
-      .get()
+      .first<{ name: string }>()
     expect(result).toBeDefined()
   })
 
-  it('creates idx_bills_sponsor_id index', () => {
-    initializeSchema(db)
-    const result = db
+  it('creates idx_bills_sponsor_id index', async () => {
+    const result = await env.DB
       .prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_bills_sponsor_id'")
-      .get()
+      .first<{ name: string }>()
     expect(result).toBeDefined()
   })
 
-  it('legislators table has required columns', () => {
-    initializeSchema(db)
-    const columns = db.prepare('PRAGMA table_info(legislators)').all() as Array<{ name: string }>
-    const names = columns.map((c) => c.name)
+  it('legislators table has required columns', async () => {
+    const result = await env.DB.prepare('PRAGMA table_info(legislators)').all<{ name: string }>()
+    const names = result.results.map((c) => c.name)
     expect(names).toEqual(
       expect.arrayContaining([
         'id',
@@ -92,10 +75,9 @@ describe('initializeSchema', () => {
     )
   })
 
-  it('bills table has required columns', () => {
-    initializeSchema(db)
-    const columns = db.prepare('PRAGMA table_info(bills)').all() as Array<{ name: string }>
-    const names = columns.map((c) => c.name)
+  it('bills table has required columns', async () => {
+    const result = await env.DB.prepare('PRAGMA table_info(bills)').all<{ name: string }>()
+    const names = result.results.map((c) => c.name)
     expect(names).toEqual(
       expect.arrayContaining([
         'id',
@@ -111,34 +93,32 @@ describe('initializeSchema', () => {
     )
   })
 
-  it('events table has required columns', () => {
-    initializeSchema(db)
-    const columns = db.prepare('PRAGMA table_info(events)').all() as Array<{ name: string }>
-    const names = columns.map((c) => c.name)
+  it('events table has required columns', async () => {
+    const result = await env.DB.prepare('PRAGMA table_info(events)').all<{ name: string }>()
+    const names = result.results.map((c) => c.name)
     expect(names).toEqual(
       expect.arrayContaining(['id', 'event_type', 'district', 'timestamp'])
     )
   })
 
-  it('bill_fts virtual table exists and can be queried', () => {
-    initializeSchema(db)
-    // bill_fts is a content table backed by bills — query with no rows should return empty, not error
-    expect(() => {
-      db.prepare("SELECT * FROM bill_fts WHERE bill_fts MATCH 'test'").all()
-    }).not.toThrow()
+  it('bill_fts virtual table exists and can be queried', async () => {
+    const result = await env.DB
+      .prepare("SELECT * FROM bill_fts WHERE bill_fts MATCH 'test'")
+      .all()
+    expect(result.results).toBeDefined()
   })
 
-  it('bill_fts content table is linked to bills — FTS5 search returns matching rows after rebuild', () => {
-    initializeSchema(db)
-    // Insert a row into bills (the content source for bill_fts)
-    db.prepare(`
-      INSERT INTO bills (id, session, title, summary, status, sponsor_id, cached_at)
-      VALUES ('HB0001', '2025GS', 'Healthcare Reform Act', 'Expands Medicaid coverage', 'Enrolled', 'LEG001', '2025-01-01T00:00:00Z')
-    `).run()
-    // Rebuild FTS5 index to sync content table (required after bulk insert)
-    db.prepare("INSERT INTO bill_fts(bill_fts) VALUES('rebuild')").run()
-    // FTS5 should now find the inserted bill by keyword
-    const results = db.prepare("SELECT * FROM bill_fts WHERE bill_fts MATCH 'Medicaid'").all()
-    expect(results).toHaveLength(1)
+  it('bill_fts content table is linked to bills — FTS5 search returns matching rows after rebuild', async () => {
+    await env.DB
+      .prepare(
+        `INSERT OR IGNORE INTO bills (id, session, title, summary, status, sponsor_id, cached_at)
+         VALUES ('HB0001', '2025GS', 'Healthcare Reform Act', 'Expands Medicaid coverage', 'Enrolled', 'LEG001', '2025-01-01T00:00:00Z')`,
+      )
+      .run()
+    await env.DB.prepare("INSERT INTO bill_fts(bill_fts) VALUES('rebuild')").run()
+    const results = await env.DB
+      .prepare("SELECT * FROM bill_fts WHERE bill_fts MATCH 'Medicaid'")
+      .all()
+    expect(results.results.length).toBeGreaterThan(0)
   })
 })

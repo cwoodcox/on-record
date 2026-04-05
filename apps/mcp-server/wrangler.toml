@@ -6,7 +6,7 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "on-record-cache"
-database_id = "placeholder-replace-in-9.2"
+database_id = "877ea9f0-a442-4bbd-81a4-2701bc29a143"
 
 [triggers]
 crons = []

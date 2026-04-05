@@ -1,6 +1,5 @@
 // apps/mcp-server/src/tools/search-bills.ts
-// MCP tool: search_bills — searches bills from the SQLite cache with all-optional filters.
-// Reads from cache via searchBills (Boundary 4: no better-sqlite3 import here).
+// MCP tool: search_bills — searches bills from the D1 cache with all-optional filters.
 // Wraps the cache read in retryWithDelay for resilience against transient DB errors.
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
@@ -12,11 +11,11 @@ import { retryWithDelay } from '../lib/retry.js'
 
 /**
  * Registers the `search_bills` MCP tool on the given McpServer instance.
- * Call once per McpServer (inside the new-session else branch in index.ts).
  *
  * @param server - McpServer instance to register the tool on
+ * @param db     - D1Database instance injected from env.DB
  */
-export function registerSearchBillsTool(server: McpServer): void {
+export function registerSearchBillsTool(server: McpServer, db: D1Database): void {
   server.tool(
     'search_bills',
     'Searches the Utah Legislature bill cache. All parameters are optional — omitting all returns all cached bills. Filters compose: providing sponsorId + session returns that legislator\'s bills from that session. Useful for: (1) loading all bills by a known sponsor, (2) finding a specific bill by number, (3) full-text searching across all bills by topic. Returns paginated results with total count.',
@@ -50,7 +49,7 @@ export function registerSearchBillsTool(server: McpServer): void {
       const params = rawParams as SearchBillsParams
       try {
         const result = await retryWithDelay(
-          async () => searchBills(params),
+          async () => searchBills(db, params),
           2,    // 2 retries (3 total attempts: 1 initial + 2 retries)
           1000, // 1s delay then 3s delay (FR36: "at least 2 retries with increasing delay")
         )

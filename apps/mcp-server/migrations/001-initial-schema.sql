@@ -1,10 +1,7 @@
-// apps/mcp-server/src/cache/schema.ts
-// DDL authority for the D1 schema.
-// The canonical schema is in migrations/001-initial-schema.sql.
-// SCHEMA_SQL is a copy of that file used by tests (beforeAll) and the
-// Node.js startup path (applySchema) to initialise an in-process D1/SQLite DB.
+-- migrations/001-initial-schema.sql
+-- Clean schema for D1 (no migration logic — fresh install).
+-- Applied via: wrangler d1 migrations apply on-record-cache --local
 
-export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS legislators (
   id          TEXT    PRIMARY KEY,
   chamber     TEXT    NOT NULL,
@@ -57,19 +54,3 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE INDEX IF NOT EXISTS idx_sessions_start_end ON sessions (start_date, end_date);
 CREATE INDEX IF NOT EXISTS idx_bills_session ON bills (session);
 CREATE INDEX IF NOT EXISTS idx_bills_sponsor_id ON bills (sponsor_id);
-`
-
-/**
- * Applies the schema DDL to the given D1 database.
- * Used by tests (beforeAll) and the Node.js startup path.
- * Idempotent — safe to call multiple times (all DDL uses IF NOT EXISTS).
- */
-export async function applySchema(db: D1Database): Promise<void> {
-  const statements = SCHEMA_SQL
-    .split(';')
-    .map((s) => s.replace(/\s+/g, ' ').trim())
-    .filter((s) => s.length > 0)
-  for (const stmt of statements) {
-    await db.exec(stmt)
-  }
-}

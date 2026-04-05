@@ -1,7 +1,7 @@
 // apps/mcp-server/src/cache/db.ts
-// SQLite database connection singleton with WAL mode.
-// All better-sqlite3 usage is confined to apps/mcp-server/src/cache/ (Boundary 4).
-// The data/ directory and on-record.db file are created at runtime; both are gitignored.
+// Node.js path helper — for use by src/index.ts only.
+// Earmarked for decommission after Story 9.5 (Workers path uses D1 exclusively).
+// All better-sqlite3 usage remains confined to src/cache/ (Boundary 4).
 import Database from 'better-sqlite3'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
@@ -11,9 +11,12 @@ import { join } from 'node:path'
 const dataDir = join(__dirname, '..', '..', 'data')
 const dbPath = join(dataDir, 'on-record.db')
 
-// Ensure the data/ directory exists before opening the DB.
-// mkdirSync with { recursive: true } is a no-op if the directory already exists.
-function openDatabase(): Database.Database {
+/**
+ * Opens a better-sqlite3 Database for the Node.js development path.
+ * Called once from src/index.ts at startup.
+ * Not used in the Workers path — D1 is injected via env.DB there.
+ */
+export function createNodeDb(): Database.Database {
   try {
     mkdirSync(dataDir, { recursive: true })
   } catch (err) {
@@ -30,10 +33,6 @@ function openDatabase(): Database.Database {
   }
 
   // WAL mode for read concurrency — required for multiple readers during cache warm-up.
-  // WAL mode is persistent: once set, it stays for the DB file lifetime.
-  // Produces data/on-record.db-shm and data/on-record.db-wal (both gitignored).
   instance.pragma('journal_mode = WAL')
   return instance
 }
-
-export const db: Database.Database = openDatabase()

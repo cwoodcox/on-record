@@ -29,6 +29,9 @@ build/
 # pnpm
 .pnpm-store/
 
+# Wrangler local secrets (copy from .dev.vars.example and fill in)
+.dev.vars
+
 # evals Python venv
 evals/.venv/
 

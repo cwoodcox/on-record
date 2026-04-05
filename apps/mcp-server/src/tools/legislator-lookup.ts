@@ -1,6 +1,5 @@
 // apps/mcp-server/src/tools/legislator-lookup.ts
 // MCP tool: lookup_legislator — resolves a legislator by ID, partial name, or chamber + district.
-// Boundary 4: only cache/ imports better-sqlite3 — this file must not import it.
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { logger } from '../lib/logger.js'
@@ -16,11 +15,11 @@ import {
 
 /**
  * Registers the `lookup_legislator` MCP tool on the given McpServer instance.
- * Call once per McpServer (inside the new-session else branch in index.ts).
  *
  * @param server - McpServer instance to register the tool on
+ * @param db     - D1Database instance injected from env.DB
  */
-export function registerLookupLegislatorTool(server: McpServer): void {
+export function registerLookupLegislatorTool(server: McpServer, db: D1Database): void {
   server.tool(
     'lookup_legislator',
     'Retrieves legislator contact info by legislator ID (use sponsorId from bill search results), by partial name (when constituent knows their rep by name), or by legislative chamber and district number (use houseDistrict/senateDistrict from resolve_address). Returns structured JSON with legislator name, chamber, district, email, and phone.',
@@ -111,16 +110,16 @@ export function registerLookupLegislatorTool(server: McpServer): void {
         }
 
         if (id !== undefined) {
-          const leg = getLegislatorById(id)
+          const leg = await getLegislatorById(db, id)
           if (leg) addLegislators([leg])
         }
 
         if (chamber !== undefined && district !== undefined) {
-          addLegislators(getLegislatorsByDistrict(chamber, district))
+          addLegislators(await getLegislatorsByDistrict(db, chamber, district))
         }
 
         if (name !== undefined) {
-          addLegislators(getLegislatorsByName(name))
+          addLegislators(await getLegislatorsByName(db, name))
         }
 
         // 4. Cache miss — no legislators found across all modes
@@ -141,7 +140,7 @@ export function registerLookupLegislatorTool(server: McpServer): void {
           }
         }
 
-        // 5. Build result — no resolvedAddress (that comes from resolve_address tool)
+        // 5. Build result
         const result: LookupLegislatorResult = {
           legislators,
           session: legislators[0]!.session,

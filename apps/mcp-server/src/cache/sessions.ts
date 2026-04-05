@@ -1,9 +1,7 @@
 // apps/mcp-server/src/cache/sessions.ts
 // Session metadata module — manages known Utah legislative session records.
-// Boundary 4: only cache/ modules import better-sqlite3.
-// All functions receive db as a parameter (dependency injection) for testability.
+// All functions accept D1Database (injected) and are async.
 // Called from: index.ts (seedSessions), refresh.ts (getSessionsForRefresh).
-import type Database from 'better-sqlite3'
 
 interface SessionRow {
   id: string
@@ -28,76 +26,71 @@ const UTAH_GENERAL_SESSIONS: SessionRow[] = [
 /**
  * Seeds the sessions table with known Utah General Session records.
  * Uses INSERT OR IGNORE so calling multiple times is idempotent.
- * Receives db as a parameter (dependency injection — Boundary 4).
- * Called once at server startup (index.ts) after initializeSchema().
+ * Uses db.batch() for atomic multi-row insert.
+ *
+ * @param db - D1Database instance
  */
-export function seedSessions(db: Database.Database): void {
-  const stmt = db.prepare<[string, number, string, string, string]>(
-    `INSERT OR IGNORE INTO sessions (id, year, type, start_date, end_date) VALUES (?, ?, ?, ?, ?)`,
+export async function seedSessions(db: D1Database): Promise<void> {
+  await db.batch(
+    UTAH_GENERAL_SESSIONS.map((s) =>
+      db
+        .prepare(
+          `INSERT OR IGNORE INTO sessions (id, year, type, start_date, end_date) VALUES (?, ?, ?, ?, ?)`,
+        )
+        .bind(s.id, s.year, s.type, s.start_date, s.end_date),
+    ),
   )
-  db.transaction(() => {
-    for (const s of UTAH_GENERAL_SESSIONS) {
-      stmt.run(s.id, s.year, s.type, s.start_date, s.end_date)
-    }
-  })()
 }
 
 /**
  * Returns true if the given date falls within any known session's date range.
- * Reads from the sessions table — not hardcoded Jan-Mar comparison.
  * Falls back to calendar heuristic (month < 3) if sessions table is empty.
  *
- * @param db  - SQLite database instance
+ * @param db  - D1Database instance
  * @param now - Optional current date; defaults to new Date() (injectable for tests)
  */
-export function isInSession(db: Database.Database, now?: Date): boolean {
+export async function isInSession(db: D1Database, now?: Date): Promise<boolean> {
   const today = (now ?? new Date()).toISOString().slice(0, 10)
-  const row = db
-    .prepare<[string, string], { id: string }>(
-      `SELECT id FROM sessions WHERE start_date <= ? AND ? <= end_date LIMIT 1`,
-    )
-    .get(today, today)
-  if (row !== undefined) return true
+  const row = await db
+    .prepare(`SELECT id FROM sessions WHERE start_date <= ? AND ? <= end_date LIMIT 1`)
+    .bind(today, today)
+    .first<{ id: string }>()
+  if (row !== null) return true
 
   // If sessions table has data and no match found → definitively inter-session
-  const hasData = db.prepare<[], { n: number }>('SELECT COUNT(*) AS n FROM sessions').get()
-  if (hasData !== undefined && hasData.n > 0) return false
+  const hasData = await db.prepare('SELECT COUNT(*) AS n FROM sessions').first<{ n: number }>()
+  if (hasData !== null && hasData.n > 0) return false
 
   // Fallback only when sessions table truly empty — calendar heuristic
-  // Use getUTCMonth() to match the UTC date string used in the SQL query above
   const d = now ?? new Date()
   return d.getUTCMonth() < 3
 }
 
 /**
  * Returns the active session ID if in session, or the most recently completed session ID.
- * Reads from the sessions table — not hardcoded year math.
  * Falls back to calendar computation if sessions table is empty.
  *
- * @param db  - SQLite database instance
+ * @param db  - D1Database instance
  * @param now - Optional current date; defaults to new Date()
  */
-export function getActiveSession(db: Database.Database, now?: Date): string {
+export async function getActiveSession(db: D1Database, now?: Date): Promise<string> {
   const today = (now ?? new Date()).toISOString().slice(0, 10)
 
   // Active session check
-  const activeRow = db
-    .prepare<[string, string], { id: string }>(
-      `SELECT id FROM sessions WHERE start_date <= ? AND ? <= end_date LIMIT 1`,
-    )
-    .get(today, today)
-  if (activeRow !== undefined) return activeRow.id
+  const activeRow = await db
+    .prepare(`SELECT id FROM sessions WHERE start_date <= ? AND ? <= end_date LIMIT 1`)
+    .bind(today, today)
+    .first<{ id: string }>()
+  if (activeRow !== null) return activeRow.id
 
   // Most recently completed session
-  const completedRow = db
-    .prepare<[string], { id: string }>(
-      `SELECT id FROM sessions WHERE end_date < ? ORDER BY end_date DESC LIMIT 1`,
-    )
-    .get(today)
-  if (completedRow !== undefined) return completedRow.id
+  const completedRow = await db
+    .prepare(`SELECT id FROM sessions WHERE end_date < ? ORDER BY end_date DESC LIMIT 1`)
+    .bind(today)
+    .first<{ id: string }>()
+  if (completedRow !== null) return completedRow.id
 
   // Fallback: calendar computation (Jan-Mar = current year, else prior year)
-  // Use getUTCMonth() to match the UTC date string used in the SQL queries above
   const d = now ?? new Date()
   const year = d.getUTCFullYear()
   return d.getUTCMonth() < 3 ? `${year}GS` : `${year - 1}GS`
@@ -107,30 +100,27 @@ export function getActiveSession(db: Database.Database, now?: Date): string {
  * Returns the session IDs to fetch bills for.
  * - Active session: returns [activeSessionId]
  * - Inter-session: returns the 2 most recently completed session IDs (most recent first)
- * Used by warmUpBillsCache to determine which sessions to refresh from the API.
  *
- * @param db  - SQLite database instance
+ * @param db  - D1Database instance
  * @param now - Optional current date; defaults to new Date()
  */
-export function getSessionsForRefresh(db: Database.Database, now?: Date): string[] {
+export async function getSessionsForRefresh(db: D1Database, now?: Date): Promise<string[]> {
   const today = (now ?? new Date()).toISOString().slice(0, 10)
 
   // Check for active session
-  const activeRow = db
-    .prepare<[string, string], { id: string }>(
-      `SELECT id FROM sessions WHERE start_date <= ? AND ? <= end_date LIMIT 1`,
-    )
-    .get(today, today)
-  if (activeRow !== undefined) return [activeRow.id]
+  const activeRow = await db
+    .prepare(`SELECT id FROM sessions WHERE start_date <= ? AND ? <= end_date LIMIT 1`)
+    .bind(today, today)
+    .first<{ id: string }>()
+  if (activeRow !== null) return [activeRow.id]
 
   // Inter-session: last 2 completed sessions
-  const completed = db
-    .prepare<[string], { id: string }>(
-      `SELECT id FROM sessions WHERE end_date < ? ORDER BY end_date DESC LIMIT 2`,
-    )
-    .all(today)
-  if (completed.length > 0) return completed.map((r) => r.id)
+  const completed = await db
+    .prepare(`SELECT id FROM sessions WHERE end_date < ? ORDER BY end_date DESC LIMIT 2`)
+    .bind(today)
+    .all<{ id: string }>()
+  if (completed.results.length > 0) return completed.results.map((r) => r.id)
 
   // Fallback: single session from calendar
-  return [getActiveSession(db, now)]
+  return [await getActiveSession(db, now)]
 }

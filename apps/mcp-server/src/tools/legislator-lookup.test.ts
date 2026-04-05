@@ -60,6 +60,7 @@ function createMockServer(): {
 
   registerLookupLegislatorTool(
     mockServer as unknown as import('@modelcontextprotocol/sdk/server/mcp.js').McpServer,
+    {} as D1Database,
   )
 
   return {
@@ -99,11 +100,11 @@ describe('registerLookupLegislatorTool', () => {
 
   it('Test 1 — ID mode: returns legislators array and session when id is provided', async () => {
     const leg = makeLegislator({ id: 'DAILEJ', name: 'Jennifer Dailey-Provost' })
-    vi.mocked(getLegislatorById).mockReturnValue(leg)
+    vi.mocked(getLegislatorById).mockResolvedValue(leg)
 
     const response = await server.invokeHandler({ id: 'DAILEJ' })
 
-    expect(getLegislatorById).toHaveBeenCalledWith('DAILEJ')
+    expect(getLegislatorById).toHaveBeenCalledWith(expect.anything(), 'DAILEJ')
 
     const result = JSON.parse(response.content[0]?.text ?? '{}') as LookupLegislatorResult
     expect(result.legislators).toHaveLength(1)
@@ -115,11 +116,11 @@ describe('registerLookupLegislatorTool', () => {
 
   it('Test 2 — district mode: returns legislators when chamber and district are provided', async () => {
     const leg = makeLegislator({ id: 'DISTLG', chamber: 'house', district: 29 })
-    vi.mocked(getLegislatorsByDistrict).mockReturnValue([leg])
+    vi.mocked(getLegislatorsByDistrict).mockResolvedValue([leg])
 
     const response = await server.invokeHandler({ chamber: 'house', district: 29 })
 
-    expect(getLegislatorsByDistrict).toHaveBeenCalledWith('house', 29)
+    expect(getLegislatorsByDistrict).toHaveBeenCalledWith(expect.anything(), 'house', 29)
 
     const result = JSON.parse(response.content[0]?.text ?? '{}') as LookupLegislatorResult
     expect(result.legislators).toHaveLength(1)
@@ -130,11 +131,11 @@ describe('registerLookupLegislatorTool', () => {
 
   it('Test 3 — name mode: returns legislators when name is provided', async () => {
     const leg = makeLegislator({ id: 'SMITHB', name: 'Bob Smith' })
-    vi.mocked(getLegislatorsByName).mockReturnValue([leg])
+    vi.mocked(getLegislatorsByName).mockResolvedValue([leg])
 
     const response = await server.invokeHandler({ name: 'Smith' })
 
-    expect(getLegislatorsByName).toHaveBeenCalledWith('Smith')
+    expect(getLegislatorsByName).toHaveBeenCalledWith(expect.anything(), 'Smith')
 
     const result = JSON.parse(response.content[0]?.text ?? '{}') as LookupLegislatorResult
     expect(result.legislators).toHaveLength(1)
@@ -147,13 +148,13 @@ describe('registerLookupLegislatorTool', () => {
     const sharedLeg = makeLegislator({ id: 'SMITHJ', name: 'Jane Smith' })
     const extraLeg = makeLegislator({ id: 'SMITHB', name: 'Bob Smith', district: 30 })
 
-    vi.mocked(getLegislatorById).mockReturnValue(sharedLeg)
-    vi.mocked(getLegislatorsByName).mockReturnValue([sharedLeg, extraLeg])
+    vi.mocked(getLegislatorById).mockResolvedValue(sharedLeg)
+    vi.mocked(getLegislatorsByName).mockResolvedValue([sharedLeg, extraLeg])
 
     const response = await server.invokeHandler({ id: 'SMITHJ', name: 'Smith' })
 
-    expect(getLegislatorById).toHaveBeenCalledWith('SMITHJ')
-    expect(getLegislatorsByName).toHaveBeenCalledWith('Smith')
+    expect(getLegislatorById).toHaveBeenCalledWith(expect.anything(), 'SMITHJ')
+    expect(getLegislatorsByName).toHaveBeenCalledWith(expect.anything(), 'Smith')
 
     const result = JSON.parse(response.content[0]?.text ?? '{}') as LookupLegislatorResult
     // SMITHJ appears in both id result and name result — should be deduped
@@ -196,11 +197,11 @@ describe('registerLookupLegislatorTool', () => {
   // ── Test 8 — cache miss ──────────────────────────────────────────────────
 
   it('Test 8 — cache miss: returns AppError with source "cache" and "No legislators found" when id returns null', async () => {
-    vi.mocked(getLegislatorById).mockReturnValue(null)
+    vi.mocked(getLegislatorById).mockResolvedValue(null)
 
     const response = await server.invokeHandler({ id: 'NOBODY' })
 
-    expect(getLegislatorById).toHaveBeenCalledWith('NOBODY')
+    expect(getLegislatorById).toHaveBeenCalledWith(expect.anything(), 'NOBODY')
 
     const result = JSON.parse(response.content[0]?.text ?? '{}') as AppError
     expect(result.source).toBe('cache')
@@ -211,7 +212,7 @@ describe('registerLookupLegislatorTool', () => {
 
   it('Test 9 — structured JSON: content[0].type is always "text" and body is valid JSON', async () => {
     // Success path
-    vi.mocked(getLegislatorById).mockReturnValue(makeLegislator())
+    vi.mocked(getLegislatorById).mockResolvedValue(makeLegislator())
     const successResp = await server.invokeHandler({ id: 'SMITHJ' })
     expect(successResp.content[0]?.type).toBe('text')
     expect(() => JSON.parse(successResp.content[0]?.text ?? '')).not.toThrow()
@@ -227,7 +228,7 @@ describe('registerLookupLegislatorTool', () => {
     expect(() => JSON.parse(chamberResp.content[0]?.text ?? '')).not.toThrow()
 
     // Error: cache miss
-    vi.mocked(getLegislatorsByName).mockReturnValue([])
+    vi.mocked(getLegislatorsByName).mockResolvedValue([])
     const missResp = await server.invokeHandler({ name: 'Zzznotfound' })
     expect(missResp.content[0]?.type).toBe('text')
     expect(() => JSON.parse(missResp.content[0]?.text ?? '')).not.toThrow()
@@ -240,14 +241,14 @@ describe('registerLookupLegislatorTool', () => {
     const legDist = makeLegislator({ id: 'COMBDIST', district: 5, chamber: 'senate' })
     const legName = makeLegislator({ id: 'COMBNAME', name: 'Combined Name', district: 31 })
 
-    vi.mocked(getLegislatorById).mockReturnValue(legId)
-    vi.mocked(getLegislatorsByDistrict).mockReturnValue([legDist])
-    vi.mocked(getLegislatorsByName).mockReturnValue([legName])
+    vi.mocked(getLegislatorById).mockResolvedValue(legId)
+    vi.mocked(getLegislatorsByDistrict).mockResolvedValue([legDist])
+    vi.mocked(getLegislatorsByName).mockResolvedValue([legName])
 
     await server.invokeHandler({ id: 'COMBID', chamber: 'senate', district: 5, name: 'Combined' })
 
-    expect(getLegislatorById).toHaveBeenCalledWith('COMBID')
-    expect(getLegislatorsByDistrict).toHaveBeenCalledWith('senate', 5)
-    expect(getLegislatorsByName).toHaveBeenCalledWith('Combined')
+    expect(getLegislatorById).toHaveBeenCalledWith(expect.anything(), 'COMBID')
+    expect(getLegislatorsByDistrict).toHaveBeenCalledWith(expect.anything(), 'senate', 5)
+    expect(getLegislatorsByName).toHaveBeenCalledWith(expect.anything(), 'Combined')
   })
 })

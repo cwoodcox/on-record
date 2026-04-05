@@ -1,54 +1,25 @@
 // apps/mcp-server/src/cache/legislators.test.ts
-// Tests for getLegislatorsByDistrict and writeLegislators using in-memory SQLite.
-//
-// Architecture:
-//   - writeLegislators: receives db as a parameter — use in-memory db directly.
-//   - getLegislatorsByDistrict: uses the db singleton from ./db.js — inject via vi.mock.
-//
-import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest'
-import Database from 'better-sqlite3'
-import { initializeSchema } from './schema.js'
+// Tests for getLegislatorsByDistrict, getLegislatorById, getLegislatorsByName, writeLegislators.
+// All functions are async and accept D1Database — use env.DB from cloudflare:test.
+// No db singleton mock needed: all functions receive db as a parameter.
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest'
+import { env } from 'cloudflare:test'
+import { applySchema } from './schema.js'
 import type { Legislator } from '@on-record/types'
-
-// Create in-memory test DB before mock registration
-const testDb = new Database(':memory:')
-initializeSchema(testDb)
-
-// Inject testDb as the `db` singleton before module under test is evaluated.
-// Vitest hoists vi.mock() calls so the mock is in place when the module evaluates.
-vi.mock('./db.js', () => ({ db: testDb }))
-
-// Import after mock is registered — use dynamic import inside beforeAll to avoid
-// TS1309 (top-level await not allowed in CommonJS modules).
-import type {
-  getLegislatorsByDistrict as GetByDistrictFn,
-  getLegislatorById as GetByIdFn,
-  getLegislatorsByName as GetByNameFn,
-  writeLegislators as WriteFn,
+import {
+  getLegislatorsByDistrict,
+  getLegislatorById,
+  getLegislatorsByName,
+  writeLegislators,
 } from './legislators.js'
-let getLegislatorsByDistrict: typeof GetByDistrictFn
-let getLegislatorById: typeof GetByIdFn
-let getLegislatorsByName: typeof GetByNameFn
-let writeLegislators: typeof WriteFn
 
 beforeAll(async () => {
-  const mod = await import('./legislators.js')
-  getLegislatorsByDistrict = mod.getLegislatorsByDistrict
-  getLegislatorById = mod.getLegislatorById
-  getLegislatorsByName = mod.getLegislatorsByName
-  writeLegislators = mod.writeLegislators
+  await applySchema(env.DB)
 })
 
 describe('legislators cache', () => {
-  beforeEach(() => {
-    // Clear table between tests for isolation
-    testDb.prepare('DELETE FROM legislators').run()
-  })
-
-  afterEach(() => {
-    // Note: testDb is shared across all tests in this module; close is deferred until
-    // the module is torn down. Individual tests clear the table in beforeEach instead.
-    // (Closing a module-level in-memory db in afterEach would break subsequent tests.)
+  beforeEach(async () => {
+    await env.DB.prepare('DELETE FROM legislators').run()
   })
 
   // ── Fixture helpers ──────────────────────────────────────────────────────
@@ -70,40 +41,39 @@ describe('legislators cache', () => {
   // ── writeLegislators ────────────────────────────────────────────────────
 
   describe('writeLegislators', () => {
-    it('inserts legislators into the table', () => {
-      const leg = makeLegislator()
-      writeLegislators(testDb, [leg])
+    it('inserts legislators into the table', async () => {
+      await writeLegislators(env.DB, [makeLegislator()])
 
-      const rows = testDb.prepare('SELECT * FROM legislators').all()
-      expect(rows).toHaveLength(1)
+      const result = await env.DB.prepare('SELECT * FROM legislators').all()
+      expect(result.results).toHaveLength(1)
     })
 
-    it('upserts by primary key — does not create duplicates on second write', () => {
+    it('upserts by primary key — does not create duplicates on second write', async () => {
       const leg = makeLegislator()
-      writeLegislators(testDb, [leg])
-      writeLegislators(testDb, [leg])
+      await writeLegislators(env.DB, [leg])
+      await writeLegislators(env.DB, [leg])
 
-      const rows = testDb.prepare('SELECT * FROM legislators').all()
-      expect(rows).toHaveLength(1)
+      const result = await env.DB.prepare('SELECT * FROM legislators').all()
+      expect(result.results).toHaveLength(1)
     })
 
-    it('replaces existing row on upsert — updates name', () => {
-      writeLegislators(testDb, [makeLegislator({ name: 'Original Name' })])
-      writeLegislators(testDb, [makeLegislator({ name: 'Updated Name' })])
+    it('replaces existing row on upsert — updates name', async () => {
+      await writeLegislators(env.DB, [makeLegislator({ name: 'Original Name' })])
+      await writeLegislators(env.DB, [makeLegislator({ name: 'Updated Name' })])
 
-      const row = testDb.prepare('SELECT name FROM legislators WHERE id = ?').get('leg-001') as { name: string } | undefined
+      const row = await env.DB.prepare('SELECT name FROM legislators WHERE id = ?').bind('leg-001').first<{ name: string }>()
       expect(row?.name).toBe('Updated Name')
     })
 
-    it('sets cached_at to a non-empty ISO 8601 string', () => {
-      writeLegislators(testDb, [makeLegislator()])
+    it('sets cached_at to a non-empty ISO 8601 string', async () => {
+      await writeLegislators(env.DB, [makeLegislator()])
 
-      const row = testDb.prepare('SELECT cached_at FROM legislators WHERE id = ?').get('leg-001') as { cached_at: string } | undefined
+      const row = await env.DB.prepare('SELECT cached_at FROM legislators WHERE id = ?').bind('leg-001').first<{ cached_at: string }>()
       expect(row?.cached_at).toBeTruthy()
       expect(new Date(row?.cached_at ?? '').toISOString()).toBeTruthy()
     })
 
-    it('stores phone_label as NULL when phoneTypeUnknown is true', () => {
+    it('stores phone_label as NULL when phoneTypeUnknown is true', async () => {
       const leg: Legislator = {
         id: 'leg-002',
         chamber: 'senate',
@@ -114,78 +84,78 @@ describe('legislators cache', () => {
         phoneTypeUnknown: true,
         session: '2025GS',
       }
-      writeLegislators(testDb, [leg])
+      await writeLegislators(env.DB, [leg])
 
-      const row = testDb.prepare('SELECT phone_label FROM legislators WHERE id = ?').get('leg-002') as { phone_label: string | null } | undefined
+      const row = await env.DB.prepare('SELECT phone_label FROM legislators WHERE id = ?').bind('leg-002').first<{ phone_label: string | null }>()
       expect(row?.phone_label).toBeNull()
     })
 
-    it('stores phone_label when phoneLabel is set', () => {
-      writeLegislators(testDb, [makeLegislator({ phoneLabel: 'district office' })])
+    it('stores phone_label when phoneLabel is set', async () => {
+      await writeLegislators(env.DB, [makeLegislator({ phoneLabel: 'district office' })])
 
-      const row = testDb.prepare('SELECT phone_label FROM legislators WHERE id = ?').get('leg-001') as { phone_label: string | null } | undefined
+      const row = await env.DB.prepare('SELECT phone_label FROM legislators WHERE id = ?').bind('leg-001').first<{ phone_label: string | null }>()
       expect(row?.phone_label).toBe('district office')
     })
 
-    it('inserts multiple legislators in one call', () => {
+    it('inserts multiple legislators in one call', async () => {
       const legs = [
         makeLegislator({ id: 'leg-001', district: 10 }),
         makeLegislator({ id: 'leg-002', district: 11 }),
         makeLegislator({ id: 'leg-003', district: 12 }),
       ]
-      writeLegislators(testDb, legs)
+      await writeLegislators(env.DB, legs)
 
-      const rows = testDb.prepare('SELECT * FROM legislators').all()
-      expect(rows).toHaveLength(3)
+      const result = await env.DB.prepare('SELECT * FROM legislators').all()
+      expect(result.results).toHaveLength(3)
     })
 
-    it('is a no-op when passed an empty array', () => {
-      expect(() => writeLegislators(testDb, [])).not.toThrow()
-      const rows = testDb.prepare('SELECT * FROM legislators').all()
-      expect(rows).toHaveLength(0)
+    it('is a no-op when passed an empty array', async () => {
+      await expect(writeLegislators(env.DB, [])).resolves.toBeUndefined()
+      const result = await env.DB.prepare('SELECT * FROM legislators').all()
+      expect(result.results).toHaveLength(0)
     })
   })
 
   // ── getLegislatorsByDistrict ─────────────────────────────────────────────
 
   describe('getLegislatorsByDistrict', () => {
-    it('returns empty array when no legislators are cached (AC#2 — cache miss)', () => {
-      const result = getLegislatorsByDistrict('house', 10)
+    it('returns empty array when no legislators are cached (AC#2 — cache miss)', async () => {
+      const result = await getLegislatorsByDistrict(env.DB, 'house', 10)
       expect(result).toEqual([])
     })
 
-    it('returns legislators matching chamber and district', () => {
-      writeLegislators(testDb, [makeLegislator({ id: 'leg-001', chamber: 'house', district: 10 })])
+    it('returns legislators matching chamber and district', async () => {
+      await writeLegislators(env.DB, [makeLegislator({ id: 'leg-001', chamber: 'house', district: 10 })])
 
-      const result = getLegislatorsByDistrict('house', 10)
+      const result = await getLegislatorsByDistrict(env.DB, 'house', 10)
       expect(result).toHaveLength(1)
       expect(result[0]?.id).toBe('leg-001')
     })
 
-    it('filters by chamber — does not return senate results for house query', () => {
-      writeLegislators(testDb, [
+    it('filters by chamber — does not return senate results for house query', async () => {
+      await writeLegislators(env.DB, [
         makeLegislator({ id: 'leg-001', chamber: 'house', district: 10 }),
         makeLegislator({ id: 'leg-002', chamber: 'senate', district: 10 }),
       ])
 
-      const result = getLegislatorsByDistrict('house', 10)
+      const result = await getLegislatorsByDistrict(env.DB, 'house', 10)
       expect(result).toHaveLength(1)
       expect(result[0]?.chamber).toBe('house')
     })
 
-    it('filters by district — does not return a different district', () => {
-      writeLegislators(testDb, [
+    it('filters by district — does not return a different district', async () => {
+      await writeLegislators(env.DB, [
         makeLegislator({ id: 'leg-001', chamber: 'house', district: 10 }),
         makeLegislator({ id: 'leg-002', chamber: 'house', district: 11 }),
       ])
 
-      const result = getLegislatorsByDistrict('house', 10)
+      const result = await getLegislatorsByDistrict(env.DB, 'house', 10)
       expect(result).toHaveLength(1)
       expect(result[0]?.district).toBe(10)
     })
 
-    it('maps snake_case DB columns to camelCase Legislator fields (camelCase ↔ snake_case round-trip)', () => {
-      writeLegislators(testDb, [makeLegislator({
+    it('maps snake_case DB columns to camelCase Legislator fields (round-trip)', async () => {
+      await writeLegislators(env.DB, [makeLegislator({
         id: 'leg-001',
         chamber: 'house',
         district: 10,
@@ -196,7 +166,7 @@ describe('legislators cache', () => {
         session: '2025GS',
       })])
 
-      const result = getLegislatorsByDistrict('house', 10)
+      const result = await getLegislatorsByDistrict(env.DB, 'house', 10)
       const leg = result[0]
 
       expect(leg).toMatchObject({
@@ -211,7 +181,7 @@ describe('legislators cache', () => {
       })
     })
 
-    it('phone_label = null in DB → phoneTypeUnknown: true (AC#1, AC#6)', () => {
+    it('phone_label = null in DB → phoneTypeUnknown: true', async () => {
       const leg: Legislator = {
         id: 'leg-003',
         chamber: 'senate',
@@ -222,22 +192,22 @@ describe('legislators cache', () => {
         phoneTypeUnknown: true,
         session: '2025GS',
       }
-      writeLegislators(testDb, [leg])
+      await writeLegislators(env.DB, [leg])
 
-      const result = getLegislatorsByDistrict('senate', 5)
+      const result = await getLegislatorsByDistrict(env.DB, 'senate', 5)
       expect(result[0]?.phoneTypeUnknown).toBe(true)
       expect(result[0]?.phoneLabel).toBeUndefined()
     })
 
-    it('phone_label = "cell" in DB → { phoneLabel: "cell" } (no phoneTypeUnknown field)', () => {
-      writeLegislators(testDb, [makeLegislator({ phoneLabel: 'cell', id: 'leg-004', district: 20 })])
+    it('phone_label = "cell" in DB → { phoneLabel: "cell" } (no phoneTypeUnknown field)', async () => {
+      await writeLegislators(env.DB, [makeLegislator({ phoneLabel: 'cell', id: 'leg-004', district: 20 })])
 
-      const result = getLegislatorsByDistrict('house', 20)
+      const result = await getLegislatorsByDistrict(env.DB, 'house', 20)
       expect(result[0]?.phoneLabel).toBe('cell')
       expect(result[0]?.phoneTypeUnknown).toBeUndefined()
     })
 
-    it('round-trips all Legislator fields correctly (getLegislatorsByDistrict)', () => {
+    it('round-trips all Legislator fields correctly', async () => {
       const original = makeLegislator({
         id: 'leg-rt',
         chamber: 'senate',
@@ -248,9 +218,9 @@ describe('legislators cache', () => {
         phoneLabel: 'cell',
         session: '2026GS',
       })
-      writeLegislators(testDb, [original])
+      await writeLegislators(env.DB, [original])
 
-      const result = getLegislatorsByDistrict('senate', 15)
+      const result = await getLegislatorsByDistrict(env.DB, 'senate', 15)
       const leg = result[0]
       expect(leg?.id).toBe(original.id)
       expect(leg?.chamber).toBe(original.chamber)
@@ -266,22 +236,22 @@ describe('legislators cache', () => {
   // ── getLegislatorById ────────────────────────────────────────────────────
 
   describe('getLegislatorById', () => {
-    it('returns the legislator for an exact ID match', () => {
-      writeLegislators(testDb, [makeLegislator({ id: 'DAILEJ', name: 'Jennifer Dailey-Provost' })])
+    it('returns the legislator for an exact ID match', async () => {
+      await writeLegislators(env.DB, [makeLegislator({ id: 'DAILEJ', name: 'Jennifer Dailey-Provost' })])
 
-      const result = getLegislatorById('DAILEJ')
+      const result = await getLegislatorById(env.DB, 'DAILEJ')
       expect(result).not.toBeNull()
       expect(result?.id).toBe('DAILEJ')
       expect(result?.name).toBe('Jennifer Dailey-Provost')
     })
 
-    it('returns null for an unknown ID', () => {
-      const result = getLegislatorById('NOBODY')
+    it('returns null for an unknown ID', async () => {
+      const result = await getLegislatorById(env.DB, 'NOBODY')
       expect(result).toBeNull()
     })
 
-    it('phone_label null → phoneTypeUnknown: true', () => {
-      const leg: import('@on-record/types').Legislator = {
+    it('phone_label null → phoneTypeUnknown: true', async () => {
+      const leg: Legislator = {
         id: 'UNKNWN',
         chamber: 'house',
         district: 5,
@@ -291,17 +261,17 @@ describe('legislators cache', () => {
         phoneTypeUnknown: true,
         session: '2026GS',
       }
-      writeLegislators(testDb, [leg])
+      await writeLegislators(env.DB, [leg])
 
-      const result = getLegislatorById('UNKNWN')
+      const result = await getLegislatorById(env.DB, 'UNKNWN')
       expect(result?.phoneTypeUnknown).toBe(true)
       expect(result?.phoneLabel).toBeUndefined()
     })
 
-    it('phone_label present → phoneLabel field set', () => {
-      writeLegislators(testDb, [makeLegislator({ id: 'LABELD', phoneLabel: 'district office' })])
+    it('phone_label present → phoneLabel field set', async () => {
+      await writeLegislators(env.DB, [makeLegislator({ id: 'LABELD', phoneLabel: 'district office' })])
 
-      const result = getLegislatorById('LABELD')
+      const result = await getLegislatorById(env.DB, 'LABELD')
       expect(result?.phoneLabel).toBe('district office')
       expect(result?.phoneTypeUnknown).toBeUndefined()
     })
@@ -310,37 +280,37 @@ describe('legislators cache', () => {
   // ── getLegislatorsByName ─────────────────────────────────────────────────
 
   describe('getLegislatorsByName', () => {
-    it('returns matching legislators for a partial name', () => {
-      writeLegislators(testDb, [
+    it('returns matching legislators for a partial name', async () => {
+      await writeLegislators(env.DB, [
         makeLegislator({ id: 'SMITHJ', name: 'Jane Smith' }),
         makeLegislator({ id: 'SMITHB', name: 'Bob Smithson', district: 11 }),
         makeLegislator({ id: 'JONESE', name: 'Eric Jones', district: 12 }),
       ])
 
-      const result = getLegislatorsByName('Smith')
+      const result = await getLegislatorsByName(env.DB, 'Smith')
       expect(result).toHaveLength(2)
       const ids = result.map((l) => l.id)
       expect(ids).toContain('SMITHJ')
       expect(ids).toContain('SMITHB')
     })
 
-    it('name match is case-insensitive — "smith" matches "Jane Smith"', () => {
-      writeLegislators(testDb, [makeLegislator({ id: 'SMITHJ', name: 'Jane Smith' })])
+    it('name match is case-insensitive — "smith" matches "Jane Smith"', async () => {
+      await writeLegislators(env.DB, [makeLegislator({ id: 'SMITHJ', name: 'Jane Smith' })])
 
-      const result = getLegislatorsByName('smith')
+      const result = await getLegislatorsByName(env.DB, 'smith')
       expect(result).toHaveLength(1)
       expect(result[0]?.id).toBe('SMITHJ')
     })
 
-    it('returns empty array when no name matches', () => {
-      writeLegislators(testDb, [makeLegislator({ id: 'SMITHJ', name: 'Jane Smith' })])
+    it('returns empty array when no name matches', async () => {
+      await writeLegislators(env.DB, [makeLegislator({ id: 'SMITHJ', name: 'Jane Smith' })])
 
-      const result = getLegislatorsByName('Zzznotaname')
+      const result = await getLegislatorsByName(env.DB, 'Zzznotaname')
       expect(result).toEqual([])
     })
 
-    it('phone_label null → phoneTypeUnknown: true', () => {
-      const leg: import('@on-record/types').Legislator = {
+    it('phone_label null → phoneTypeUnknown: true', async () => {
+      const leg: Legislator = {
         id: 'NOLAB',
         chamber: 'senate',
         district: 3,
@@ -350,20 +320,19 @@ describe('legislators cache', () => {
         phoneTypeUnknown: true,
         session: '2026GS',
       }
-      writeLegislators(testDb, [leg])
+      await writeLegislators(env.DB, [leg])
 
-      const result = getLegislatorsByName('No Label')
+      const result = await getLegislatorsByName(env.DB, 'No Label')
       expect(result[0]?.phoneTypeUnknown).toBe(true)
       expect(result[0]?.phoneLabel).toBeUndefined()
     })
 
-    it('phone_label present → phoneLabel field set', () => {
-      writeLegislators(testDb, [makeLegislator({ id: 'LABLN', name: 'Labeled Name', phoneLabel: 'cell' })])
+    it('phone_label present → phoneLabel field set', async () => {
+      await writeLegislators(env.DB, [makeLegislator({ id: 'LABLN', name: 'Labeled Name', phoneLabel: 'cell' })])
 
-      const result = getLegislatorsByName('Labeled Name')
+      const result = await getLegislatorsByName(env.DB, 'Labeled Name')
       expect(result[0]?.phoneLabel).toBe('cell')
       expect(result[0]?.phoneTypeUnknown).toBeUndefined()
     })
   })
 })
-

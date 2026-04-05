@@ -1,21 +1,11 @@
 // apps/mcp-server/src/cache/bills.ts
-// Cache read/write module for bills.
-// Boundary 4: only cache/ modules import better-sqlite3.
-// Column-to-type mapping (snake_case DB → camelCase Bill) is confined here only.
-// Also exports singleton wrappers for sessions.ts functions (getActiveSessionId) for use from tools/.
-//
-// Architecture note on db access:
-//   - getBillsBySponsor, getBillsBySession, searchBillsByTheme, searchBills: called from tools/
-//     (outside cache/) which cannot import the db singleton — these functions use the db singleton directly.
-//   - getActiveSessionId: singleton wrapper for getActiveSession(db), callable from tools/.
-//   - writeBills: called exclusively from cache/refresh.ts (inside cache/); receives
-//     db as a parameter for dependency injection and testability.
-import { db } from './db.js'
-import type Database from 'better-sqlite3'
+// Cache read/write module for bills — D1 async API.
+// All functions accept db: D1Database as first parameter (dependency injection).
+// Column-to-type mapping (snake_case DB → camelCase Bill) is confined here.
 import type { Bill, SearchBillsParams, SearchBillsResult } from '@on-record/types'
 import { getActiveSession } from './sessions.js'
 
-// ── Row shape returned from SQLite ──────────────────────────────────────────
+// ── Row shape returned from D1 ───────────────────────────────────────────────
 interface BillRow {
   id: string
   session: string
@@ -51,53 +41,56 @@ function rowToBill(row: BillRow): Bill {
 }
 
 /**
- * Reads bills from the SQLite cache for a specific sponsor.
- * Returns an empty array on cache miss — the tool handler treats this as appropriate.
- * Uses the db singleton directly since this function is called from tools/ which
- * cannot import cache/db per the ESLint boundary rules.
+ * Reads bills from the D1 cache for a specific sponsor.
  *
+ * @param db        - D1Database instance
  * @param sponsorId - Legislator ID
  */
-export function getBillsBySponsor(sponsorId: string): Bill[] {
-  const rows = db
-    .prepare<[string], BillRow>(
+export async function getBillsBySponsor(db: D1Database, sponsorId: string): Promise<Bill[]> {
+  const result = await db
+    .prepare(
       'SELECT id, session, title, summary, status, sponsor_id, floor_sponsor_id, vote_result, vote_date FROM bills WHERE sponsor_id = ?',
     )
-    .all(sponsorId)
-  return rows.map(rowToBill)
+    .bind(sponsorId)
+    .all<BillRow>()
+  return result.results.map(rowToBill)
 }
 
 /**
- * Reads bills from the SQLite cache for a specific legislative session.
- * Returns an empty array on cache miss.
- * Uses the db singleton directly since this function is called from tools/ which
- * cannot import cache/db per the ESLint boundary rules.
+ * Reads bills from the D1 cache for a specific legislative session.
  *
+ * @param db      - D1Database instance
  * @param session - Legislative session string (e.g. '2026GS')
  */
-export function getBillsBySession(session: string): Bill[] {
-  const rows = db
-    .prepare<[string], BillRow>(
+export async function getBillsBySession(db: D1Database, session: string): Promise<Bill[]> {
+  const result = await db
+    .prepare(
       'SELECT id, session, title, summary, status, sponsor_id, floor_sponsor_id, vote_result, vote_date FROM bills WHERE session = ?',
     )
-    .all(session)
-  return rows.map(rowToBill)
+    .bind(session)
+    .all<BillRow>()
+  return result.results.map(rowToBill)
 }
 
 /**
  * Full-text searches the bills cache by issue theme keyword.
- * @deprecated Use searchBills({ query, sponsorId }) instead. Retained for test compatibility only — do not add new callers.
+ * @deprecated Use searchBills({ query, sponsorId }) instead.
  *
- * @param sponsorId - Legislator ID (e.g. 'RRabbitt')
+ * @param db        - D1Database instance
+ * @param sponsorId - Legislator ID
  * @param theme     - Issue theme keyword passed directly to FTS5
  */
-export function searchBillsByTheme(sponsorId: string, theme: string): Bill[] {
+export async function searchBillsByTheme(
+  db: D1Database,
+  sponsorId: string,
+  theme: string,
+): Promise<Bill[]> {
   const normalized = theme.trim()
   if (normalized === '') return []
 
   try {
-    const rows = db
-      .prepare<[string, string], BillRow>(
+    const result = await db
+      .prepare(
         `SELECT b.id, b.session, b.title, b.summary, b.status, b.sponsor_id, b.floor_sponsor_id, b.vote_result, b.vote_date
          FROM bill_fts
          JOIN bills b ON b.rowid = bill_fts.rowid
@@ -105,26 +98,19 @@ export function searchBillsByTheme(sponsorId: string, theme: string): Bill[] {
            AND b.sponsor_id = ?
          ORDER BY bill_fts.rank`,
       )
-      .all(normalized, sponsorId)
+      .bind(normalized, sponsorId)
+      .all<BillRow>()
 
-    return rows.map(rowToBill)
+    return result.results.map(rowToBill)
   } catch {
-    // Malformed FTS5 query syntax (e.g. bare operators, unmatched quotes) —
-    // return empty results rather than propagating a SQLite error.
+    // Malformed FTS5 query syntax — return empty results
     return []
   }
 }
 
 /**
  * Parses a bill ID string into a { prefix, num } object for zero-padding-agnostic matching.
- * Internal helper — not exported. Tests exercise it indirectly via searchBills({ billId }).
- *
- * Examples:
- *   "HB88"   → { prefix: "HB", num: 88 }
- *   "HB0088" → { prefix: "HB", num: 88 }
- *   "hb88"   → { prefix: "HB", num: 88 }
- *   "HJR01"  → { prefix: "HJR", num: 1 }
- *   "HB"     → null (no digits)
+ * Internal helper — not exported.
  */
 function parseBillId(raw: string): { prefix: string; num: number } | null {
   const match = /^([A-Za-z]+)(\d+)$/.exec(raw.trim())
@@ -139,9 +125,13 @@ function parseBillId(raw: string): { prefix: string; num: number } | null {
  * Searches the bills cache with all-optional composable filters.
  * Returns a paginated SearchBillsResult with total count.
  *
+ * @param db     - D1Database instance
  * @param params - Optional filters: query, billId, sponsorId, floorSponsorId, session, chamber, count, offset
  */
-export function searchBills(params: SearchBillsParams): SearchBillsResult {
+export async function searchBills(
+  db: D1Database,
+  params: SearchBillsParams,
+): Promise<SearchBillsResult> {
   const {
     query,
     billId,
@@ -211,7 +201,6 @@ export function searchBills(params: SearchBillsParams): SearchBillsResult {
   let bills: Bill[]
 
   if (useFts) {
-
     const nonFtsWhere =
       bConditions.length > 0 ? 'AND ' + bConditions.join(' AND ') : ''
 
@@ -235,11 +224,11 @@ export function searchBills(params: SearchBillsParams): SearchBillsResult {
     const countArgs = [normalizedQuery, ...conditionArgs]
     const pageArgs = [normalizedQuery, ...conditionArgs, limit, offset]
 
-    const countRow = db.prepare<unknown[], { total: number }>(countSql).get(...countArgs)
+    const countRow = await db.prepare(countSql).bind(...countArgs).first<{ total: number }>()
     total = countRow?.total ?? 0
 
-    const rows = db.prepare<unknown[], BillRow>(pageSql).all(...pageArgs)
-    bills = rows.map(rowToBill)
+    const pageResult = await db.prepare(pageSql).bind(...pageArgs).all<BillRow>()
+    bills = pageResult.results.map(rowToBill)
   } else {
     // Direct table scan path
     const whereClause =
@@ -260,11 +249,11 @@ export function searchBills(params: SearchBillsParams): SearchBillsResult {
     const countArgs = [...conditionArgs]
     const pageArgs = [...conditionArgs, limit, offset]
 
-    const countRow = db.prepare<unknown[], { total: number }>(countSql).get(...countArgs)
+    const countRow = await db.prepare(countSql).bind(...countArgs).first<{ total: number }>()
     total = countRow?.total ?? 0
 
-    const rows = db.prepare<unknown[], BillRow>(pageSql).all(...pageArgs)
-    bills = rows.map(rowToBill)
+    const pageResult = await db.prepare(pageSql).bind(...pageArgs).all<BillRow>()
+    bills = pageResult.results.map(rowToBill)
   }
 
   return { bills, total, count: bills.length, offset }
@@ -272,50 +261,39 @@ export function searchBills(params: SearchBillsParams): SearchBillsResult {
 
 /**
  * Returns the active or most recently completed legislative session ID.
- * Wraps getActiveSession(db) using the db singleton.
- * Callable from tools/ where the db singleton cannot be imported directly (Boundary 4).
+ * Wraps getActiveSession(db) using the injected D1 binding.
+ *
+ * @param db - D1Database instance
  */
-export function getActiveSessionId(): string {
+export async function getActiveSessionId(db: D1Database): Promise<string> {
   return getActiveSession(db)
 }
 
 /**
- * Upserts bills into the SQLite cache.
- * Uses INSERT OR REPLACE keyed by primary key `id`.
- * All writes + FTS5 rebuild are wrapped in a single transaction for atomicity.
+ * Upserts bills into the D1 cache.
+ * Uses db.batch() for atomic multi-row insert (max 100 per batch — chunks if needed).
+ * Rebuilds FTS5 index after all inserts.
  * Sets `cached_at` to the current ISO 8601 datetime.
- * Called by cache warm-up on server startup and hourly cron refresh (Story 3.2).
  *
- * Receives db as a parameter (dependency injection — Boundary 4):
- * cache/refresh.ts receives db from index.ts and passes it here.
- * This keeps writeBills testable with an in-memory db without mocking the singleton.
+ * Design: pure upsert — no upfront DELETE. A bill that fails to fetch this run
+ * retains its previously-cached value until it successfully refreshes on the next cycle.
  *
- * Design: pure upsert — no upfront DELETE. The provider uses Promise.allSettled to
- * skip transient bill-detail fetch failures; a pre-session DELETE would permanently
- * evict bills that failed to fetch this cycle, making the cache incomplete. Upsert
- * semantics mean a bill that fails to fetch this run retains its previously-cached
- * value until it successfully refreshes on the next hourly cycle.
- *
- * @param db    - Injected SQLite database instance
+ * @param db    - D1Database instance
  * @param bills - Array of Bill objects to persist
  */
-export function writeBills(db: Database.Database, bills: Bill[]): void {
+export async function writeBills(db: D1Database, bills: Bill[]): Promise<void> {
   if (bills.length === 0) return
-
-  const stmt = db.prepare<
-    [string, string, string, string, string, string, string | null, string | null, string | null, string]
-  >(`
-    INSERT OR REPLACE INTO bills
-      (id, session, title, summary, status, sponsor_id, floor_sponsor_id, vote_result, vote_date, cached_at)
-    VALUES
-      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `)
 
   const cachedAt = new Date().toISOString()
 
-  db.transaction(() => {
-    for (const bill of bills) {
-      stmt.run(
+  const stmts = bills.map((bill) =>
+    db
+      .prepare(
+        `INSERT OR REPLACE INTO bills
+          (id, session, title, summary, status, sponsor_id, floor_sponsor_id, vote_result, vote_date, cached_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
         bill.id,
         bill.session,
         bill.title,
@@ -326,8 +304,14 @@ export function writeBills(db: Database.Database, bills: Bill[]): void {
         bill.voteResult ?? null,
         bill.voteDate ?? null,
         cachedAt,
-      )
-    }
-    db.prepare("INSERT INTO bill_fts(bill_fts) VALUES('rebuild')").run()
-  })()
+      ),
+  )
+
+  // D1 batch() limit is 100 statements — chunk to avoid exceeding it
+  for (let i = 0; i < stmts.length; i += 100) {
+    await db.batch(stmts.slice(i, i + 100))
+  }
+
+  // Rebuild FTS5 index after bulk inserts (must run after batch commits)
+  await db.prepare("INSERT INTO bill_fts(bill_fts) VALUES('rebuild')").run()
 }

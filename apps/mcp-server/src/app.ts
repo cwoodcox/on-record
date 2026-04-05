@@ -18,11 +18,14 @@ import { logger } from './lib/logger.js'
 
 // Tool registration callback — set by the caller (index.ts / worker.ts) before serving.
 // Receives a freshly created McpServer and should register all desired tools on it.
-// Workers path: left undefined until Story 9.2 wires in D1 cache functions.
 let _registerTools: ((server: McpServer) => void) | undefined
 
-/** Call once at startup to wire up MCP tool registrations into new sessions. */
-export function setupMcpServer(registerTools: (server: McpServer) => void): void {
+/**
+ * Wires up MCP tool registrations into new sessions.
+ * db is accepted here to enforce that callers provide a D1 binding;
+ * the actual db is captured by the registerTools closure in the caller.
+ */
+export function setupMcpServer(_db: D1Database, registerTools: (server: McpServer) => void): void {
   _registerTools = registerTools
 }
 

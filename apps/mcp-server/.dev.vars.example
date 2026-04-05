@@ -1,0 +1,9 @@
+# apps/mcp-server/.dev.vars.example
+# Copy this file to .dev.vars and fill in your values for local wrangler dev.
+# .dev.vars is gitignored — never commit your actual keys.
+# Used by: wrangler dev (Workers path — passes these as env bindings)
+
+UGRC_API_KEY=your-ugrc-api-key-here
+UTAH_LEGISLATURE_API_KEY=your-utah-legislature-api-key-here
+PORT=3000
+NODE_ENV=development

@@ -46,7 +46,7 @@ function createMockServer(): {
     ),
   }
 
-  registerSearchBillsTool(mockServer as unknown as import('@modelcontextprotocol/sdk/server/mcp.js').McpServer)
+  registerSearchBillsTool(mockServer as unknown as import('@modelcontextprotocol/sdk/server/mcp.js').McpServer, {} as D1Database)
 
   return {
     invokeHandler: (args) => {
@@ -99,7 +99,7 @@ describe('registerSearchBillsTool', () => {
   // ── AC#1: No params → SearchBillsResult ─────────────────────────────────
 
   it('returns structured JSON matching SearchBillsResult when called with no params (AC#1)', async () => {
-    vi.mocked(searchBills).mockReturnValue(makeSearchBillsResult())
+    vi.mocked(searchBills).mockResolvedValue(makeSearchBillsResult())
 
     const promise = server.invokeHandler({})
     await vi.runAllTimersAsync()
@@ -113,13 +113,13 @@ describe('registerSearchBillsTool', () => {
     expect(result.total).toBe(1)
     expect(result.count).toBe(1)
     expect(result.offset).toBe(0)
-    expect(vi.mocked(searchBills)).toHaveBeenCalledWith({})
+    expect(vi.mocked(searchBills)).toHaveBeenCalledWith(expect.anything(), {})
   })
 
   // ── AC#8 (empty result not error) ────────────────────────────────────────
 
   it('returns SearchBillsResult with empty bills when no matches — not an error (AC#8)', async () => {
-    vi.mocked(searchBills).mockReturnValue({ bills: [], total: 0, count: 0, offset: 0 })
+    vi.mocked(searchBills).mockResolvedValue({ bills: [], total: 0, count: 0, offset: 0 })
 
     const promise = server.invokeHandler({})
     await vi.runAllTimersAsync()
@@ -135,7 +135,7 @@ describe('registerSearchBillsTool', () => {
   // ── AC#9: Structured JSON ────────────────────────────────────────────────
 
   it('always returns content[0].type = "text" with valid JSON body (AC#9)', async () => {
-    vi.mocked(searchBills).mockReturnValue(makeSearchBillsResult())
+    vi.mocked(searchBills).mockResolvedValue(makeSearchBillsResult())
 
     const promise = server.invokeHandler({})
     await vi.runAllTimersAsync()
@@ -150,7 +150,7 @@ describe('registerSearchBillsTool', () => {
   it('retries on transient failure and succeeds on second attempt (AC#10)', async () => {
     vi.mocked(searchBills)
       .mockImplementationOnce(() => { throw new Error('SQLITE_BUSY') })
-      .mockReturnValueOnce(makeSearchBillsResult())
+      .mockResolvedValueOnce(makeSearchBillsResult())
 
     const promise = server.invokeHandler({ sponsorId: 'RRabbitt' })
     await vi.runAllTimersAsync()
@@ -159,7 +159,7 @@ describe('registerSearchBillsTool', () => {
     const result = JSON.parse(response.content[0]?.text ?? '{}') as SearchBillsResult
     expect(result.bills).toHaveLength(1)
     expect(vi.mocked(searchBills)).toHaveBeenCalledTimes(2)
-    expect(vi.mocked(searchBills)).toHaveBeenCalledWith({ sponsorId: 'RRabbitt' })
+    expect(vi.mocked(searchBills)).toHaveBeenCalledWith(expect.anything(), { sponsorId: 'RRabbitt' })
   })
 
   // ── AC#11: All retries exhausted → AppError ──────────────────────────────
@@ -184,7 +184,7 @@ describe('registerSearchBillsTool', () => {
   // ── Logging on success ───────────────────────────────────────────────────
 
   it('logs search_bills succeeded with billCount and filters on success', async () => {
-    vi.mocked(searchBills).mockReturnValue(makeSearchBillsResult())
+    vi.mocked(searchBills).mockResolvedValue(makeSearchBillsResult())
 
     const promise = server.invokeHandler({ sponsorId: 'RRabbitt', session: '2026GS' })
     await vi.runAllTimersAsync()

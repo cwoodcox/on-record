@@ -1,19 +1,18 @@
 import { cloudflareTest } from '@cloudflare/vitest-pool-workers'
 import { defineConfig } from 'vitest/config'
 
-// Tests that use better-sqlite3 (native Node.js add-on) cannot run inside the
-// Workers pool because Miniflare does not support native Node.js modules.
-// Cache-layer tests remain on the Node pool until Story 9.2 migrates them to D1.
+// Cache tests have been migrated to the workers pool (Story 9.2):
+// better-sqlite3 is no longer used in cache modules — all DB access goes through D1.
+// Workers pool tests use env.DB (real Miniflare D1 binding) for authentic D1 test coverage.
 //
 // gis.test.ts uses vi.stubGlobal('fetch') + Promise.all where one branch rejects;
 // Miniflare tracks that intermediate rejection as "unhandled" even though the outer
 // try/catch handles it. Moving gis.test.ts to the Node pool avoids the false positive.
-// All other middleware/tools/providers/env tests run in the Workers pool.
 export default defineConfig({
   test: {
     projects: [
       {
-        // Workers pool: middleware, tools, providers, env tests
+        // Workers pool: middleware, tools, providers, env, app, worker, and cache tests
         plugins: [
           cloudflareTest({
             wrangler: { configPath: './wrangler.toml' },
@@ -28,15 +27,15 @@ export default defineConfig({
             'src/env.test.ts',
             'src/app.test.ts',
             'src/worker.test.ts',
+            'src/cache/**/*.test.ts',
           ],
         },
       },
       {
-        // Node pool: cache tests (better-sqlite3) + lib tests (vi.stubGlobal fetch quirk)
+        // Node pool: lib tests only (gis.test.ts requires Node fetch mock behaviour)
         test: {
           name: 'node',
           include: [
-            'src/cache/**/*.test.ts',
             'src/lib/**/*.test.ts',
           ],
           pool: 'forks',
