@@ -1,6 +1,6 @@
 # Story 9.4: Add Cloudflare Rate Limiting to Workers Entrypoint
 
-Status: review
+Status: in-progress
 
 ## Story
 
@@ -66,6 +66,17 @@ So that the /mcp endpoint is rate-limited across all edge PoPs without relying o
   - [x] `wrangler deploy --dry-run` from `apps/mcp-server/` — bundle compiles without errors
   - [x] Verify `src/middleware/rate-limit.ts` is byte-for-byte unchanged (no edits)
   - [x] Verify `src/index.ts` is unchanged
+
+### Review Findings
+
+- [ ] [Review][Patch] Duplicated `setupMcpServer` and tool registration block [worker.ts:25-50]
+- [ ] [Review][Patch] Insecure and incorrect IP extraction for rate limiting [cf-rate-limit.ts:9-15]
+- [ ] [Review][Patch] Fragile route matching allows rate limit bypass [worker.ts:30]
+- [ ] [Review][Patch] 429 response missing `Retry-After` header [cf-rate-limit.ts:20]
+- [ ] [Review][Patch] Rate limiting implemented in entrypoint instead of Hono middleware [worker.ts:30]
+- [ ] [Review][Patch] Missing exception guard for `rateLimiter.limit` [cf-rate-limit.ts:15]
+- [ ] [Review][Patch] Diverging request lifecycles (async IIFE path) [worker.ts:33]
+- [x] [Review][Defer] Rate limiting is Workers-only, causing environment drift [worker.ts:30] — deferred, pre-existing (Story 9.4 scope)
 
 ## Dev Notes
 
@@ -342,8 +353,6 @@ declare namespace Cloudflare {
 | `apps/mcp-server/src/app.ts` | NO CHANGE | CF rate limit is Workers-path-only |
 
 ## Dev Agent Record
-
-### Agent Model Used
 
 claude-sonnet-4-6
 
