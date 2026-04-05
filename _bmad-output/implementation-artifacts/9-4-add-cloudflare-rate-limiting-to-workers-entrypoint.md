@@ -1,6 +1,6 @@
 # Story 9.4: Add Cloudflare Rate Limiting to Workers Entrypoint
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -30,42 +30,42 @@ So that the /mcp endpoint is rate-limited across all edge PoPs without relying o
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add `[[ratelimits]]` binding to `wrangler.toml` (AC 1)
-  - [ ] Add `[[ratelimits]]` stanza with `name = "RATE_LIMITER"`, `namespace_id = "1001"` (unique integer — choose any, e.g. 1001), `[ratelimits.simple]` block with `limit = 60` and `period = 60`
-  - [ ] Run `wrangler types` from `apps/mcp-server/` to regenerate `worker-configuration.d.ts`
-  - [ ] Commit `worker-configuration.d.ts` (generated file, intentionally versioned — see Story 9.1 precedent)
+- [x] Task 1: Add `[[ratelimits]]` binding to `wrangler.toml` (AC 1)
+  - [x] Add `[[ratelimits]]` stanza with `name = "RATE_LIMITER"`, `namespace_id = "1001"` (unique integer — choose any, e.g. 1001), `[ratelimits.simple]` block with `limit = 60` and `period = 60`
+  - [x] Run `wrangler types` from `apps/mcp-server/` to regenerate `worker-configuration.d.ts`
+  - [x] Commit `worker-configuration.d.ts` (generated file, intentionally versioned — see Story 9.1 precedent)
 
-- [ ] Task 2: Create `src/middleware/cf-rate-limit.ts` (AC 3–6)
-  - [ ] Export `applyCfRateLimit(rateLimiter: RateLimit, request: Request): Promise<Response | null>`
-  - [ ] Extract IP key from `cf-connecting-ip` header (Cloudflare edge header) with fallback to `x-forwarded-for`, then `'unknown'`
-  - [ ] Call `await rateLimiter.limit({ key: ip })`
-  - [ ] If `success === false`: `logger.warn({ source: 'rate-limiter', ip }, 'CF rate limit exceeded — returning 429')` and return `Response.json({ source: 'app', nature: 'Rate limit exceeded', action: 'Wait before retrying' }, { status: 429 })`
-  - [ ] If `success === true`: return `null` (caller continues to `app.fetch`)
-  - [ ] Use `import { logger } from '../lib/logger.js'` — no console.log (ESLint enforced)
+- [x] Task 2: Create `src/middleware/cf-rate-limit.ts` (AC 3–6)
+  - [x] Export `applyCfRateLimit(rateLimiter: RateLimit, request: Request): Promise<Response | null>`
+  - [x] Extract IP key from `cf-connecting-ip` header (Cloudflare edge header) with fallback to `x-forwarded-for`, then `'unknown'`
+  - [x] Call `await rateLimiter.limit({ key: ip })`
+  - [x] If `success === false`: `logger.warn({ source: 'rate-limiter', ip }, 'CF rate limit exceeded — returning 429')` and return `Response.json({ source: 'app', nature: 'Rate limit exceeded', action: 'Wait before retrying' }, { status: 429 })`
+  - [x] If `success === true`: return `null` (caller continues to `app.fetch`)
+  - [x] Use `import { logger } from '../lib/logger.js'` — no console.log (ESLint enforced)
 
-- [ ] Task 3: Apply CF rate limiting in `worker.ts`'s fetch handler (AC 4)
-  - [ ] Import `applyCfRateLimit` from `./middleware/cf-rate-limit.js`
-  - [ ] In the `fetch` handler, after the `env.DB` guard and before `setupMcpServer`, check if `new URL(request.url).pathname === '/mcp'`
-  - [ ] If true: `const blocked = await applyCfRateLimit(env.RATE_LIMITER, request)` — if `blocked` is non-null, return it immediately
-  - [ ] Guard: if `env.RATE_LIMITER` is falsy (binding misconfigured), skip rate limiting and continue (fail-open) — log a warn
-  - [ ] Restructure the `fetch` handler to return a `Promise<Response>` (already the case — no change needed)
+- [x] Task 3: Apply CF rate limiting in `worker.ts`'s fetch handler (AC 4)
+  - [x] Import `applyCfRateLimit` from `./middleware/cf-rate-limit.js`
+  - [x] In the `fetch` handler, after the `env.DB` guard and before `setupMcpServer`, check if `new URL(request.url).pathname === '/mcp'`
+  - [x] If true: `const blocked = await applyCfRateLimit(env.RATE_LIMITER, request)` — if `blocked` is non-null, return it immediately
+  - [x] Guard: if `env.RATE_LIMITER` is falsy (binding misconfigured), skip rate limiting and continue (fail-open) — log a warn
+  - [x] Restructure the `fetch` handler to return a `Promise<Response>` (already the case — no change needed)
 
-- [ ] Task 4: Write tests for `src/middleware/cf-rate-limit.test.ts` (AC 10–11)
-  - [ ] Mock `logger`: `vi.mock('../lib/logger.js', () => ({ logger: { warn: vi.fn() } }))`
-  - [ ] **Allowed test:** `rateLimiter.limit` returns `{ success: true }` → `applyCfRateLimit` returns `null`
-  - [ ] **Blocked test:** `rateLimiter.limit` returns `{ success: false }` → returns `Response` with status 429 and body `{ source: 'app', nature: 'Rate limit exceeded', action: 'Wait before retrying' }`
-  - [ ] **Logging test:** On limit breach, `logger.warn` called with `expect.objectContaining({ source: 'rate-limiter' })` and message containing `'429'` (key phrase)
-  - [ ] **Key extraction test (cf-connecting-ip):** `rateLimiter.limit` called with `{ key: '1.2.3.4' }` when `cf-connecting-ip: 1.2.3.4` header is set — use `toHaveBeenCalledWith` to verify correct key
-  - [ ] **Fallback test:** falls back to `x-forwarded-for` when `cf-connecting-ip` absent; falls back to `'unknown'` when both absent
-  - [ ] Mock `rateLimiter` as `{ limit: vi.fn().mockResolvedValue({ success: true }) }` cast as `RateLimit`
+- [x] Task 4: Write tests for `src/middleware/cf-rate-limit.test.ts` (AC 10–11)
+  - [x] Mock `logger`: `vi.mock('../lib/logger.js', () => ({ logger: { warn: vi.fn() } }))`
+  - [x] **Allowed test:** `rateLimiter.limit` returns `{ success: true }` → `applyCfRateLimit` returns `null`
+  - [x] **Blocked test:** `rateLimiter.limit` returns `{ success: false }` → returns `Response` with status 429 and body `{ source: 'app', nature: 'Rate limit exceeded', action: 'Wait before retrying' }`
+  - [x] **Logging test:** On limit breach, `logger.warn` called with `expect.objectContaining({ source: 'rate-limiter' })` and message containing `'429'` (key phrase)
+  - [x] **Key extraction test (cf-connecting-ip):** `rateLimiter.limit` called with `{ key: '1.2.3.4' }` when `cf-connecting-ip: 1.2.3.4` header is set — use `toHaveBeenCalledWith` to verify correct key
+  - [x] **Fallback test:** falls back to `x-forwarded-for` when `cf-connecting-ip` absent; falls back to `'unknown'` when both absent
+  - [x] Mock `rateLimiter` as `{ limit: vi.fn().mockResolvedValue({ success: true }) }` cast as `RateLimit`
 
-- [ ] Task 5: Final verification
-  - [ ] `pnpm --filter mcp-server test` — all tests pass (existing 218 + new cf-rate-limit.test.ts)
-  - [ ] `pnpm --filter mcp-server typecheck` — zero errors
-  - [ ] `pnpm --filter mcp-server lint` — zero errors
-  - [ ] `wrangler deploy --dry-run` from `apps/mcp-server/` — bundle compiles without errors
-  - [ ] Verify `src/middleware/rate-limit.ts` is byte-for-byte unchanged (no edits)
-  - [ ] Verify `src/index.ts` is unchanged
+- [x] Task 5: Final verification
+  - [x] `pnpm --filter mcp-server test` — all tests pass (existing 218 + new cf-rate-limit.test.ts = 224)
+  - [x] `pnpm --filter mcp-server typecheck` — zero errors
+  - [x] `pnpm --filter mcp-server lint` — zero errors
+  - [x] `wrangler deploy --dry-run` from `apps/mcp-server/` — bundle compiles without errors
+  - [x] Verify `src/middleware/rate-limit.ts` is byte-for-byte unchanged (no edits)
+  - [x] Verify `src/index.ts` is unchanged
 
 ## Dev Notes
 
@@ -349,10 +349,19 @@ claude-sonnet-4-6
 
 ### Debug Log References
 
+- vi.hoisted required for mockWarn in cf-rate-limit.test.ts — vi.mock factory is hoisted before variable initialization, so mockWarn must be declared via vi.hoisted() to be available in the factory closure.
+
 ### Completion Notes List
+
+- Created `src/middleware/cf-rate-limit.ts` — plain async function `applyCfRateLimit(rateLimiter, request)` using CF Rate Limiting binding; IP key from cf-connecting-ip → x-forwarded-for → 'unknown'; returns 429 JSON on breach, null on allow.
+- Modified `worker.ts` — added CF rate limit check for `/mcp` path in fetch handler using IIFE async pattern; fail-open guard if RATE_LIMITER binding missing.
+- Added `[[ratelimits]]` stanza to `wrangler.toml`; regenerated `worker-configuration.d.ts` (RATE_LIMITER: RateLimit now in Env interface).
+- 6 new tests in `cf-rate-limit.test.ts` covering: allow, block (429 body), logging (key phrase '429'), cf-connecting-ip key, x-forwarded-for fallback, unknown fallback. Total: 224 tests pass.
+- `rate-limit.ts`, `index.ts`, `app.ts` unchanged — Node.js path unaffected.
 
 ### Change Log
 
 | Date | Change | Reason |
 |------|--------|--------|
 | 2026-04-05 | Story created | Story 9.4 — add Cloudflare Rate Limiting to Workers entrypoint |
+| 2026-04-05 | Implementation complete | Added CF rate limiting binding, middleware, worker.ts integration, and tests |

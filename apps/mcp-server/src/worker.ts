@@ -8,6 +8,7 @@ import { initWorkerEnv } from './env.js'
 import { warmUpLegislatorsCache, warmUpBillsCache } from './cache/refresh.js'
 import { UtahLegislatureProvider } from './providers/utah-legislature.js'
 import { logger } from './lib/logger.js'
+import { applyCfRateLimit } from './middleware/cf-rate-limit.js'
 
 export default {
   fetch(request: Request, env: Env, ctx: ExecutionContext): Response | Promise<Response> {
@@ -23,6 +24,29 @@ export default {
         },
         { status: 500 },
       )
+    }
+
+    // CF rate limiting for /mcp route (Workers path only — not applied in app.ts or index.ts).
+    const url = new URL(request.url)
+    if (url.pathname === '/mcp') {
+      if (!env.RATE_LIMITER) {
+        logger.warn({ source: 'rate-limiter' }, 'RATE_LIMITER binding not configured — skipping rate limiting')
+      } else {
+        return (async () => {
+          const blocked = await applyCfRateLimit(env.RATE_LIMITER, request)
+          if (blocked) return blocked
+
+          // Wire D1 binding into tool registrations (idempotent — overwrites on each request,
+          // but env.DB is consistent within an isolate and tool closures capture the binding).
+          setupMcpServer(env.DB, (server) => {
+            registerLookupLegislatorTool(server, env.DB)
+            registerResolveAddressTool(server)
+            registerSearchBillsTool(server, env.DB)
+          })
+
+          return app.fetch(request, env, ctx)
+        })()
+      }
     }
 
     // Wire D1 binding into tool registrations (idempotent — overwrites on each request,
