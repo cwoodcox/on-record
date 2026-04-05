@@ -63,13 +63,12 @@ CREATE INDEX IF NOT EXISTS idx_bills_sponsor_id ON bills (sponsor_id);
  * Applies the schema DDL to the given D1 database.
  * Used by tests (beforeAll) and the Node.js startup path.
  * Idempotent — safe to call multiple times (all DDL uses IF NOT EXISTS).
+ * Uses db.batch() for atomic DDL execution.
  */
 export async function applySchema(db: D1Database): Promise<void> {
   const statements = SCHEMA_SQL
     .split(';')
     .map((s) => s.replace(/\s+/g, ' ').trim())
     .filter((s) => s.length > 0)
-  for (const stmt of statements) {
-    await db.exec(stmt)
-  }
+  await db.batch(statements.map((stmt) => db.prepare(stmt)))
 }
