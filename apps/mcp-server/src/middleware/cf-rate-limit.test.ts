@@ -56,8 +56,30 @@ describe('applyCfRateLimit', () => {
     expect(mockRateLimiter.limit).toHaveBeenCalledWith({ key: '5.6.7.8' })
   })
 
+  it('uses only the first IP from x-forwarded-for when multiple are present', async () => {
+    const req = makeRequest({ 'x-forwarded-for': '5.6.7.8, 9.10.11.12, 13.14.15.16' })
+    await applyCfRateLimit(mockRateLimiter as unknown as RateLimit, req)
+    expect(mockRateLimiter.limit).toHaveBeenCalledWith({ key: '5.6.7.8' })
+  })
+
   it('falls back to unknown when both IP headers absent', async () => {
     await applyCfRateLimit(mockRateLimiter as unknown as RateLimit, makeRequest())
     expect(mockRateLimiter.limit).toHaveBeenCalledWith({ key: 'unknown' })
+  })
+
+  it('includes Retry-After header in 429 response', async () => {
+    mockRateLimiter.limit.mockResolvedValue({ success: false })
+    const result = await applyCfRateLimit(mockRateLimiter as unknown as RateLimit, makeRequest())
+    expect(result!.headers.get('Retry-After')).toBe('60')
+  })
+
+  it('returns null and logs warn when rateLimiter.limit throws (fail-open)', async () => {
+    mockRateLimiter.limit.mockRejectedValue(new Error('binding error'))
+    const result = await applyCfRateLimit(mockRateLimiter as unknown as RateLimit, makeRequest())
+    expect(result).toBeNull()
+    expect(mockWarn).toHaveBeenCalledWith(
+      expect.objectContaining({ source: 'rate-limiter' }),
+      expect.stringContaining('failing open'),
+    )
   })
 })

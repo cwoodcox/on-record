@@ -145,7 +145,7 @@ development_status:
   9-1-wrangler-scaffold-and-workers-entrypoint: done
   9-2-migrate-cache-layer-to-d1-async-api: done
   9-3-replace-node-cron-with-cron-trigger-scheduler: done
-  9-4-add-cloudflare-rate-limiting-to-workers-entrypoint: in-progress
+  9-4-add-cloudflare-rate-limiting-to-workers-entrypoint: review
   9-5-cicd-wrangler-deploy-to-cloudflare-workers: backlog
   epic-9-retrospective: optional
 

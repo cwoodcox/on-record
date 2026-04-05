@@ -1,6 +1,6 @@
 # Story 9.4: Add Cloudflare Rate Limiting to Workers Entrypoint
 
-Status: in-progress
+Status: review
 
 ## Story
 
@@ -69,13 +69,13 @@ So that the /mcp endpoint is rate-limited across all edge PoPs without relying o
 
 ### Review Findings
 
-- [ ] [Review][Patch] Duplicated `setupMcpServer` and tool registration block [worker.ts:25-50]
-- [ ] [Review][Patch] Insecure and incorrect IP extraction for rate limiting [cf-rate-limit.ts:9-15]
-- [ ] [Review][Patch] Fragile route matching allows rate limit bypass [worker.ts:30]
-- [ ] [Review][Patch] 429 response missing `Retry-After` header [cf-rate-limit.ts:20]
-- [ ] [Review][Patch] Rate limiting implemented in entrypoint instead of Hono middleware [worker.ts:30]
-- [ ] [Review][Patch] Missing exception guard for `rateLimiter.limit` [cf-rate-limit.ts:15]
-- [ ] [Review][Patch] Diverging request lifecycles (async IIFE path) [worker.ts:33]
+- [x] [Review][Patch] Duplicated `setupMcpServer` and tool registration block [worker.ts:25-50]
+- [x] [Review][Patch] Insecure and incorrect IP extraction for rate limiting [cf-rate-limit.ts:9-15]
+- [x] [Review][Patch] Fragile route matching allows rate limit bypass [worker.ts:30]
+- [x] [Review][Patch] 429 response missing `Retry-After` header [cf-rate-limit.ts:20]
+- [x] [Review][Defer] Rate limiting implemented in entrypoint instead of Hono middleware [worker.ts:30] — by design per AC 4 (Workers-path-only, NOT in app.ts)
+- [x] [Review][Patch] Missing exception guard for `rateLimiter.limit` [cf-rate-limit.ts:15]
+- [x] [Review][Patch] Diverging request lifecycles (async IIFE path) [worker.ts:33]
 - [x] [Review][Defer] Rate limiting is Workers-only, causing environment drift [worker.ts:30] — deferred, pre-existing (Story 9.4 scope)
 
 ## Dev Notes
@@ -367,6 +367,14 @@ claude-sonnet-4-6
 - Added `[[ratelimits]]` stanza to `wrangler.toml`; regenerated `worker-configuration.d.ts` (RATE_LIMITER: RateLimit now in Env interface).
 - 6 new tests in `cf-rate-limit.test.ts` covering: allow, block (429 body), logging (key phrase '429'), cf-connecting-ip key, x-forwarded-for fallback, unknown fallback. Total: 224 tests pass.
 - `rate-limit.ts`, `index.ts`, `app.ts` unchanged — Node.js path unaffected.
+- ✅ Resolved review finding [Patch]: Duplicated setupMcpServer block — made fetch async, removed IIFE, single call site
+- ✅ Resolved review finding [Patch]: Insecure IP extraction — sanitize x-forwarded-for with optional chain + split(',')[0]?.trim()
+- ✅ Resolved review finding [Patch]: Fragile route matching — added startsWith('/mcp/') alongside exact '=== /mcp' check
+- ✅ Resolved review finding [Patch]: 429 missing Retry-After header — added { 'Retry-After': '60' } to Response.json options
+- ✅ Resolved review finding [Patch]: Missing exception guard — wrapped rateLimiter.limit() in try/catch; fail-open on error
+- ✅ Resolved review finding [Patch]: Diverging request lifecycles — addressed by making fetch fully async (no IIFE branch)
+- ✅ Deferred review finding [Patch→Defer]: Rate limiting in entrypoint vs Hono middleware — by design per AC 4 (Workers-path-only)
+- 3 new tests added: multi-IP x-forwarded-for, Retry-After header, fail-open on exception. Total: 227 tests pass.
 
 ### Change Log
 
@@ -374,3 +382,4 @@ claude-sonnet-4-6
 |------|--------|--------|
 | 2026-04-05 | Story created | Story 9.4 — add Cloudflare Rate Limiting to Workers entrypoint |
 | 2026-04-05 | Implementation complete | Added CF rate limiting binding, middleware, worker.ts integration, and tests |
+| 2026-04-05 | Addressed code review findings — 6 items resolved (Gemini review) | IP sanitization, Retry-After header, exception guard, async fetch, deduplicated setupMcpServer, route matching; 1 deferred by design |

@@ -11,7 +11,7 @@ import { logger } from './lib/logger.js'
 import { applyCfRateLimit } from './middleware/cf-rate-limit.js'
 
 export default {
-  fetch(request: Request, env: Env, ctx: ExecutionContext): Response | Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     initWorkerEnv(env)
 
     // Validate required Workers bindings before routing.
@@ -28,24 +28,12 @@ export default {
 
     // CF rate limiting for /mcp route (Workers path only — not applied in app.ts or index.ts).
     const url = new URL(request.url)
-    if (url.pathname === '/mcp') {
+    if (url.pathname === '/mcp' || url.pathname.startsWith('/mcp/')) {
       if (!env.RATE_LIMITER) {
         logger.warn({ source: 'rate-limiter' }, 'RATE_LIMITER binding not configured — skipping rate limiting')
       } else {
-        return (async () => {
-          const blocked = await applyCfRateLimit(env.RATE_LIMITER, request)
-          if (blocked) return blocked
-
-          // Wire D1 binding into tool registrations (idempotent — overwrites on each request,
-          // but env.DB is consistent within an isolate and tool closures capture the binding).
-          setupMcpServer(env.DB, (server) => {
-            registerLookupLegislatorTool(server, env.DB)
-            registerResolveAddressTool(server)
-            registerSearchBillsTool(server, env.DB)
-          })
-
-          return app.fetch(request, env, ctx)
-        })()
+        const blocked = await applyCfRateLimit(env.RATE_LIMITER, request)
+        if (blocked) return blocked
       }
     }
 
