@@ -1,4 +1,5 @@
 // apps/mcp-server/src/index.ts
+// Node.js bootstrap: env validation, cache init, cache warm-up, cron scheduling, serve().
 // STEP 1: Validate env FIRST — before any other imports that might call getEnv()
 import { validateEnv } from './env.js'
 const env = validateEnv()
@@ -22,38 +23,29 @@ logger.info({ source: 'cache' }, 'Sessions seeded')
 import { UtahLegislatureProvider } from './providers/utah-legislature.js'
 import { warmUpLegislatorsCache, scheduleLegislatorsRefresh, warmUpBillsCache, scheduleBillsRefresh } from './cache/refresh.js'
 
-// STEP 2.7: MCP tool registrations (Story 2.4, 2.7, 3.5)
+// STEP 3: Shared Hono app (Story 9.1)
+// All middleware + MCP route handlers live in app.ts.
+import { app, setupMcpServer } from './app.js'
 import { registerLookupLegislatorTool } from './tools/legislator-lookup.js'
 import { registerResolveAddressTool } from './tools/resolve-address.js'
 import { registerSearchBillsTool } from './tools/search-bills.js'
 
-// STEP 3: Framework imports
-import { Hono } from 'hono'
+// Wire up tool registrations for the Node.js path.
+// Workers path (worker.ts) intentionally omits this until Story 9.2 migrates the cache layer to D1.
+setupMcpServer((server) => {
+  registerLookupLegislatorTool(server)
+  registerResolveAddressTool(server)
+  registerSearchBillsTool(server)
+})
+
+// STEP 4: Node.js-specific serve() adapter
 import { serve } from '@hono/node-server'
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
-import { randomUUID } from 'node:crypto'
-import type { IncomingMessage, ServerResponse } from 'node:http'
-
-// STEP 4: Middleware imports
-import { loggingMiddleware } from './middleware/logging.js'
-import { corsMiddleware } from './middleware/cors.js'
-import { rateLimitMiddleware } from './middleware/rate-limit.js'
-
-// ── Session store ──────────────────────────────────────────────────────────
-// Stores active MCP transport sessions keyed by Mcp-Session-Id header.
-// StreamableHTTPServerTransport is stateful per session.
-const transports = new Map<string, StreamableHTTPServerTransport>()
+import type { ServerResponse } from 'node:http'
 
 // ── Response drain helper ───────────────────────────────────────────────────
-// @hono/node-server checks `outgoing.writableEnded` before writing the Hono
-// Response to the socket. StreamableHTTPServerTransport.handleRequest() calls
-// writeHead() to start the response but does not call end() until the response
-// is complete (POST) or the client disconnects (GET SSE). Returning from the
-// Hono handler before the socket is finished causes ERR_HTTP_HEADERS_SENT
-// because @hono/node-server tries to writeHead() a second time.
-// Fix: await the 'finish' or 'close' event so writableEnded is true before
-// Hono's response pipeline runs. OS TCP keepalive handles leaked connections.
+// Retained for Node.js compatibility (cleanup deferred to post-9.5 decommission).
+// Not called by the current MCP route handlers — app.ts uses the fetch-compatible
+// WebStandard transport which returns a Response directly without Node.js streams.
 function drainResponse(res: ServerResponse): Promise<void> {
   if (res.writableEnded) return Promise.resolve()
   return new Promise<void>((resolve) => {
@@ -62,111 +54,15 @@ function drainResponse(res: ServerResponse): Promise<void> {
   })
 }
 
-// ── Hono app setup ─────────────────────────────────────────────────────────
-const app = new Hono()
-
-// Middleware order is critical:
-// 1. Logging first — captures all requests including those rejected by rate-limiter
-// 2. CORS — must run before rate-limiter (preflight OPTIONS should not consume rate-limit quota)
-// 3. Rate-limiter — rejects excess requests after CORS preflight passes
-app.use('*', loggingMiddleware)
-app.use('*', corsMiddleware)
-app.use('/mcp', rateLimitMiddleware)
-
-// ── MCP route handlers ─────────────────────────────────────────────────────
-app.post('/mcp', async (c) => {
-  const sessionId = c.req.header('mcp-session-id')
-
-  let transport: StreamableHTTPServerTransport
-
-  if (sessionId && transports.has(sessionId)) {
-    // Existing session — reuse transport
-    transport = transports.get(sessionId)!
-  } else {
-    // New session — create transport and connect a fresh McpServer instance
-    transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: () => randomUUID(),
-      onsessioninitialized: (newSessionId) => {
-        transports.set(newSessionId, transport)
-        logger.info({ source: 'app', sessionId: newSessionId }, 'MCP session initialized')
-      },
-    })
-
-    transport.onclose = () => {
-      const sid = transport.sessionId
-      if (sid) {
-        transports.delete(sid)
-        logger.info({ source: 'app', sessionId: sid }, 'MCP session closed')
-      }
-    }
-
-    const server = new McpServer({
-      name: 'on-record',
-      version: '1.0.0',
-    })
-
-    registerLookupLegislatorTool(server) // Story 2.4
-    registerResolveAddressTool(server)   // Story 2.7
-    registerSearchBillsTool(server)      // Story 3.5
-
-    // @ts-expect-error -- StreamableHTTPServerTransport.onclose is typed as `(() => void) | undefined`
-    // which conflicts with McpServer.connect's Transport interface under exactOptionalPropertyTypes; SDK issue
-    await server.connect(transport)
-  }
-
-  // @hono/node-server exposes the raw Node.js req/res via c.env
-  // The transport.handleRequest needs Node.js IncomingMessage and ServerResponse
-  const nodeEnv = c.env as { incoming: IncomingMessage; outgoing: ServerResponse }
-
-  let body: unknown
-  try {
-    body = await c.req.json()
-  } catch {
-    return c.json({ error: 'Invalid JSON body' }, 400)
-  }
-
-  await transport.handleRequest(nodeEnv.incoming, nodeEnv.outgoing, body)
-  await drainResponse(nodeEnv.outgoing)
-  // Transport already wrote the response — tell Hono to skip its response pipeline.
-  return new Response(null, { headers: { 'x-hono-already-sent': '1' } })
-})
-
-app.get('/mcp', async (c) => {
-  const sessionId = c.req.header('mcp-session-id')
-  const transport = sessionId ? transports.get(sessionId) : undefined
-
-  if (!transport) {
-    return c.json({ error: 'No active MCP session. POST /mcp first to initialize.' }, 404)
-  }
-
-  const nodeEnv = c.env as { incoming: IncomingMessage; outgoing: ServerResponse }
-  await transport.handleRequest(nodeEnv.incoming, nodeEnv.outgoing)
-  await drainResponse(nodeEnv.outgoing)
-  return new Response(null, { headers: { 'x-hono-already-sent': '1' } })
-})
-
-app.delete('/mcp', async (c) => {
-  const sessionId = c.req.header('mcp-session-id')
-  const transport = sessionId ? transports.get(sessionId) : undefined
-
-  if (!transport) {
-    return c.json({ error: 'No active MCP session to close.' }, 404)
-  }
-
-  const nodeEnv = c.env as { incoming: IncomingMessage; outgoing: ServerResponse }
-  await transport.handleRequest(nodeEnv.incoming, nodeEnv.outgoing)
-  await drainResponse(nodeEnv.outgoing)
-  return new Response(null, { headers: { 'x-hono-already-sent': '1' } })
-})
+// Suppress unused variable warning — drainResponse is intentionally retained for
+// future Node.js path needs and post-decommission cleanup.
+void drainResponse
 
 // ── Global error handlers ──────────────────────────────────────────────────
 process.on('unhandledRejection', (reason) => {
   logger.error({ source: 'app', reason }, 'Unhandled promise rejection — exiting')
   process.exit(1)
 })
-
-// ── Health check ───────────────────────────────────────────────────────────
-app.get('/health', (c) => c.json({ status: 'ok', service: 'on-record-mcp-server' }))
 
 // ── Start server ───────────────────────────────────────────────────────────
 // startServer is async to support await on warm-up before accepting connections.
