@@ -9,10 +9,12 @@ inputDocuments:
   - '_bmad-output/planning-artifacts/prd.md'
   - '_bmad-output/planning-artifacts/architecture.md'
   - '_bmad-output/planning-artifacts/ux-design-specification.md'
+  - '_bmad-output/planning-artifacts/research/technical-cloudflare-workers-deployment-2026-03-16.md'
 workflowType: 'epics-and-stories'
 project_name: 'On Record'
 user_name: 'Corey'
 date: '2026-02-23'
+epic9Added: '2026-04-04'
 ---
 
 # On Record (write-your-legislator) - Epic Breakdown
@@ -974,3 +976,247 @@ The operator can trace any error to its source (API vs. application logic), view
 A civic tech developer finds the public repo, reads complete documentation, spins up the stack locally with a successful tool invocation, and has a clear path to submit issues and PRs — all without any help from the original author.
 **FRs covered:** FR28, FR33, FR40
 **NFRs:** NFR18
+
+### Epic 9: Deploy MCP Server to Cloudflare Workers
+The operator can run mcp-server as a globally-distributed, zero-maintenance Cloudflare Worker backed by D1, with automated deployment on every push to main. The Node.js index.ts path is preserved during migration and earmarked for follow-up decommission.
+**FRs covered:** FR-CF1, FR-CF2, FR-CF3, FR-CF4, FR-CF5, FR-CF6, FR-CF7
+**NFRs:** NFR-CF1, NFR-CF2, NFR-CF3, NFR-CF4
+**Source:** _bmad-output/planning-artifacts/research/technical-cloudflare-workers-deployment-2026-03-16.md
+
+---
+
+## Epic 9: Deploy MCP Server to Cloudflare Workers
+
+The operator can run mcp-server as a globally-distributed, zero-maintenance Cloudflare Worker backed by D1, with automated deployment on every push to main. The Node.js index.ts path is preserved during migration and earmarked for follow-up decommission.
+
+### Requirements for Epic 9
+
+**Functional Requirements:**
+- FR-CF1: mcp-server is deployed and accessible as a Cloudflare Worker via HTTP
+- FR-CF2: D1 is the cache store in the Workers execution path; local dev uses wrangler dev + Miniflare D1 simulation; better-sqlite3 remains in index.ts (to be decommissioned in a follow-up story after Workers is live and validated)
+- FR-CF3: Cron Trigger + scheduled() handler drives cache refresh in Workers path; node-cron remains in index.ts (to be decommissioned in a follow-up story after Workers is live and validated); scheduled handler testable locally via /__scheduled endpoint
+- FR-CF4: Cloudflare Rate Limiting binding enforced on the Workers request path (additive — hono-rate-limiter stays in index.ts)
+- FR-CF5: Node.js index.ts remains fully functional and compilable throughout the migration
+- FR-CF6: wrangler deploy runs automatically in CI after tests pass on push to main
+- FR-CF7: D1 schema migrations applied via wrangler before each deploy
+
+**Non-Functional Requirements:**
+- NFR-CF1: MCP tool calls return within 500ms end-to-end (including D1 query)
+- NFR-CF2: Monthly D1 usage stays within free tier (5M row reads/day, 100K row writes/day)
+- NFR-CF3: Zero better-sqlite3 or node-cron references in the Workers execution path (worker.ts and its imports)
+- NFR-CF4: All existing Vitest tests pass in the @cloudflare/vitest-pool-workers environment
+
+**Additional Requirements:**
+- wrangler.toml: d1_databases binding, cron triggers, nodejs_compat flag
+- wrangler types (not @cloudflare/workers-types) generates worker-configuration.d.ts
+- No mutable module-level state in Workers path
+- Secrets via wrangler secret put only — never in wrangler.toml or git
+- wrangler installed at monorepo root, not per-workspace
+- better-sqlite3 and node-cron decommission is out of scope — follow-up cleanup story post-validation
+
+---
+
+### Story 9.1: Wrangler Scaffold and Workers Entrypoint
+
+As a developer,
+I want wrangler configured and a Workers entrypoint in place alongside the existing Node.js entry,
+So that mcp-server can be type-checked and bundled for Cloudflare Workers while local Node.js development continues uninterrupted.
+
+**Acceptance Criteria:**
+
+**Given** the Hono app, MCP routes, and Node.js bootstrap are all inline in index.ts
+**When** the scaffold is complete
+**Then** a shared `src/app.ts` exports the Hono app instance with all middleware and MCP route handlers
+**And** MCP route handlers in app.ts use the fetch-compatible `transport.handleRequest(c.req.raw)` → `Response` overload (no `IncomingMessage`/`ServerResponse` in app.ts)
+**And** index.ts imports from app.ts and retains only the Node.js-specific bootstrap: `serve()`, `drainResponse`, `process.on('unhandledRejection')`, cache warm-up, and cron scheduler setup
+
+**Given** app.ts exists with the shared Hono app
+**When** `src/worker.ts` is created
+**Then** it exports `export default { fetch: app.fetch, scheduled(_event: ScheduledEvent, _env: Env, _ctx: ExecutionContext): void {} }` (scheduled is a stub)
+**And** worker.ts contains no mutable module-level state
+**And** env validation in worker.ts reads from the Workers `env` binding object — not `process.env`
+
+**Given** wrangler.toml is created in apps/mcp-server/
+**When** its contents are read
+**Then** it includes: `name = "on-record-mcp"`, a current `compatibility_date`, `nodejs_compat = true`, `main = "src/worker.ts"`, a `[[d1_databases]]` stanza with `binding = "DB"` and `database_name = "on-record-cache"`, and `[triggers] crons = []` as a placeholder
+**And** secrets (UGRC_API_KEY etc.) are NOT in wrangler.toml
+
+**Given** wrangler.toml with the D1 binding
+**When** `wrangler types` is run from apps/mcp-server/
+**Then** `worker-configuration.d.ts` is generated with `interface Env { DB: D1Database }`
+**And** it is committed to version control (not gitignored)
+**And** `@cloudflare/workers-types` is NOT added to package.json (wrangler types is the sole source)
+
+**Given** the pnpm workspaces structure
+**When** wrangler is installed
+**Then** it appears in the root `package.json` devDependencies (not in apps/mcp-server/package.json)
+**And** a `"deploy": "wrangler deploy"` script is added to apps/mcp-server/package.json
+
+**Given** the existing Vitest setup
+**When** `@cloudflare/vitest-pool-workers` is installed and vitest.config.ts updated to use the workers pool
+**Then** `pnpm --filter mcp-server test` passes with all existing tests green
+**And** `pnpm --filter mcp-server typecheck` passes with zero errors including worker.ts
+
+**Given** wrangler.toml and worker.ts are in place
+**When** `wrangler dev` is run from apps/mcp-server/
+**Then** the dev server starts on a local port without compilation or config errors
+(Note: D1-backed tool calls will fail until 9.2 — this is expected and not a failure criterion for this story)
+
+**Given** index.ts is refactored to import from app.ts
+**When** `pnpm --filter mcp-server dev` is run (Node.js path)
+**Then** mcp-server starts and serves MCP tool calls identically to before this story
+
+---
+
+### Story 9.2: Migrate Cache Layer to D1 Async API
+
+As a developer,
+I want the cache layer rewritten to use D1's async API with Miniflare local simulation,
+So that mcp-server executes correctly in Cloudflare Workers with `wrangler dev` as the full local development loop.
+
+**Acceptance Criteria:**
+
+**Given** the existing SQLite schema in cache/schema.ts
+**When** `migrations/001-initial-schema.sql` is created in apps/mcp-server/
+**Then** it contains all DDL: bills, legislators, sessions tables, all indexes, and the bill_fts FTS5 virtual table
+**And** `wrangler d1 migrations apply on-record-cache --local` applies it without errors
+**And** the migration file is committed to version control
+
+**Given** the cache/ files: db.ts, schema.ts, bills.ts, legislators.ts, sessions.ts, refresh.ts
+**When** they are rewritten to use D1
+**Then** all `better-sqlite3` synchronous calls are replaced with D1 async equivalents using the pattern `await env.DB.prepare('...').bind(...).all()` / `.first()` / `.run()`
+**And** the `D1Database` binding is injected as a parameter (same DI pattern as the existing `Database` parameter — no module-level DB singleton in the Workers path)
+**And** no `better-sqlite3` imports remain in any `cache/*.ts` file
+**And** `cache/db.ts` is removed or repurposed (the D1 binding replaces the connection singleton)
+
+**Given** the existing FTS5 bill search query
+**When** a `search_bills` tool call executes
+**Then** the JOIN pattern is preserved unchanged: `FROM bill_fts JOIN bills b ON b.rowid = bill_fts.rowid WHERE bill_fts MATCH ? ORDER BY bill_fts.rank`
+**And** the empty MATCH string guard returns early before executing the query
+
+**Given** worker.ts and app.ts are updated to pass `env.DB` to cache functions
+**When** `wrangler dev` is run and an MCP tool call is made
+**Then** the tool call returns a result using the local D1 simulation
+**And** cache refresh (called via the scheduled stub or manually) populates the local D1 database
+
+**Given** the updated vitest.config.ts using workers pool
+**When** `pnpm --filter mcp-server test` is run
+**Then** all tests pass
+**And** error-path tests use `toContain` on `nature` and `action` fields (not type-only checks)
+**And** tests with `mockReturnValue` include `toHaveBeenCalledWith` assertions
+
+**Given** index.ts still references better-sqlite3 and node-cron
+**When** `pnpm --filter mcp-server dev` is run (Node.js path)
+**Then** mcp-server starts without compile-time errors (the Node.js path is preserved but earmarked for decommission)
+
+---
+
+### Story 9.3: Replace node-cron with Cron Trigger Scheduler
+
+As an operator,
+I want the cache refresh scheduler driven by a Cloudflare Cron Trigger,
+So that legislators and bills data refreshes automatically without a long-lived Node.js process managing the schedule.
+
+**Acceptance Criteria:**
+
+**Given** wrangler.toml has a `[triggers]` section
+**When** it is updated for this story
+**Then** `crons = ["0 6 * * *", "0 * * * *"]` is set (daily legislators refresh at 06:00 UTC, hourly bills refresh)
+
+**Given** worker.ts has a stub `scheduled` handler
+**When** it is implemented
+**Then** the `scheduled(event, env, ctx)` export calls `warmUpLegislatorsCache` and `warmUpBillsCache` with the D1 binding from `env.DB`
+**And** bills refresh runs on every invocation; legislators refresh runs only on the daily trigger (discriminated by `event.cron`)
+**And** the handler uses `ctx.waitUntil()` to prevent the Worker from terminating before refresh completes
+
+**Given** `wrangler dev --test-scheduled` is running
+**When** `curl "http://localhost:8787/__scheduled?cron=0+*+*+*+*"` is called
+**Then** the scheduled handler executes and populates the local D1 simulation
+**And** the handler logs completion via the pino logger with a `source` field
+
+**Given** node-cron is still present in index.ts (not yet decommissioned)
+**When** `pnpm --filter mcp-server dev` is run (Node.js path)
+**Then** node-cron scheduled refresh still runs as before (node-cron in index.ts is untouched)
+
+**Given** the Workers deployment
+**When** `wrangler deploy` completes
+**Then** zero `node-cron` references exist in worker.ts or app.ts (node-cron is index.ts only)
+
+---
+
+### Story 9.4: Add Cloudflare Rate Limiting to Workers Entrypoint
+
+As an operator,
+I want the Workers path protected by Cloudflare's globally-consistent Rate Limiting binding,
+So that the /mcp endpoint is rate-limited across all edge PoPs without relying on per-isolate in-memory state.
+
+**Acceptance Criteria:**
+
+**Given** wrangler.toml has the D1 binding configured
+**When** the Cloudflare Rate Limiting binding is added
+**Then** `wrangler.toml` includes the appropriate rate limiting binding stanza (per current wrangler version docs), binding the rate limiter as `RATE_LIMITER`
+**And** `worker-configuration.d.ts` is regenerated via `wrangler types` to include `RATE_LIMITER` in `Env`
+
+**Given** worker.ts uses app.fetch
+**When** a middleware is added for rate limiting in the Workers path
+**Then** a new `src/middleware/cf-rate-limit.ts` is created that registers a rate limit check using `env.RATE_LIMITER`
+**And** it is applied to the `/mcp` route in the Workers path
+**And** on limit breach it returns a 429 response with `{ source: 'app', nature: 'Rate limit exceeded', action: 'Wait before retrying' }`
+**And** it logs the rate limit event via pino logger with `source: 'rate-limiter'`
+
+**Given** the Node.js index.ts path
+**When** this story is complete
+**Then** `src/middleware/rate-limit.ts` (hono-rate-limiter) is completely unchanged
+**And** `hono-rate-limiter` remains in package.json dependencies
+**And** index.ts still registers `rateLimitMiddleware` on `/mcp` as before
+
+**Given** the updated workers path
+**When** `pnpm --filter mcp-server test` is run
+**Then** all existing rate-limit tests pass unchanged
+**And** `pnpm --filter mcp-server typecheck` passes with zero errors
+
+---
+
+### Story 9.5: CI/CD — Wrangler Deploy to Cloudflare Workers
+
+As an operator,
+I want mcp-server automatically deployed to Cloudflare Workers on every push to main,
+So that code merged to main is live in production without manual intervention.
+
+**Acceptance Criteria:**
+
+**Given** the existing `.github/workflows/ci.yml`
+**When** a `deploy-mcp-server` job is added
+**Then** it runs only on `push` to `main` (not on pull requests)
+**And** it has `needs: ci` (deploy only after lint/typecheck/tests pass)
+**And** it runs `wrangler d1 migrations apply on-record-cache --remote` before deploying
+**And** it runs `wrangler deploy` from `apps/mcp-server/` using `cloudflare/wrangler-action@v3`
+**And** it uses `secrets.CLOUDFLARE_API_TOKEN` and `secrets.CLOUDFLARE_ACCOUNT_ID` (same secrets already used by deploy-web)
+
+**Given** a migration file has already been applied to the remote D1
+**When** `wrangler d1 migrations apply` runs again in CI
+**Then** it is a no-op (idempotent — `d1_migrations` table prevents double-application)
+
+**Given** `UGRC_API_KEY` and any other runtime secrets
+**When** the deployed Worker runs
+**Then** secrets are set via `wrangler secret put` (not in wrangler.toml, not in GitHub Actions env)
+
+**Given** the deploy job completes successfully
+**When** an MCP tool call is made against the deployed Workers URL
+**Then** the tool returns a result within 500ms
+
+**Given** the existing `deploy-web` job in ci.yml
+**When** `deploy-mcp-server` is added
+**Then** both deploy jobs run in parallel after `ci` passes (no sequential dependency between the two deploy jobs)
+
+---
+
+### Epic 9 FR Coverage Map
+
+- FR-CF1 → Story 9.1 (worker.ts entrypoint), Story 9.5 (CI/CD wrangler deploy)
+- FR-CF2 → Story 9.2 (D1 cache layer migration)
+- FR-CF3 → Story 9.3 (Cron Trigger scheduler)
+- FR-CF4 → Story 9.4 (CF Rate Limiting binding)
+- FR-CF5 → Stories 9.1–9.4 (index.ts preserved throughout)
+- FR-CF6 → Story 9.5 (wrangler deploy in GHA)
+- FR-CF7 → Story 9.5 (d1 migrations apply in CI)
