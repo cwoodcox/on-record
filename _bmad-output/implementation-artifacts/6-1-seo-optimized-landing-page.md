@@ -5,7 +5,7 @@
 - **Story ID:** 6.1
 - **Story Key:** 6-1-seo-optimized-landing-page
 - **Epic:** 6 — Anyone Can Discover and Set Up the Tool
-- **Status:** review
+- **Status:** done
 - **Date Created:** 2026-03-31
 
 ---

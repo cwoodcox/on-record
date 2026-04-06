@@ -1,6 +1,6 @@
 # Story 6-3: Privacy Policy, Terms of Service, and Open Graph Social Sharing
 
-Status: review
+Status: done
 
 ## Story
 

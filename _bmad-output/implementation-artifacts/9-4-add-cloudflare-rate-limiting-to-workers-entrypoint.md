@@ -1,6 +1,6 @@
 # Story 9.4: Add Cloudflare Rate Limiting to Workers Entrypoint
 
-Status: review
+Status: done
 
 ## Story
 
