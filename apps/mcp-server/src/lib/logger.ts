@@ -1,38 +1,26 @@
 // apps/mcp-server/src/lib/logger.ts
 import pino from 'pino'
-import { getEnv } from '../env.js'
 
 // Singleton pino logger — import this everywhere in mcp-server, never construct a new logger.
 // All log calls MUST include a `source` field identifying the subsystem:
 //   logger.info({ source: 'cache' }, 'Bills cached')
 //   logger.error({ source: 'gis-api', address: '[REDACTED]', err }, 'GIS lookup failed')
+//
+// pino-pretty is NOT used: it requires Node.js stream.Transform which is unavailable in
+// the Cloudflare Workers runtime. Use `wrangler tail` or the Cloudflare observability
+// dashboard to view logs in production; `wrangler dev` surfaces them in the terminal.
 
 let _logger: pino.Logger | undefined
 
 export function getLogger(): pino.Logger {
   if (!_logger) {
-    const env = getEnv()
-    _logger = pino({
-      level: env.NODE_ENV === 'production' ? 'info' : 'debug',
-      ...(env.NODE_ENV !== 'production' && {
-        transport: {
-          target: 'pino-pretty',
-          options: {
-            colorize: true,
-            translateTime: 'SYS:standard',
-            ignore: 'pid,hostname',
-          },
-        },
-      }),
-    })
+    _logger = pino({ level: 'info' })
   }
   return _logger
 }
 
 // `logger` is a lazy-init proxy so that this module can be statically imported before
-// validateEnv() is called (ESM hoists all imports before top-level code runs).
-// The first actual log call — which only occurs after the Hono app initializes and
-// validateEnv() has already been called in index.ts — will trigger getLogger() safely.
+// the Workers handler runs (ESM hoists all imports before top-level code executes).
 export const logger: pino.Logger = new Proxy({} as pino.Logger, {
   get(_target: pino.Logger, prop: string | symbol): unknown {
     return (getLogger() as unknown as Record<string | symbol, unknown>)[prop]

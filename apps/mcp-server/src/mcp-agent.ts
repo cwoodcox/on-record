@@ -3,7 +3,6 @@
 // Replaces WebStandardStreamableHTTPServerTransport for stable SSE connections.
 import { McpAgent } from 'agents/mcp'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { initWorkerEnv } from './env.js'
 import { registerLookupLegislatorTool } from './tools/legislator-lookup.js'
 import { registerResolveAddressTool } from './tools/resolve-address.js'
 import { registerSearchBillsTool } from './tools/search-bills.js'
@@ -15,10 +14,8 @@ export class OnRecordMCP extends McpAgent<Env> {
     if (!this.env.DB) {
       throw new Error('DB binding missing — check wrangler.toml [[d1_databases]] configuration')
     }
-    // initWorkerEnv populates the getEnv() singleton so tool handlers (e.g. gis.ts) can call it.
-    initWorkerEnv(this.env)
     registerLookupLegislatorTool(this.server, this.env.DB)
-    registerResolveAddressTool(this.server)
+    registerResolveAddressTool(this.server, this.env.UGRC_API_KEY)
     registerSearchBillsTool(this.server, this.env.DB)
   }
 }

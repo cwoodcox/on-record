@@ -1,16 +1,6 @@
 // apps/mcp-server/src/providers/utah-legislature.test.ts
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-// vi.mock must be hoisted — declare before any local imports
-vi.mock('../env.js', () => ({
-  getEnv: vi.fn(() => ({
-    UTAH_LEGISLATURE_API_KEY: 'testapikey123',
-    PORT: 3001,
-    NODE_ENV: 'test' as const,
-    UGRC_API_KEY: 'test-ugrc-key',
-  })),
-}))
-
 // Mock the pino logger to enable spying — logger is a Proxy and cannot be spied on directly
 vi.mock('../lib/logger.js', () => ({
   logger: {
@@ -88,7 +78,7 @@ describe('UtahLegislatureProvider', () => {
     vi.useFakeTimers()
     fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
-    provider = new UtahLegislatureProvider()
+    provider = new UtahLegislatureProvider('testapikey123')
   })
 
   afterEach(() => {

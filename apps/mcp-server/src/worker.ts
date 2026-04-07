@@ -1,7 +1,6 @@
 // apps/mcp-server/src/worker.ts
 // Cloudflare Workers entrypoint.
 import { OnRecordMCP } from './mcp-agent.js'
-import { initWorkerEnv } from './env.js'
 import { warmUpLegislatorsCache, warmUpBillsCache } from './cache/refresh.js'
 import { UtahLegislatureProvider } from './providers/utah-legislature.js'
 import { logger } from './lib/logger.js'
@@ -28,8 +27,6 @@ export { OnRecordMCP }
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    initWorkerEnv(env)
-
     // Validate required Workers bindings before routing.
     if (!env.DB) {
       return Response.json(
@@ -80,8 +77,7 @@ export default {
     return new Response('Not found', { status: 404 })
   },
   scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): void {
-    initWorkerEnv(env)
-    const provider = new UtahLegislatureProvider()
+    const provider = new UtahLegislatureProvider(env.UTAH_LEGISLATURE_API_KEY)
     ctx.waitUntil(
       (async () => {
         if (event.cron === '0 6 * * *') {

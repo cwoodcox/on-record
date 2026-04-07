@@ -1,5 +1,4 @@
 // apps/mcp-server/src/lib/gis.ts
-import { getEnv } from '../env.js'
 import { logger } from './logger.js'
 import { retryWithDelay } from './retry.js'
 import { createAppError } from '@on-record/types'
@@ -39,13 +38,12 @@ interface UgrcSearchResponse {
 export async function resolveAddressToDistricts(
   street: string,
   zone: string,
+  apiKey: string,
 ): Promise<GisDistrictResult> {
-  const { UGRC_API_KEY } = getEnv()
-
   // Step 1: Geocode address to lat/long
   const geocodeUrl =
     `${UGRC_BASE}/geocode/${encodeURIComponent(street)}/${encodeURIComponent(zone)}` +
-    `?spatialReference=4326&apiKey=${UGRC_API_KEY}`
+    `?spatialReference=4326&apiKey=${apiKey}`
 
   let geocodeData: UgrcGeocodeResponse
   try {
@@ -119,7 +117,7 @@ export async function resolveAddressToDistricts(
   // UGRC search endpoint requires ArcGIS JSON geometry format: point:{"x":lon,"y":lat}
   const geometry = `point:{"x":${longitude},"y":${latitude}}`
   const districtParams =
-    `geometry=${encodeURIComponent(geometry)}&spatialReference=4326&apiKey=${UGRC_API_KEY}`
+    `geometry=${encodeURIComponent(geometry)}&spatialReference=4326&apiKey=${apiKey}`
   const houseUrl = `${UGRC_BASE}/search/political.house_districts_2022_to_2032/dist?${districtParams}`
   const senateUrl = `${UGRC_BASE}/search/political.senate_districts_2022_to_2032/dist?${districtParams}`
 

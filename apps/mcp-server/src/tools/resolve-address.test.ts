@@ -11,17 +11,6 @@ vi.mock('../lib/logger.js', () => ({
   logger: { info: vi.fn(), error: vi.fn(), debug: vi.fn(), warn: vi.fn() },
 }))
 
-// ── Mock: env.js ─────────────────────────────────────────────────────────────
-// Required transitively — resolveAddressToDistricts calls getEnv() internally.
-vi.mock('../env.js', () => ({
-  getEnv: () => ({
-    UGRC_API_KEY: 'test-ugrc-key',
-    PORT: 3001,
-    NODE_ENV: 'test',
-    UTAH_LEGISLATURE_API_KEY: 'test-key',
-  }),
-}))
-
 // ── Mock: fetch (global) ─────────────────────────────────────────────────────
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
@@ -59,6 +48,7 @@ function createMockServer(): {
   // Register the tool — this populates capturedHandler
   registerResolveAddressTool(
     mockServer as unknown as import('@modelcontextprotocol/sdk/server/mcp.js').McpServer,
+    'test-ugrc-key',
   )
 
   return {

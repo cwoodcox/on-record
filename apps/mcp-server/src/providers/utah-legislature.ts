@@ -2,7 +2,6 @@
 import { z } from 'zod'
 import type { Legislator, Bill, BillDetail } from '@on-record/types'
 import { createAppError } from '@on-record/types'
-import { getEnv } from '../env.js'
 import { retryWithDelay } from '../lib/retry.js'
 import { logger } from '../lib/logger.js'
 import type { LegislatureDataProvider } from './types.js'
@@ -51,9 +50,8 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
   private readonly apiKey: string
   private readonly baseUrl = 'https://glen.le.utah.gov'
 
-  constructor() {
-    // getEnv() is validated at server startup — safe to call here
-    this.apiKey = getEnv().UTAH_LEGISLATURE_API_KEY
+  constructor(apiKey: string) {
+    this.apiKey = apiKey
   }
 
   // Token goes in URL path — API does not use auth headers

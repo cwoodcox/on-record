@@ -13,11 +13,11 @@ const PO_BOX_PATTERN = /^p\.?o\.?\s*box\b/i
 
 /**
  * Registers the `resolve_address` MCP tool on the given McpServer instance.
- * Call once per McpServer (inside the new-session else branch in index.ts).
  *
  * @param server - McpServer instance to register the tool on
+ * @param apiKey - UGRC GIS API key
  */
-export function registerResolveAddressTool(server: McpServer): void {
+export function registerResolveAddressTool(server: McpServer, apiKey: string): void {
   server.tool(
     'resolve_address',
     'Resolves a Utah street address to House and Senate legislative district numbers via GIS lookup. Returns structured JSON with houseDistrict, senateDistrict, and the geocoder\'s canonical form of the input address.',
@@ -58,7 +58,7 @@ export function registerResolveAddressTool(server: McpServer): void {
       //    Throws AppError for all failures (semantic and transient).
       let gisResult: Awaited<ReturnType<typeof resolveAddressToDistricts>>
       try {
-        gisResult = await resolveAddressToDistricts(street, zone)
+        gisResult = await resolveAddressToDistricts(street, zone, apiKey)
       } catch (err) {
         if (isAppError(err)) {
           return { content: [{ type: 'text', text: JSON.stringify(err) }] }

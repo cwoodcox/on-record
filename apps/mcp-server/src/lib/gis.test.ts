@@ -9,15 +9,6 @@ vi.mock('./retry.js', () => ({
   retryWithDelay: vi.fn(async (fn: () => Promise<unknown>) => fn()),
 }))
 
-vi.mock('../env.js', () => ({
-  getEnv: vi.fn(() => ({
-    UGRC_API_KEY: 'test-api-key',
-    PORT: 3001,
-    NODE_ENV: 'test' as const,
-    UTAH_LEGISLATURE_API_KEY: 'test-utah-key',
-  })),
-}))
-
 vi.mock('./logger.js', () => ({
   logger: {
     info: vi.fn(),
@@ -27,9 +18,11 @@ vi.mock('./logger.js', () => ({
   },
 }))
 
+const TEST_API_KEY = 'test-api-key'
+
 // Dynamic import inside beforeAll — top-level await not valid in NodeNext without "type":"module"
 // in package.json; beforeAll guarantees mocks are applied before the module under test loads.
-let resolveAddressToDistricts: (street: string, zone: string) => Promise<GisDistrictResult>
+let resolveAddressToDistricts: (street: string, zone: string, apiKey: string) => Promise<GisDistrictResult>
 beforeAll(async () => {
   const mod = await import('./gis.js')
   resolveAddressToDistricts = mod.resolveAddressToDistricts
@@ -73,7 +66,7 @@ describe('resolveAddressToDistricts', () => {
       .mockResolvedValueOnce(houseOk)
       .mockResolvedValueOnce(senateOk)
 
-    const result = await resolveAddressToDistricts('123 S Main St', 'Salt Lake City')
+    const result = await resolveAddressToDistricts('123 S Main St', 'Salt Lake City', TEST_API_KEY)
     expect(result.houseDistrict).toBe(22)
     expect(result.senateDistrict).toBe(10)
     expect(result.resolvedAddress).toBe('123 S Main St, Salt Lake City')
@@ -88,7 +81,7 @@ describe('resolveAddressToDistricts', () => {
 
   it('throws AppError when geocode fetch rejects (network error)', async () => {
     vi.mocked(fetch).mockRejectedValueOnce(new Error('Network error'))
-    const err = await resolveAddressToDistricts('123 S Main St', 'SLC').catch((e: unknown) => e)
+    const err = await resolveAddressToDistricts('123 S Main St', 'SLC', TEST_API_KEY).catch((e: unknown) => e)
     expect(isAppError(err)).toBe(true)
     if (isAppError(err)) {
       expect(err.source).toBe('gis-api')
@@ -101,7 +94,7 @@ describe('resolveAddressToDistricts', () => {
 
   it('throws AppError with address-not-found message when geocode returns 404', async () => {
     vi.mocked(fetch).mockResolvedValueOnce({ ok: false, status: 404 } as Response)
-    const err = await resolveAddressToDistricts('123 S Main St', 'SLC').catch((e: unknown) => e)
+    const err = await resolveAddressToDistricts('123 S Main St', 'SLC', TEST_API_KEY).catch((e: unknown) => e)
     expect(isAppError(err)).toBe(true)
     if (isAppError(err)) {
       expect(err.source).toBe('gis-api')
@@ -114,7 +107,7 @@ describe('resolveAddressToDistricts', () => {
 
   it('throws AppError with malformed-request message when geocode returns 400', async () => {
     vi.mocked(fetch).mockResolvedValueOnce({ ok: false, status: 400 } as Response)
-    const err = await resolveAddressToDistricts('123 S Main St', 'SLC').catch((e: unknown) => e)
+    const err = await resolveAddressToDistricts('123 S Main St', 'SLC', TEST_API_KEY).catch((e: unknown) => e)
     expect(isAppError(err)).toBe(true)
     if (isAppError(err)) {
       expect(err.source).toBe('gis-api')
@@ -133,7 +126,7 @@ describe('resolveAddressToDistricts', () => {
         result: { location: { x: -111.89, y: 40.76 }, score: 45 },
       }),
     } as unknown as Response)
-    const err = await resolveAddressToDistricts('123 S Main St', 'SLC').catch((e: unknown) => e)
+    const err = await resolveAddressToDistricts('123 S Main St', 'SLC', TEST_API_KEY).catch((e: unknown) => e)
     expect(isAppError(err)).toBe(true)
     if (isAppError(err)) expect(err.source).toBe('gis-api')
   })
@@ -143,7 +136,7 @@ describe('resolveAddressToDistricts', () => {
       ok: true,
       json: async () => ({ status: 200, result: null }),
     } as unknown as Response)
-    const err = await resolveAddressToDistricts('123 S Main St', 'SLC').catch((e: unknown) => e)
+    const err = await resolveAddressToDistricts('123 S Main St', 'SLC', TEST_API_KEY).catch((e: unknown) => e)
     expect(isAppError(err)).toBe(true)
     if (isAppError(err)) expect(err.source).toBe('gis-api')
   })
@@ -153,7 +146,7 @@ describe('resolveAddressToDistricts', () => {
       .mockResolvedValueOnce(geocodeOk)
       .mockResolvedValueOnce({ ok: false, status: 503 } as Response)
       .mockResolvedValueOnce(senateOk)
-    const err = await resolveAddressToDistricts('123 S Main St', 'SLC').catch((e: unknown) => e)
+    const err = await resolveAddressToDistricts('123 S Main St', 'SLC', TEST_API_KEY).catch((e: unknown) => e)
     expect(isAppError(err)).toBe(true)
     if (isAppError(err)) expect(err.source).toBe('gis-api')
   })
@@ -166,7 +159,7 @@ describe('resolveAddressToDistricts', () => {
         json: async () => ({ status: 200, result: [] }),
       } as unknown as Response)
       .mockResolvedValueOnce(senateOk)
-    const err = await resolveAddressToDistricts('123 S Main St', 'SLC').catch((e: unknown) => e)
+    const err = await resolveAddressToDistricts('123 S Main St', 'SLC', TEST_API_KEY).catch((e: unknown) => e)
     expect(isAppError(err)).toBe(true)
     if (isAppError(err)) expect(err.source).toBe('gis-api')
   })
