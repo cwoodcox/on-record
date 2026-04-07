@@ -63,8 +63,18 @@ export default {
         if (blocked) return blocked
       }
 
-      const response = await mcpHandler.fetch(request, env, ctx)
-      return addCorsHeaders(response)
+      try {
+        const response = await mcpHandler.fetch(request, env, ctx)
+        return addCorsHeaders(response)
+      } catch (err) {
+        logger.error({ source: 'worker', err }, 'MCP Durable Object delegation failed')
+        return addCorsHeaders(
+          Response.json(
+            { source: 'worker', nature: 'MCP handler failed', action: 'Check server logs' },
+            { status: 500 },
+          ),
+        )
+      }
     }
 
     return new Response('Not found', { status: 404 })

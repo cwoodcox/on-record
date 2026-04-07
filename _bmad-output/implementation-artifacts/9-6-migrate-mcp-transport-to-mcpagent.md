@@ -1,6 +1,6 @@
 # Story 9.6: Migrate MCP Transport to McpAgent (Cloudflare Agents SDK)
 
-Status: review
+Status: done
 
 ## Story
 
@@ -277,3 +277,10 @@ crons = ["0 6 * * *", "0 * * * *"]
 ### Completion Notes
 
 All 6 tasks complete. 217 tests pass, typecheck clean, lint clean, dry-run bundles successfully with DO binding `MCP_OBJECT` visible in output.
+
+### Code Review Follow-up (2026-04-07)
+
+- ✅ Item 1 (High — scheduled handler reliability): Finding was a false positive. `ctx.waitUntil()` was already correctly used — no change needed.
+- ✅ Item 2 (High — MCP delegation error boundary): Added try/catch around `mcpHandler.fetch` in `worker.ts`; returns structured `{ source, nature, action }` JSON with CORS headers on DO failure.
+- ✅ Item 3 (Medium — DB validation in DO init): Added explicit `if (!this.env.DB)` guard at top of `OnRecordMCP.init()` that throws with a clear message.
+- ⏭ Item 4 (Low — README docs): Skipped — creating new doc files requires explicit user request per project conventions.

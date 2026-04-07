@@ -12,6 +12,9 @@ export class OnRecordMCP extends McpAgent<Env> {
   server = new McpServer({ name: 'on-record', version: '1.0.0' })
 
   async init(): Promise<void> {
+    if (!this.env.DB) {
+      throw new Error('DB binding missing — check wrangler.toml [[d1_databases]] configuration')
+    }
     // initWorkerEnv populates the getEnv() singleton so tool handlers (e.g. gis.ts) can call it.
     initWorkerEnv(this.env)
     registerLookupLegislatorTool(this.server, this.env.DB)
