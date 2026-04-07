@@ -1,6 +1,6 @@
 # Story 9.7: Remove Node.js Entrypoint and Legacy Server Artifacts
 
-Status: review
+Status: done
 
 **Depends on:** Story 9.6 complete (McpAgent migration)
 
