@@ -22,7 +22,7 @@ const db = _betterSqliteDb as unknown as D1Database
 
 // STEP 2.6: Cache warm-up imports (Story 2.3, 3.2)
 import { UtahLegislatureProvider } from './providers/utah-legislature.js'
-import { warmUpLegislatorsCache, scheduleLegislatorsRefresh, warmUpBillsCache, scheduleBillsRefresh } from './cache/refresh.js'
+import { warmUpLegislatorsCache, warmUpBillsCache } from './cache/refresh.js'
 
 // STEP 3: Shared Hono app (Story 9.1)
 import { app, setupMcpServer } from './app.js'
@@ -101,9 +101,7 @@ async function startServer(): Promise<void> {
     },
     (info) => {
       logger.info({ source: 'app', port: info.port }, 'On Record MCP server started')
-      scheduleLegislatorsRefresh(db, provider)
-      scheduleBillsRefresh(db, provider)
-    }
+  }
   )
 }
 

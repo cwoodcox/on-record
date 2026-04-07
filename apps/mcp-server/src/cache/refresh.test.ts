@@ -1,7 +1,6 @@
 // apps/mcp-server/src/cache/refresh.test.ts
-// Tests for warmUpLegislatorsCache, scheduleLegislatorsRefresh, warmUpBillsCache, scheduleBillsRefresh.
+// Tests for warmUpLegislatorsCache and warmUpBillsCache.
 // Uses env.DB from cloudflare:test — real Miniflare D1 binding.
-// Cron mocks remain (node-cron callback capture) — logger mocks remain.
 // Date control in warmUpBillsCache tests uses vi.setSystemTime (controls new Date()
 // inside getSessionsForRefresh, which warmUpBillsCache calls without an explicit now param).
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest'
@@ -11,31 +10,9 @@ import { seedSessions } from './sessions.js'
 import type { LegislatureDataProvider } from '../providers/types.js'
 import type { Legislator, Bill, BillDetail } from '@on-record/types'
 
-// ── Mocks ────────────────────────────────────────────────────────────────────
+// ── Imports ───────────────────────────────────────────────────────────────────
 
-vi.mock('../lib/logger.js', () => ({
-  logger: {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
-  },
-}))
-
-// Capture cron callbacks so scheduler tests can fire them directly without relying on
-// wall-clock timers. lastScheduleCallback holds the most recently registered callback.
-let lastScheduleCallback: (() => void) | undefined
-
-vi.mock('node-cron', () => ({
-  schedule: vi.fn((_expression: string, callback: () => void) => {
-    lastScheduleCallback = callback
-  }),
-}))
-
-// ── Imports (after mocks) ─────────────────────────────────────────────────────
-
-import { warmUpLegislatorsCache, scheduleLegislatorsRefresh, warmUpBillsCache, scheduleBillsRefresh } from './refresh.js'
-import { logger } from '../lib/logger.js'
+import { warmUpLegislatorsCache, warmUpBillsCache } from './refresh.js'
 
 // ── Schema (once for all tests) ───────────────────────────────────────────────
 
@@ -164,73 +141,6 @@ describe('warmUpLegislatorsCache', () => {
   })
 })
 
-// ── scheduleLegislatorsRefresh ────────────────────────────────────────────────
-
-describe('scheduleLegislatorsRefresh', () => {
-  beforeEach(async () => {
-    vi.useFakeTimers()
-    vi.clearAllMocks()
-    lastScheduleCallback = undefined
-    await env.DB.prepare('DELETE FROM legislators').run()
-  })
-
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
-  it('does not throw when called', () => {
-    const provider = makeProvider()
-    expect(() => scheduleLegislatorsRefresh(env.DB, provider)).not.toThrow()
-  })
-
-  it('does not invoke provider at registration time (lazy — only fires on cron)', () => {
-    // Provider should not be called at registration time (only at cron fire time)
-    const provider = makeProvider()
-    scheduleLegislatorsRefresh(env.DB, provider)
-
-    expect(provider.getLegislatorsByDistrict).not.toHaveBeenCalled()
-  })
-
-  it('logs error with source legislature-api when cron fires and refresh fails', async () => {
-    const errorLogger = vi.mocked(logger.error)
-
-    const failingProvider: LegislatureDataProvider = {
-      getLegislatorsByDistrict: vi.fn().mockRejectedValue(new Error('network error')),
-      getBillsBySession: vi.fn<() => Promise<Bill[]>>().mockResolvedValue([]),
-      getBillDetail: vi.fn<(billId: string, session: string) => Promise<BillDetail>>().mockRejectedValue(new Error('not implemented')),
-    }
-
-    scheduleLegislatorsRefresh(env.DB, failingProvider)
-    expect(lastScheduleCallback).toBeDefined()
-
-    // Fire the captured cron callback directly — this is what node-cron would invoke at 6 AM.
-    // The callback is synchronous and starts an async .catch() chain.
-    lastScheduleCallback!()
-    await vi.runAllTimersAsync()
-
-    expect(errorLogger).toHaveBeenCalledWith(
-      expect.objectContaining({ source: 'legislature-api' }),
-      'Legislator cache refresh failed',
-    )
-  })
-
-  it('logs info with source cache when cron fires and refresh succeeds', async () => {
-    const infoLogger = vi.mocked(logger.info)
-    const provider = makeProvider([])
-
-    scheduleLegislatorsRefresh(env.DB, provider)
-    expect(lastScheduleCallback).toBeDefined()
-
-    // Fire the captured cron callback and flush the async .then() chain.
-    lastScheduleCallback!()
-    await vi.runAllTimersAsync()
-
-    expect(infoLogger).toHaveBeenCalledWith(
-      expect.objectContaining({ source: 'cache' }),
-      'Legislators cache refreshed',
-    )
-  })
-})
 
 // ── warmUpBillsCache ──────────────────────────────────────────────────────────
 
@@ -300,76 +210,3 @@ describe('warmUpBillsCache', () => {
   })
 })
 
-// ── scheduleBillsRefresh ──────────────────────────────────────────────────────
-
-describe('scheduleBillsRefresh', () => {
-  beforeEach(async () => {
-    vi.useFakeTimers()
-    vi.clearAllMocks()
-    lastScheduleCallback = undefined
-    await env.DB.prepare('DELETE FROM bills').run()
-    await env.DB.prepare('DELETE FROM sessions').run()
-    await seedSessions(env.DB)
-  })
-
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
-  it('does not throw when called', () => {
-    const provider = makeProvider()
-    expect(() => scheduleBillsRefresh(env.DB, provider)).not.toThrow()
-  })
-
-  it('does not invoke provider at registration time (lazy — only fires on cron)', () => {
-    const provider = makeProvider()
-    scheduleBillsRefresh(env.DB, provider)
-
-    // Provider should not be called at registration time (only at cron fire time)
-    expect(provider.getBillsBySession).not.toHaveBeenCalled()
-  })
-
-  it('logs error with { source: legislature-api } when cron fires and refresh fails', async () => {
-    const errorLogger = vi.mocked(logger.error)
-
-    const failingProvider: LegislatureDataProvider = {
-      getLegislatorsByDistrict: vi.fn<() => Promise<Legislator[]>>().mockResolvedValue([]),
-      getBillsBySession: vi.fn().mockRejectedValue(new Error('network error')),
-      getBillDetail: vi.fn<(billId: string, session: string) => Promise<BillDetail>>().mockRejectedValue(new Error('not implemented')),
-    }
-
-    scheduleBillsRefresh(env.DB, failingProvider)
-    expect(lastScheduleCallback).toBeDefined()
-
-    // Fire the captured cron callback directly — this is what node-cron would invoke at
-    // the top of each hour. The callback is synchronous and starts an async .catch() chain.
-    lastScheduleCallback!()
-    await vi.runAllTimersAsync()
-
-    expect(errorLogger).toHaveBeenCalledWith(
-      expect.objectContaining({ source: 'legislature-api' }),
-      'Bills cache refresh failed',
-    )
-  })
-
-  it('logs info with { source: cache } when cron fires and refresh succeeds', async () => {
-    const infoLogger = vi.mocked(logger.info)
-    const provider: LegislatureDataProvider = {
-      getLegislatorsByDistrict: vi.fn<() => Promise<Legislator[]>>().mockResolvedValue([]),
-      getBillsBySession: vi.fn().mockResolvedValue([makeBill()]),
-      getBillDetail: vi.fn<(billId: string, session: string) => Promise<BillDetail>>().mockRejectedValue(new Error('not implemented')),
-    }
-
-    scheduleBillsRefresh(env.DB, provider)
-    expect(lastScheduleCallback).toBeDefined()
-
-    // Fire the captured cron callback and flush the async .then() chain.
-    lastScheduleCallback!()
-    await vi.runAllTimersAsync()
-
-    expect(infoLogger).toHaveBeenCalledWith(
-      expect.objectContaining({ source: 'cache' }),
-      'Bills cache refreshed',
-    )
-  })
-})

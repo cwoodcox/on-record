@@ -1,9 +1,6 @@
 // apps/mcp-server/src/cache/refresh.ts
-// Legislators and bills cache warm-up and refresh schedulers.
-// scheduleLegislatorsRefresh and scheduleBillsRefresh use node-cron — Node.js path only.
-// In the Workers path these are replaced by Cron Triggers (Story 9.3).
-// Cron callback must NOT be async or throw — async work is wrapped with .catch().
-import { schedule } from 'node-cron'
+// Legislators and bills cache warm-up functions.
+// Scheduling is handled by Cloudflare Workers Cron Triggers (wrangler.toml) via worker.ts.
 import { logger } from '../lib/logger.js'
 import type { LegislatureDataProvider } from '../providers/types.js'
 import { writeLegislators } from './legislators.js'
@@ -40,27 +37,6 @@ export async function warmUpLegislatorsCache(
   await writeLegislators(db, legislators)
 }
 
-/**
- * Registers a daily cron job to refresh the legislators cache at 6 AM (0 6 * * *).
- * Node.js path only — Workers path uses Cron Triggers (Story 9.3).
- *
- * @param db       - D1Database instance
- * @param provider - Data provider
- */
-export function scheduleLegislatorsRefresh(
-  db: D1Database,
-  provider: LegislatureDataProvider,
-): void {
-  schedule('0 6 * * *', () => {
-    warmUpLegislatorsCache(db, provider)
-      .then(() => {
-        logger.info({ source: 'cache' }, 'Legislators cache refreshed')
-      })
-      .catch((err: unknown) => {
-        logger.error({ source: 'legislature-api', err }, 'Legislator cache refresh failed')
-      })
-  })
-}
 
 /**
  * Fetches bills for the active session (or the 2 most recent completed sessions during
@@ -79,24 +55,3 @@ export async function warmUpBillsCache(
   return sessions
 }
 
-/**
- * Registers an hourly cron job to refresh the bills cache at the top of every hour.
- * Node.js path only — Workers path uses Cron Triggers (Story 9.3).
- *
- * @param db       - D1Database instance
- * @param provider - Data provider
- */
-export function scheduleBillsRefresh(
-  db: D1Database,
-  provider: LegislatureDataProvider,
-): void {
-  schedule('0 * * * *', () => {
-    warmUpBillsCache(db, provider)
-      .then((sessions) => {
-        logger.info({ source: 'cache', sessions }, 'Bills cache refreshed')
-      })
-      .catch((err: unknown) => {
-        logger.error({ source: 'legislature-api', err }, 'Bills cache refresh failed')
-      })
-  })
-}
