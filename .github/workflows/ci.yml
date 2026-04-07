@@ -121,5 +121,5 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: apps/mcp-server
-          preCommands: d1 migrations apply ${{ env.D1_DATABASE }} --remote --yes
+          preCommands: wrangler d1 migrations apply ${{ env.D1_DATABASE }} --remote --yes
           command: deploy
