@@ -1,7 +1,6 @@
 // apps/mcp-server/src/cache/refresh.ts
 // Legislators and bills cache warm-up functions.
 // Scheduling is handled by Cloudflare Workers Cron Triggers (wrangler.toml) via worker.ts.
-import { logger } from '../lib/logger.js'
 import type { LegislatureDataProvider } from '../providers/types.js'
 import { writeLegislators } from './legislators.js'
 import { writeBills } from './bills.js'
