@@ -147,7 +147,8 @@ development_status:
   9-3-replace-node-cron-with-cron-trigger-scheduler: done
   9-4-add-cloudflare-rate-limiting-to-workers-entrypoint: done
   9-5-cicd-wrangler-deploy-to-cloudflare-workers: done
-  9-6-migrate-mcp-transport-to-mcpagent: review
+  9-6-migrate-mcp-transport-to-mcpagent: in-progress
+  9-7-remove-nodejs-entrypoint-and-legacy-artifacts: ready-for-dev
   epic-9-retrospective: optional
 
   # ─── Epic E5: Automated Conversation Eval Harness ───────────────────────────
