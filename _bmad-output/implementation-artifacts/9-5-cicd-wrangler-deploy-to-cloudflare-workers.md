@@ -1,6 +1,6 @@
 # Story 9.5: CI/CD — Wrangler Deploy to Cloudflare Workers
 
-Status: review
+Status: in-progress
 
 ## Story
 
@@ -252,3 +252,17 @@ No other files are modified in this story.
 |------|--------|--------|
 | 2026-04-06 | Story created | Story 9.5 — CI/CD wrangler deploy to Cloudflare Workers |
 | 2026-04-06 | Added `deploy-mcp-server` job to `.github/workflows/ci.yml` | Implement CI/CD pipeline for automatic MCP server deployment to Cloudflare Workers on push to main |
+
+### Review Findings
+
+- [ ] [Review][Patch] Missing concurrency control [.github/workflows/ci.yml:84]
+- [ ] [Review][Patch] Missing --yes flag for migrations [.github/workflows/ci.yml:112]
+- [ ] [Review][Patch] Redundant setup and hardcoded versions [.github/workflows/ci.yml:95-107]
+- [ ] [Review][Patch] Inefficient pnpm install [.github/workflows/ci.yml:107]
+- [ ] [Review][Patch] Redundant wrangler-action calls [.github/workflows/ci.yml:109-124]
+- [ ] [Review][Patch] Hardcoded database identifier [.github/workflows/ci.yml:112]
+- [x] [Review][Defer] Missing explicit build step [.github/workflows/ci.yml:124] — deferred, pre-existing
+- [x] [Review][Defer] Missing GitHub Environments [.github/workflows/ci.yml:110] — deferred, pre-existing
+- [x] [Review][Defer] Missing observability/notifications [.github/workflows/ci.yml:84] — deferred, pre-existing
+- [x] [Review][Defer] Missing preview environments [.github/workflows/ci.yml:84] — deferred, pre-existing
+- [x] [Review][Defer] Missing post-deploy health check [.github/workflows/ci.yml:124] — deferred, pre-existing

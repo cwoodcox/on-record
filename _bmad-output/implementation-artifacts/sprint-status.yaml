@@ -143,10 +143,10 @@ development_status:
   # ─── Epic 9: Deploy MCP Server to Cloudflare Workers ───────────────────────
   epic-9: in-progress
   9-1-wrangler-scaffold-and-workers-entrypoint: done
-  9-2-migrate-cache-layer-to-d1-async-api: done
+  9-2-migrate-cache-layer-to-d1-async-api: review
   9-3-replace-node-cron-with-cron-trigger-scheduler: done
   9-4-add-cloudflare-rate-limiting-to-workers-entrypoint: done
-  9-5-cicd-wrangler-deploy-to-cloudflare-workers: review
+  9-5-cicd-wrangler-deploy-to-cloudflare-workers: in-progress
   epic-9-retrospective: optional
 
   # ─── Epic E5: Automated Conversation Eval Harness ───────────────────────────
