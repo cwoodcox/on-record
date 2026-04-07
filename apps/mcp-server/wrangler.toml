@@ -16,5 +16,12 @@ namespace_id = "1001"
   limit = 60
   period = 60
 
+[durable_objects]
+bindings = [{ name = "MCP_OBJECT", class_name = "OnRecordMCP" }]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["OnRecordMCP"]
+
 [triggers]
 crons = ["0 6 * * *", "0 * * * *"]

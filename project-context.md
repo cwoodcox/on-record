@@ -46,6 +46,3 @@ chore(story-X.Y): mark story review-ready, update sprint-status
 - Run installs from monorepo root: `pnpm --filter @on-record/<package> add <dep>`
 - Exact version pins for: `hono`, `@modelcontextprotocol/sdk`, `hono-rate-limiter`, `pino`
 
-## Known SDK Issues
-
-- `StreamableHTTPServerTransport.onclose` typed as `(() => void) | undefined` conflicts with `Transport` interface under `exactOptionalPropertyTypes`. Suppress with `@ts-expect-error` and a comment explaining the SDK mismatch.

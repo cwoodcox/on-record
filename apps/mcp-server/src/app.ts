@@ -1,40 +1,13 @@
 // apps/mcp-server/src/app.ts
-// Shared Hono app: middleware + MCP route handlers using Web Standard APIs.
-// Compatible with both Cloudflare Workers (via worker.ts) and Node.js (via index.ts).
-//
-// Tool registration is intentionally NOT imported here to keep this module free of
-// better-sqlite3 / __dirname dependencies (which cannot run in the Workers runtime).
-// Callers inject tool registration via setupMcpServer() before serving requests.
-// In the Workers path (worker.ts) for Story 9.1, no tools are registered until
-// Story 9.2 migrates the cache layer to D1.
+// Shared Hono app: middleware + health check.
+// Used by index.ts (Node.js path) for local development.
+// The Workers path (worker.ts) routes /mcp directly to OnRecordMCP (McpAgent)
+// and handles /health inline — it no longer uses this module.
 import { Hono } from 'hono'
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
 
 import { loggingMiddleware } from './middleware/logging.js'
 import { corsMiddleware } from './middleware/cors.js'
 import { rateLimitMiddleware } from './middleware/rate-limit.js'
-import { logger } from './lib/logger.js'
-
-// Tool registration callback — set by the caller (index.ts / worker.ts) before serving.
-// Receives a freshly created McpServer and should register all desired tools on it.
-let _registerTools: ((server: McpServer) => void) | undefined
-
-/**
- * Wires up MCP tool registrations into new sessions.
- * db is accepted here to enforce that callers provide a D1 binding;
- * the actual db is captured by the registerTools closure in the caller.
- */
-export function setupMcpServer(_db: D1Database, registerTools: (server: McpServer) => void): void {
-  _registerTools = registerTools
-}
-
-// ── Session store ──────────────────────────────────────────────────────────
-// Stores active MCP transport sessions keyed by Mcp-Session-Id header.
-// WebStandardStreamableHTTPServerTransport is stateful per session.
-// In Cloudflare Workers, isolates may be reused between requests — the Map
-// persists within an isolate's lifetime, enabling MCP session affinity.
-const transports = new Map<string, WebStandardStreamableHTTPServerTransport>()
 
 // ── Hono app setup ─────────────────────────────────────────────────────────
 const app = new Hono()
@@ -46,109 +19,6 @@ const app = new Hono()
 app.use('*', loggingMiddleware)
 app.use('*', corsMiddleware)
 app.use('/mcp', rateLimitMiddleware)
-
-// ── MCP route handlers ─────────────────────────────────────────────────────
-// All handlers use the fetch-compatible WebStandard transport (Request → Response).
-// No IncomingMessage/ServerResponse here — compatible with Workers and Node.js.
-app.post('/mcp', async (c) => {
-  try {
-    const sessionId = c.req.header('mcp-session-id')
-
-    let transport: WebStandardStreamableHTTPServerTransport
-
-    if (sessionId && transports.has(sessionId)) {
-      // Existing session — reuse transport
-      transport = transports.get(sessionId)!
-    } else if (sessionId) {
-      // Session ID provided but not found — stale or invalid ID, do not silently create a new session
-      return c.json(
-        { source: 'app', nature: 'unknown session', action: 'Start a new session by posting without Mcp-Session-Id' },
-        404,
-      )
-    } else {
-      // New session — create transport and connect a fresh McpServer instance
-      transport = new WebStandardStreamableHTTPServerTransport({
-        sessionIdGenerator: () => crypto.randomUUID(),
-        onsessioninitialized: (newSessionId) => {
-          transports.set(newSessionId, transport)
-          logger.info({ source: 'app', sessionId: newSessionId }, 'MCP session initialized')
-        },
-      })
-
-      transport.onclose = () => {
-        const sid = transport.sessionId
-        if (sid) {
-          transports.delete(sid)
-          logger.info({ source: 'app', sessionId: sid }, 'MCP session closed')
-        }
-      }
-
-      const server = new McpServer({
-        name: 'on-record',
-        version: '1.0.0',
-      })
-
-      if (_registerTools) _registerTools(server)
-
-      await server.connect(transport)
-    }
-
-    return await transport.handleRequest(c.req.raw)
-  } catch (err) {
-    const error = err as Error
-    logger.error({ source: 'app', error: error.message, stack: error.stack }, 'MCP POST request failed')
-    return c.json(
-      { source: 'app', nature: 'internal error during MCP request', action: 'Check server logs' },
-      500,
-    )
-  }
-})
-
-app.get('/mcp', async (c) => {
-  try {
-    const sessionId = c.req.header('mcp-session-id')
-    const transport = sessionId ? transports.get(sessionId) : undefined
-
-    if (!transport) {
-      return c.json(
-        { source: 'app', nature: 'no active MCP session', action: 'POST /mcp first to initialize a session' },
-        404,
-      )
-    }
-
-    return await transport.handleRequest(c.req.raw)
-  } catch (err) {
-    const error = err as Error
-    logger.error({ source: 'app', error: error.message, stack: error.stack }, 'MCP GET request failed')
-    return c.json(
-      { source: 'app', nature: 'internal error during MCP request', action: 'Check server logs' },
-      500,
-    )
-  }
-})
-
-app.delete('/mcp', async (c) => {
-  try {
-    const sessionId = c.req.header('mcp-session-id')
-    const transport = sessionId ? transports.get(sessionId) : undefined
-
-    if (!transport) {
-      return c.json(
-        { source: 'app', nature: 'no active MCP session', action: 'POST /mcp first to initialize a session' },
-        404,
-      )
-    }
-
-    return await transport.handleRequest(c.req.raw)
-  } catch (err) {
-    const error = err as Error
-    logger.error({ source: 'app', error: error.message, stack: error.stack }, 'MCP DELETE request failed')
-    return c.json(
-      { source: 'app', nature: 'internal error during MCP request', action: 'Check server logs' },
-      500,
-    )
-  }
-})
 
 // ── Health check ───────────────────────────────────────────────────────────
 app.get('/health', (c) => c.json({ status: 'ok', service: 'on-record-mcp-server' }))

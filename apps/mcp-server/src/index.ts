@@ -25,17 +25,10 @@ import { UtahLegislatureProvider } from './providers/utah-legislature.js'
 import { warmUpLegislatorsCache, warmUpBillsCache } from './cache/refresh.js'
 
 // STEP 3: Shared Hono app (Story 9.1)
-import { app, setupMcpServer } from './app.js'
-import { registerLookupLegislatorTool } from './tools/legislator-lookup.js'
-import { registerResolveAddressTool } from './tools/resolve-address.js'
-import { registerSearchBillsTool } from './tools/search-bills.js'
-
-// Wire up tool registrations for the Node.js path.
-setupMcpServer(db, (server) => {
-  registerLookupLegislatorTool(server, db)
-  registerResolveAddressTool(server)
-  registerSearchBillsTool(server, db)
-})
+// MCP tools are no longer registered on the Node.js path — the Workers path uses
+// McpAgent (Durable Objects transport) via mcp-agent.ts. The Node.js path serves
+// /health only; MCP tools require the Workers runtime and are not available locally.
+import { app } from './app.js'
 
 // STEP 4: Node.js-specific serve() adapter
 import { serve } from '@hono/node-server'

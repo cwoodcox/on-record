@@ -5,9 +5,11 @@
 import Database from 'better-sqlite3'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-// __dirname resolves to this file's directory in CJS output (NodeNext without "type": "module").
+// import.meta.url gives this file's URL under ESM (NodeNext with "type": "module").
 // From src/cache/ (dev) or dist/cache/ (prod), ../../ reaches apps/mcp-server/ in both cases.
+const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const dataDir = join(__dirname, '..', '..', 'data')
 const dbPath = join(dataDir, 'on-record.db')
 
