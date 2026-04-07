@@ -235,7 +235,7 @@ CLAUDE.md enforces: `console.log` FORBIDDEN in `apps/mcp-server/` — only `cons
 - [x] [Review][Patch] Convention Violation: 404 Error Format [apps/mcp-server/src/app.ts] — (Verified fixed on disk; outdated diff)
 - [x] [Review][Patch] Missing Env Validation in worker.ts [apps/mcp-server/src/worker.ts] — (Verified fixed on disk; outdated diff)
 - [x] [Review][Patch] Robustness: Missing Error Boundaries [apps/mcp-server/src/app.ts] — No `try/catch` wrappers around SDK `handleRequest` calls.
-- [~] [Review][Defer] Security: Unprotected Health Route [apps/mcp-server/src/app.ts] — `/health` returns no sensitive data; shared 60/min limit would cause false health failures from infra probes. Deferred.
+- [x] [Review][Defer] Security: Unprotected Health Route [apps/mcp-server/src/app.ts] — `/health` returns no sensitive data; shared 60/min limit would cause false health failures from infra probes. Deferred.
 - [x] [Review][Defer] In-Memory Session Store / Affinity [apps/mcp-server/src/app.ts] — Session state is lost on isolate restart/eviction; affinity not guaranteed. Deferred (MVP limitation).
 - [x] [Review][Defer] IP Spoofing Risk [apps/mcp-server/src/middleware/rate-limit.ts] — trusts x-forwarded-for without verification. Deferred (already marked as KNOWN RISK in code).
 - [x] [Review][Defer] Fragile Global State [apps/mcp-server/src/app.ts] — Module-level `_registerTools` risk in Workers isolates. — deferred, pre-existing
