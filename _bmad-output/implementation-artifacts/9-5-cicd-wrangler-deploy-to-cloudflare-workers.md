@@ -1,6 +1,6 @@
 # Story 9.5: CI/CD — Wrangler Deploy to Cloudflare Workers
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -22,17 +22,17 @@ So that code merged to main is live in production without manual intervention.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add `deploy-mcp-server` job to `.github/workflows/ci.yml` (AC 1–7)
-  - [ ] Add job after `deploy-web`, with `needs: ci` and `if: github.event_name == 'push' && github.ref == 'refs/heads/main'`
-  - [ ] Copy checkout / pnpm / node / install steps from `deploy-web` (identical setup)
-  - [ ] Add "Apply D1 migrations" step using `cloudflare/wrangler-action@v3` with `command: d1 migrations apply on-record-cache --remote` and `workingDirectory: apps/mcp-server`
-  - [ ] Add "Deploy to Cloudflare Workers" step using `cloudflare/wrangler-action@v3` with `command: deploy` and `workingDirectory: apps/mcp-server`
-  - [ ] Both wrangler-action steps use `apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}` and `accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}`
+- [x] Task 1: Add `deploy-mcp-server` job to `.github/workflows/ci.yml` (AC 1–7)
+  - [x] Add job after `deploy-web`, with `needs: ci` and `if: github.event_name == 'push' && github.ref == 'refs/heads/main'`
+  - [x] Copy checkout / pnpm / node / install steps from `deploy-web` (identical setup)
+  - [x] Add "Apply D1 migrations" step using `cloudflare/wrangler-action@v3` with `command: d1 migrations apply on-record-cache --remote` and `workingDirectory: apps/mcp-server`
+  - [x] Add "Deploy to Cloudflare Workers" step using `cloudflare/wrangler-action@v3` with `command: deploy` and `workingDirectory: apps/mcp-server`
+  - [x] Both wrangler-action steps use `apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}` and `accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}`
 
-- [ ] Task 2: Verify final CI YAML
-  - [ ] `deploy-mcp-server` has no `needs: deploy-web` (parallel deployment)
-  - [ ] Both `deploy-web` and `deploy-mcp-server` only have `needs: ci`
-  - [ ] YAML lints cleanly (no tab characters, consistent 2-space indent)
+- [x] Task 2: Verify final CI YAML
+  - [x] `deploy-mcp-server` has no `needs: deploy-web` (parallel deployment)
+  - [x] Both `deploy-web` and `deploy-mcp-server` only have `needs: ci`
+  - [x] YAML lints cleanly (no tab characters, consistent 2-space indent)
 
 ## Dev Notes
 
@@ -234,14 +234,21 @@ No other files are modified in this story.
 
 ## Dev Agent Record
 
-_To be filled during implementation_
-
 ### Completion Notes List
 
-_To be filled during implementation_
+- Added `deploy-mcp-server` job to `.github/workflows/ci.yml` after `deploy-web`
+- Job has `needs: ci` only — runs parallel to `deploy-web` after CI passes (AC 2, AC 7)
+- `if` condition restricts to `push` events on `main` only, not pull requests (AC 1)
+- Setup steps (checkout, pnpm, node, install) copied verbatim from `deploy-web` (required for wrangler bundling)
+- Two `cloudflare/wrangler-action@v3` steps: D1 migrations apply (idempotent, AC 3/6) then worker deploy (AC 4)
+- Both steps use `workingDirectory: apps/mcp-server` to read `wrangler.toml` with D1/rate-limiter bindings (AC 4)
+- Both secrets (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`) already configured in repo (AC 5)
+- YAML validated: syntactically valid via Python `yaml.safe_load`, no tab characters, consistent 2-space indent (AC Task 2)
+- No source code changes — YAML-only story as specified
 
 ### Change Log
 
 | Date | Change | Reason |
 |------|--------|--------|
 | 2026-04-06 | Story created | Story 9.5 — CI/CD wrangler deploy to Cloudflare Workers |
+| 2026-04-06 | Added `deploy-mcp-server` job to `.github/workflows/ci.yml` | Implement CI/CD pipeline for automatic MCP server deployment to Cloudflare Workers on push to main |
