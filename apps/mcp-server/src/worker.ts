@@ -21,7 +21,7 @@ function addCorsHeaders(response: Response): Response {
 }
 
 // McpAgent.serve() handler — instantiated once at module scope (safe per Cloudflare docs).
-const mcpHandler = OnRecordMCP.serve('/mcp', { binding: 'MCP_OBJECT' })
+const mcpHandler = OnRecordMCP.serve('/mcp', { binding: 'MCP_OBJECT', transport: 'auto' })
 
 export { OnRecordMCP }
 
