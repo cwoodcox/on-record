@@ -23,5 +23,9 @@ bindings = [{ name = "MCP_OBJECT", class_name = "OnRecordMCP" }]
 tag = "v1"
 new_sqlite_classes = ["OnRecordMCP"]
 
+routes = [
+  { pattern = "agents.getonrecord.org", custom_domain = true }
+]
+
 [triggers]
 crons = ["0 6 * * *", "0 * * * *"]
