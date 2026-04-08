@@ -49,7 +49,7 @@ export async function resolveAddressToDistricts(
   try {
     geocodeData = await retryWithDelay(
       async () => {
-        const res = await fetch(geocodeUrl)
+        const res = await fetch(geocodeUrl, { headers: { Referer: 'https://agents.getonrecord.org/mcp' } })
         if (res.status === 404) throw new UgrcHttpError(404)
         if (res.status === 400) throw new UgrcHttpError(400)
         if (!res.ok) throw new Error(`UGRC geocode HTTP ${res.status}`)
@@ -124,11 +124,11 @@ export async function resolveAddressToDistricts(
   let houseData: UgrcSearchResponse, senateData: UgrcSearchResponse
   try {
     ;[houseData, senateData] = await Promise.all([
-      fetch(houseUrl, ).then(async (r) => {
+      fetch(houseUrl, { headers: { Referer: 'https://agents.getonrecord.org/mcp' } }).then(async (r) => {
         if (!r.ok) throw new Error(`UGRC house district HTTP ${r.status}`)
         return r.json() as Promise<UgrcSearchResponse>
       }),
-      fetch(senateUrl, ).then(async (r) => {
+      fetch(senateUrl, { headers: { Referer: 'https://agents.getonrecord.org/mcp' } }).then(async (r) => {
         if (!r.ok) throw new Error(`UGRC senate district HTTP ${r.status}`)
         return r.json() as Promise<UgrcSearchResponse>
       }),
