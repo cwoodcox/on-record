@@ -149,7 +149,7 @@ development_status:
   9-5-cicd-wrangler-deploy-to-cloudflare-workers: done
   9-6-migrate-mcp-transport-to-mcpagent: done
   9-7-remove-nodejs-entrypoint-and-legacy-artifacts: done
-  9-8-incremental-bill-cache-refresh-with-wall-time-budget: ready-for-dev
+  9-8-incremental-bill-cache-refresh-with-wall-time-budget: done
   epic-9-retrospective: optional
 
   # ─── Epic E5: Automated Conversation Eval Harness ───────────────────────────
