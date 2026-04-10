@@ -3,6 +3,10 @@ main = "src/worker.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
+routes = [
+  { pattern = "agents.getonrecord.org", custom_domain = true }
+]
+
 [[d1_databases]]
 binding = "DB"
 database_name = "on-record-cache"
@@ -23,14 +27,10 @@ bindings = [{ name = "MCP_OBJECT", class_name = "OnRecordMCP" }]
 tag = "v1"
 new_sqlite_classes = ["OnRecordMCP"]
 
-routes = [
-  { pattern = "agents.getonrecord.org", custom_domain = true }
-]
-
 [vars]
 BILL_STALE_SECONDS_IN_SESSION = "3600"
 BILL_STALE_SECONDS_OUT_OF_SESSION = "86400"
 CACHE_REFRESH_WALL_TIME_SECONDS = "0"
 
 [triggers]
-crons = ["0 6 * * *", "0 * * * *"]
+crons = ["0 6 * * *", "4 * * * *"]
