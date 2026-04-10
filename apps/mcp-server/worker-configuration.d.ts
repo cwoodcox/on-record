@@ -13,6 +13,9 @@ declare namespace Cloudflare {
 		NODE_ENV: string;
 		UTAH_LEGISLATURE_API_KEY: string;
 		UGRC_API_KEY: string;
+		BILL_STALE_SECONDS_IN_SESSION: string;
+		BILL_STALE_SECONDS_OUT_OF_SESSION: string;
+		CACHE_REFRESH_WALL_TIME_SECONDS: string;
 		MCP_OBJECT: DurableObjectNamespace /* OnRecordMCP */;
 	}
 }

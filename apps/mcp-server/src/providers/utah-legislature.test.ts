@@ -215,6 +215,61 @@ describe('UtahLegislatureProvider', () => {
     })
   })
 
+  describe('getBillStubsForSession', () => {
+    it('returns bill IDs from a mocked stub list response', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(mockBillListResponse),
+      })
+
+      const promise = provider.getBillStubsForSession('2026GS')
+      await vi.runAllTimersAsync()
+      const result = await promise
+
+      expect(result).toEqual(['HB0001', 'HB0002'])
+    })
+
+    it('uses correct URL with token in path for bill stub fetch', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(mockBillListResponse),
+      })
+
+      const promise = provider.getBillStubsForSession('2026GS')
+      await vi.runAllTimersAsync()
+      await promise
+
+      const url = (fetchMock.mock.calls[0] as [string])[0]
+      expect(url).toContain('/bills/2026GS/billlist/')
+      expect(url).toContain('testapikey123')
+    })
+
+    it('throws AppError with nature containing "fetch bill stubs" when API fails', async () => {
+      fetchMock.mockRejectedValue(new Error('API down'))
+
+      const rejectionPromise = expect(provider.getBillStubsForSession('2026GS')).rejects.toMatchObject({
+        source: 'legislature-api',
+        nature: expect.stringContaining('fetch bill stubs'),
+      })
+      await vi.runAllTimersAsync()
+      await rejectionPromise
+    })
+
+    it('throws AppError when API returns unexpected response shape', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify({ unexpected: 'shape' }),
+      })
+
+      const rejectionPromise = expect(provider.getBillStubsForSession('2026GS')).rejects.toMatchObject({
+        source: 'legislature-api',
+        nature: 'Utah Legislature API returned an unexpected bills data format',
+      })
+      await vi.runAllTimersAsync()
+      await rejectionPromise
+    })
+  })
+
   describe('getBillsBySession', () => {
     it('returns fully-hydrated Bill[] with all required fields populated', async () => {
       // list call + two detail calls (one per bill)
@@ -366,12 +421,12 @@ describe('UtahLegislatureProvider', () => {
       expect(url).toContain('testapikey123')
     })
 
-    it('throws AppError with specific nature and action strings when bill list fetch fails after retries', async () => {
+    it('throws AppError with source legislature-api when bill list fetch fails after retries', async () => {
       fetchMock.mockRejectedValue(new Error('API down'))
 
       const rejectionPromise = expect(provider.getBillsBySession('2026GS')).rejects.toMatchObject({
         source: 'legislature-api',
-        nature: 'Failed to fetch bills from Utah Legislature API',
+        nature: expect.stringContaining('fetch bill stubs'),
         action: 'Try again in a few seconds — the API may be temporarily unavailable',
       })
       await vi.runAllTimersAsync()
@@ -431,7 +486,7 @@ describe('UtahLegislatureProvider', () => {
 
       const rejectionPromise = expect(provider.getBillsBySession('2026GS')).rejects.toMatchObject({
         source: 'legislature-api',
-        nature: 'Failed to fetch bills from Utah Legislature API',
+        nature: expect.stringContaining('fetch bill stubs'),
         action: 'Try again in a few seconds — the API may be temporarily unavailable',
       })
       await vi.runAllTimersAsync()

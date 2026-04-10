@@ -1,7 +1,7 @@
 // apps/mcp-server/src/worker.ts
 // Cloudflare Workers entrypoint.
 import { OnRecordMCP } from './mcp-agent.js'
-import { warmUpLegislatorsCache, warmUpBillsCache } from './cache/refresh.js'
+import { warmUpLegislatorsCache, warmUpBillsCache, type BillRefreshConfig } from './cache/refresh.js'
 import { UtahLegislatureProvider } from './providers/utah-legislature.js'
 import { logger } from './lib/logger.js'
 import { applyCfRateLimit } from './middleware/cf-rate-limit.js'
@@ -78,13 +78,24 @@ export default {
   },
   scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): void {
     const provider = new UtahLegislatureProvider(env.UTAH_LEGISLATURE_API_KEY)
+    const billRefreshConfig: BillRefreshConfig = {
+      ...(env.BILL_STALE_SECONDS_IN_SESSION && {
+        staleSecondsInSession: parseInt(env.BILL_STALE_SECONDS_IN_SESSION, 10),
+      }),
+      ...(env.BILL_STALE_SECONDS_OUT_OF_SESSION && {
+        staleSecondsOutOfSession: parseInt(env.BILL_STALE_SECONDS_OUT_OF_SESSION, 10),
+      }),
+      ...(env.CACHE_REFRESH_WALL_TIME_SECONDS && {
+        wallTimeSeconds: parseInt(env.CACHE_REFRESH_WALL_TIME_SECONDS, 10),
+      }),
+    }
     ctx.waitUntil(
       (async () => {
         if (event.cron === '0 6 * * *') {
           await warmUpLegislatorsCache(env.DB, provider)
           logger.info({ source: 'cache' }, 'Legislators cache refreshed via cron trigger')
         }
-        const sessions = await warmUpBillsCache(env.DB, provider)
+        const sessions = await warmUpBillsCache(env.DB, provider, billRefreshConfig)
         logger.info({ source: 'cache', sessions }, 'Bills cache refreshed via cron trigger')
       })().catch((err: unknown) => {
         logger.error({ source: 'cache', err }, 'Scheduled cache refresh failed')

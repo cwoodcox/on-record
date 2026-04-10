@@ -115,10 +115,9 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
     return [{ ...base, phone: '', phoneTypeUnknown: true as const }]
   }
 
-  async getBillsBySession(session: string): Promise<Bill[]> {
-    // Bill list endpoint returns minimal stubs (number + trackingID only).
-    // Full bill metadata is fetched via getBillDetail(). Story 3.2 implements
-    // the caching layer that schedules and persists hydrated Bill records.
+  async getBillStubsForSession(session: string): Promise<string[]> {
+    // Returns bill IDs (e.g. ["HB0001", "HB0002"]) for the given session.
+    // Used by warmUpBillsCache for incremental refresh — no detail hydration here.
     const url = this.url('bills', session, 'billlist')
 
     let rawData: unknown
@@ -136,10 +135,10 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
         return rawJson
       }, 2, 1000)
     } catch (err) {
-      logger.error({ source: 'legislature-api', err }, 'getBillsBySession failed after retries')
+      logger.error({ source: 'legislature-api', err }, 'getBillStubsForSession failed after retries')
       throw createAppError(
         'legislature-api',
-        'Failed to fetch bills from Utah Legislature API',
+        'Failed to fetch bill stubs for session from Utah Legislature API',
         'Try again in a few seconds — the API may be temporarily unavailable',
       )
     }
@@ -154,6 +153,16 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
       )
     }
 
+    return parsed.data.map((stub) => stub.number)
+  }
+
+  async getBillsBySession(session: string): Promise<Bill[]> {
+    // Bill list endpoint returns minimal stubs (number + trackingID only).
+    // Full bill metadata is fetched via getBillDetail(). Story 3.2 implements
+    // the caching layer that schedules and persists hydrated Bill records.
+    // Uses getBillStubsForSession internally to avoid duplicating stub fetch logic.
+    const stubIds = await this.getBillStubsForSession(session)
+
     // Hydrate each stub by calling getBillDetail in concurrent batches.
     // Batching avoids rate-limiting the API with 1000+ simultaneous requests.
     // Promise.allSettled per batch: individual bill failures are logged and skipped
@@ -161,10 +170,10 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
     const BATCH_SIZE = 20
     const bills: Bill[] = []
 
-    for (let i = 0; i < parsed.data.length; i += BATCH_SIZE) {
-      const batch = parsed.data.slice(i, i + BATCH_SIZE)
+    for (let i = 0; i < stubIds.length; i += BATCH_SIZE) {
+      const batch = stubIds.slice(i, i + BATCH_SIZE)
       const settled = await Promise.allSettled(
-        batch.map((stub) => this.getBillDetail(stub.number, session))
+        batch.map((billId) => this.getBillDetail(billId, session))
       )
       for (const result of settled) {
         if (result.status === 'fulfilled') {

@@ -4,7 +4,8 @@
 import type { LegislatureDataProvider } from '../providers/types.js'
 import { writeLegislators } from './legislators.js'
 import { writeBills } from './bills.js'
-import { getSessionsForRefresh } from './sessions.js'
+import { getSessionsForRefresh, isInSession } from './sessions.js'
+import { logger } from '../lib/logger.js'
 
 // Utah legislative districts:
 //   House:  1–75  (75 districts)
@@ -38,19 +39,126 @@ export async function warmUpLegislatorsCache(
 
 
 /**
+ * Configuration for incremental bill cache refresh.
+ * All fields are optional — defaults are applied inside warmUpBillsCache.
+ */
+export interface BillRefreshConfig {
+  /** Seconds before a bill is considered stale when legislature is in session. Default: 3600 (1 hour). */
+  staleSecondsInSession?: number
+  /** Seconds before a bill is considered stale during inter-session period. Default: 86400 (24 hours). */
+  staleSecondsOutOfSession?: number
+  /** Wall-time budget in seconds. 0 = no limit (dev/test mode). Default: 0. */
+  wallTimeSeconds?: number
+}
+
+const BATCH_SIZE = 20
+
+/**
  * Fetches bills for the active session (or the 2 most recent completed sessions during
  * inter-session periods) and writes results to cache.
  *
+ * Incremental refresh: skips bills whose `cached_at` is within the staleness TTL.
+ * Wall-time budget: stops fetching new batches before Cloudflare's 30-second limit.
+ *
  * @param db       - D1Database instance
  * @param provider - Data provider
+ * @param config   - Optional staleness and wall-time configuration
  */
 export async function warmUpBillsCache(
   db: D1Database,
   provider: LegislatureDataProvider,
+  config?: BillRefreshConfig,
 ): Promise<string[]> {
+  const staleSecondsInSession = config?.staleSecondsInSession ?? 3600
+  const staleSecondsOutOfSession = config?.staleSecondsOutOfSession ?? 86400
+  const wallTimeSeconds = config?.wallTimeSeconds ?? 0
+
+  const wallTimeLimitMs = wallTimeSeconds > 0
+    ? (wallTimeSeconds - 2) * 1000  // 2s buffer for D1 writes
+    : Infinity
+  const startTime = Date.now()
+
+  const inSession = await isInSession(db)
+  const staleTtlMs = (inSession ? staleSecondsInSession : staleSecondsOutOfSession) * 1000
+
   const sessions = await getSessionsForRefresh(db)
-  const allBills = await Promise.all(sessions.map((s) => provider.getBillsBySession(s)))
-  await writeBills(db, allBills.flat())
-  return sessions
+  const refreshedSessions: string[] = []
+
+  for (const session of sessions) {
+    // Fetch all bill IDs for this session from the provider
+    let allStubIds: string[]
+    try {
+      allStubIds = await provider.getBillStubsForSession(session)
+    } catch (err) {
+      logger.error({ source: 'cache', err, session }, 'Failed to fetch bill stubs for session — skipping')
+      continue
+    }
+
+    // Query D1 for bills in this session that are still fresh
+    const cutoff = new Date(Date.now() - staleTtlMs).toISOString()
+    const freshRows = await db
+      .prepare('SELECT id FROM bills WHERE session = ? AND cached_at > ?')
+      .bind(session, cutoff)
+      .all<{ id: string }>()
+    const freshIds = new Set(freshRows.results.map((r) => r.id))
+    const staleIds = allStubIds.filter((id) => !freshIds.has(id))
+
+    // All bills are fresh — skip this session entirely
+    if (staleIds.length === 0) {
+      refreshedSessions.push(session)
+      continue
+    }
+
+    // Fetch stale bills in batches, respecting the wall-time budget
+    const fetchedBills: import('@on-record/types').BillDetail[] = []
+    let exitedEarly = false
+
+    for (let i = 0; i < staleIds.length; i += BATCH_SIZE) {
+      if (Date.now() - startTime >= wallTimeLimitMs) {
+        logger.warn(
+          { source: 'cache', elapsed: Date.now() - startTime, session },
+          'wall-time budget reached — stopping early',
+        )
+        exitedEarly = true
+        break
+      }
+
+      const batch = staleIds.slice(i, i + BATCH_SIZE)
+      const settled = await Promise.allSettled(
+        batch.map((billId) => provider.getBillDetail(billId, session))
+      )
+      for (const result of settled) {
+        if (result.status === 'fulfilled') {
+          fetchedBills.push(result.value)
+        } else {
+          logger.error(
+            { source: 'cache', err: result.reason, session },
+            'getBillDetail failed for individual bill — skipping',
+          )
+        }
+      }
+    }
+
+    // Write all fetched bills (even on early exit — no partial batch is silently dropped)
+    if (fetchedBills.length > 0) {
+      await writeBills(db, fetchedBills.map((detail) => ({
+        id: detail.id,
+        session: detail.session,
+        title: detail.title,
+        summary: detail.summary,
+        status: detail.status,
+        sponsorId: detail.sponsorId,
+        ...(detail.floorSponsorId !== undefined && { floorSponsorId: detail.floorSponsorId }),
+        ...(detail.voteResult !== undefined && { voteResult: detail.voteResult }),
+        ...(detail.voteDate !== undefined && { voteDate: detail.voteDate }),
+      })))
+    }
+
+    refreshedSessions.push(session)
+
+    if (exitedEarly) break
+  }
+
+  return refreshedSessions
 }
 

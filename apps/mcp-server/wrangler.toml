@@ -27,5 +27,10 @@ routes = [
   { pattern = "agents.getonrecord.org", custom_domain = true }
 ]
 
+[vars]
+BILL_STALE_SECONDS_IN_SESSION = "3600"
+BILL_STALE_SECONDS_OUT_OF_SESSION = "86400"
+CACHE_REFRESH_WALL_TIME_SECONDS = "0"
+
 [triggers]
 crons = ["0 6 * * *", "0 * * * *"]

@@ -69,7 +69,7 @@ describe('worker scheduled handler', () => {
   it('hourly trigger: calls warmUpBillsCache but NOT warmUpLegislatorsCache', async () => {
     worker.scheduled({ cron: '0 * * * *' } as ScheduledEvent, mockEnv, mockCtx)
     await capturedPromise
-    expect(vi.mocked(warmUpBillsCache)).toHaveBeenCalledWith(mockEnv.DB, expect.anything())
+    expect(vi.mocked(warmUpBillsCache)).toHaveBeenCalledWith(mockEnv.DB, expect.anything(), expect.anything())
     expect(vi.mocked(warmUpLegislatorsCache)).not.toHaveBeenCalled()
   })
 
@@ -77,7 +77,7 @@ describe('worker scheduled handler', () => {
     worker.scheduled({ cron: '0 6 * * *' } as ScheduledEvent, mockEnv, mockCtx)
     await capturedPromise
     expect(vi.mocked(warmUpLegislatorsCache)).toHaveBeenCalledWith(mockEnv.DB, expect.anything())
-    expect(vi.mocked(warmUpBillsCache)).toHaveBeenCalledWith(mockEnv.DB, expect.anything())
+    expect(vi.mocked(warmUpBillsCache)).toHaveBeenCalledWith(mockEnv.DB, expect.anything(), expect.anything())
   })
 
   it('logs success for bills refresh on hourly trigger', async () => {
