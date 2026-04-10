@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "on-record": {
+      "type": "http",
+      "url": "https://agents.getonrecord.org/mcp"
+    }
+  }
+}
