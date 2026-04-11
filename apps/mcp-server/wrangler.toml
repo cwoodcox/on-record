@@ -30,7 +30,14 @@ new_sqlite_classes = ["OnRecordMCP"]
 [vars]
 BILL_STALE_SECONDS_IN_SESSION = "3600"
 BILL_STALE_SECONDS_OUT_OF_SESSION = "86400"
-CACHE_REFRESH_WALL_TIME_SECONDS = "0"
+CACHE_REFRESH_WALL_TIME_SECONDS = "25"
+
+[observability]
+enabled = true
+
+  [observability.logs]
+  enabled = true
+  invocation_logs = true
 
 [triggers]
-crons = ["0 6 * * *", "4 * * * *"]
+crons = ["0 6 * * *", "*/3 * * * *"]
