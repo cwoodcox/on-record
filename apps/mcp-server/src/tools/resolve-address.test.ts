@@ -38,6 +38,7 @@ function createMockServer(): {
         _name: string,
         _description: string,
         _schema: unknown,
+        _annotations: unknown,
         handler: ToolHandler,
       ) => {
         capturedHandler = handler
