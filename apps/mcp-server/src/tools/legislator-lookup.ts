@@ -51,6 +51,7 @@ export function registerLookupLegislatorTool(server: McpServer, db: D1Database):
         .optional()
         .describe('District number — must be provided together with chamber.'),
     },
+    { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async ({ id, name, chamber, district }) => {
       try {
         // 1. Validate chamber/district pairing before checking for any valid mode

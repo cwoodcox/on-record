@@ -31,6 +31,7 @@ export function registerResolveAddressTool(server: McpServer, apiKey: string): v
         .min(1)
         .describe('City name or 5-digit ZIP code. Example: "Salt Lake City" or "84111"'),
     },
+    { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     async ({ street, zone }) => {
       // 0. P.O. Box pre-check — detect before making the GIS call (saves latency)
       if (PO_BOX_PATTERN.test(street.trim())) {

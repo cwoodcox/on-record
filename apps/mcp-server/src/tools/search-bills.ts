@@ -45,6 +45,7 @@ export function registerSearchBillsTool(server: McpServer, db: D1Database): void
         'Pagination offset (default 0)',
       ),
     },
+    { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     async (rawParams) => {
       const params = rawParams as SearchBillsParams
       try {
