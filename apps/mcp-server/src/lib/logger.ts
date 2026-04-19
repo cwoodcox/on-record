@@ -6,15 +6,17 @@ import pino from 'pino'
 //   logger.info({ source: 'cache' }, 'Bills cached')
 //   logger.error({ source: 'gis-api', address: '[REDACTED]', err }, 'GIS lookup failed')
 //
-// pino-pretty is NOT used: it requires Node.js stream.Transform which is unavailable in
-// the Cloudflare Workers runtime. Use `wrangler tail` or the Cloudflare observability
-// dashboard to view logs in production; `wrangler dev` surfaces them in the terminal.
+// CF Workers observability only captures console.* — process.stdout.write() is not
+// monitored. The custom destination below is the single approved site for console.log
+// in this codebase; the no-console ESLint rule exists to guard the MCP JSON-RPC stdio
+// stream, which does not apply in a CF Worker (MCP transport is HTTP/WebSocket).
 
 let _logger: pino.Logger | undefined
 
 export function getLogger(): pino.Logger {
   if (!_logger) {
-    _logger = pino({ level: 'info' })
+    // eslint-disable-next-line no-console
+    _logger = pino({ level: 'info' }, { write: (msg) => console.log(msg) })
   }
   return _logger
 }
