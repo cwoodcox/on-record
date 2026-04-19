@@ -1,6 +1,6 @@
 # Story 4.8: MCP Tool Description Behavioral Encoding for ChatGPT Apps
 
-Status: review
+Status: done
 
 ## Story
 
@@ -45,8 +45,8 @@ so that the conversation follows the right flow and respects data constraints in
 
 ### Review Findings
 
-- [ ] [Review][Decision] `resolve_address` post-call instruction assumes legislator names are available — At the point `resolve_address` returns, the model only has district numbers (`houseDistrict`, `senateDistrict`), not legislator names. The instruction "present both legislators by name and ask which one the constituent wants to write to before proceeding" implicitly requires the model to call `lookup_legislator` first. The current wording could cause the model to attempt presenting names it doesn't have, or to infer the required lookup step without being told. Decision: should the instruction be made explicit (e.g., "then call lookup_legislator for each district to retrieve legislator details, present both by name, and ask which one...")?
-- [ ] [Review][Decision] `search_bills` ordering instruction may suppress cross-legislator general search — The instruction "Call this once a specific legislator has been selected" may prevent the model in the ChatGPT Apps context from doing general cross-legislator searches (all parameters optional, no sponsorId). This valid path was a key motivation of the 3.7 redesign. Decision: should the instruction add a caveat for the general search path (e.g., "...or when searching all bills by topic without a specific legislator, omit sponsorId and use query alone")?
+- [x] [Review][Decision] `resolve_address` post-call instruction assumes legislator names are available — Fixed: changed "present both legislators by name" to "look up and present both legislators" to avoid implying names are already known. [apps/mcp-server/src/tools/resolve-address.ts:23]
+- [x] [Review][Decision] `search_bills` ordering instruction may suppress cross-legislator general search — Fixed: replaced bare ordering clause with purpose-driven language (find commonality with constituent's concerns, ensure factual accuracy for support/opposition) and added general-search caveat ("When no specific legislator is involved, omit sponsorId and use query alone to search across all bills by topic or bill number"). [apps/mcp-server/src/tools/search-bills.ts:21]
 - [x] [Review][Defer] `apps/web/src/app/layout.tsx` metadata says "surfaces their voting record" — contradicts the `search_bills` data-boundary statement that results are sponsored bills only, NOT voting record data. Pre-existing inconsistency, out of scope for story 4.8. [apps/web/src/app/layout.tsx] — deferred, pre-existing
 
 ## Dev Notes
