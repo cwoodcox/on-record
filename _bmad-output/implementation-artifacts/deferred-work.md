@@ -1,4 +1,8 @@
 
+## Deferred from: code review of 4-8-mcp-tool-description-chatgpt-apps-behavioral-encoding.md (2026-04-19)
+
+- `apps/web/src/app/layout.tsx` metadata says "surfaces their voting record" — contradicts the `search_bills` data-boundary statement that results are sponsored bills only, NOT voting record data. Pre-existing inconsistency; story 4.8 makes it more conspicuous but did not introduce it.
+
 ## Deferred from: code review (2026-04-05) - 9-1-wrangler-scaffold-and-workers-entrypoint.md
 
 - In-Memory Session Store / Affinity [apps/mcp-server/src/app.ts] — Session state is lost on isolate restart/eviction; affinity not guaranteed. Deferred (MVP limitation).
