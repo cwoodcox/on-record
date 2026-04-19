@@ -16,7 +16,8 @@
       "Bash(gh label:*)",
       "Bash(gh api:*)",
       "Bash(gh issue:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(gh pr *)"
     ]
   }
 }
