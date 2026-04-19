@@ -6,29 +6,36 @@ import pino from 'pino'
 //   logger.info({ source: 'cache' }, 'Bills cached')
 //   logger.error({ source: 'gis-api', address: '[REDACTED]', err }, 'GIS lookup failed')
 //
-// CF Workers observability only captures console.* — process.stdout.write() is not
-// monitored. The custom destination below is the single approved site for console.log
-// in this codebase; the no-console ESLint rule exists to guard the MCP JSON-RPC stdio
-// stream, which does not apply in a CF Worker (MCP transport is HTTP/WebSocket).
+// CF Workers observability captures console.* only — process.stdout.write() is silently
+// dropped. We bypass pino's sonic-boom transport (which buffers async and loses tail writes
+// when the Workers execution context terminates) by calling console.* directly.
+// The no-console ESLint rule guards the MCP JSON-RPC stdio stream, which does not apply
+// in a CF Worker (MCP transport is HTTP/WebSocket).
 
-let _logger: pino.Logger | undefined
+function cfWrite(levelNum: number, obj: Record<string, unknown>, msg: string): void {
+  const serialized = JSON.stringify({ level: levelNum, time: Date.now(), ...obj, msg })
+  if (levelNum >= 50) {
+    console.error(serialized)
+  } else if (levelNum >= 40) {
+    console.warn(serialized) // eslint-disable-line no-console
+  } else {
+    console.log(serialized) // eslint-disable-line no-console
+  }
+}
+
+// Synchronous console-backed logger with the same call signature as pino.
+// Cast to pino.Logger so all existing imports, call sites, and vi.mock() shapes are unchanged.
+const cfLogger = {
+  trace: () => {},
+  debug: (obj: Record<string, unknown>, msg: string) => cfWrite(20, obj, msg),
+  info:  (obj: Record<string, unknown>, msg: string) => cfWrite(30, obj, msg),
+  warn:  (obj: Record<string, unknown>, msg: string) => cfWrite(40, obj, msg),
+  error: (obj: Record<string, unknown>, msg: string) => cfWrite(50, obj, msg),
+  fatal: (obj: Record<string, unknown>, msg: string) => cfWrite(60, obj, msg),
+} as unknown as pino.Logger
 
 export function getLogger(): pino.Logger {
-  if (!_logger) {
-    _logger = pino({ level: 'info' }, {
-      // CF Workers observability captures console.* only — process.stdout is not monitored.
-      // Parse pino's level number to dispatch to the matching console method.
-      write: (msg) => {
-        const level = (JSON.parse(msg) as { level: number }).level
-        if (level >= 50) console.error(msg)
-        // eslint-disable-next-line no-console
-        else if (level >= 40) console.warn(msg)
-        // eslint-disable-next-line no-console
-        else console.log(msg)
-      },
-    })
-  }
-  return _logger
+  return cfLogger
 }
 
 // `logger` is a lazy-init proxy so that this module can be statically imported before

@@ -29,6 +29,11 @@ module.exports = [
     },
   },
   {
+    // Test files legitimately reference console methods via vi.spyOn / expect — allow all.
+    files: ['src/**/*.test.ts'],
+    rules: { 'no-console': 'off' },
+  },
+  {
     // Guard Boundary 4: no direct better-sqlite3 imports outside src/cache/
     // Architecture rule: only cache/ modules touch better-sqlite3 directly
     // NOTE: both patterns are in one block — flat config does NOT merge separate
