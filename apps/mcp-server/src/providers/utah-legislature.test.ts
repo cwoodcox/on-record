@@ -1,7 +1,7 @@
 // apps/mcp-server/src/providers/utah-legislature.test.ts
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-// Mock the pino logger to enable spying — logger is a Proxy and cannot be spied on directly
+// Mock the logger to enable spying on error calls
 vi.mock('../lib/logger.js', () => ({
   logger: {
     info: vi.fn(),

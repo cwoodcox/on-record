@@ -1,9 +1,9 @@
 // apps/mcp-server/src/worker.ts
 // Cloudflare Workers entrypoint.
+import { logger } from './lib/logger.js'
 import { OnRecordMCP } from './mcp-agent.js'
 import { warmUpLegislatorsCache, warmUpBillsCache, type BillRefreshConfig } from './cache/refresh.js'
 import { UtahLegislatureProvider } from './providers/utah-legislature.js'
-import { logger } from './lib/logger.js'
 import { applyCfRateLimit } from './middleware/cf-rate-limit.js'
 
 const CORS_HEADERS = {

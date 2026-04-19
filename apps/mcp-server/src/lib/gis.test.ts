@@ -18,6 +18,7 @@ vi.mock('./logger.js', () => ({
   },
 }))
 
+
 const TEST_API_KEY = 'test-api-key'
 
 // Dynamic import inside beforeAll — top-level await not valid in NodeNext without "type":"module"
