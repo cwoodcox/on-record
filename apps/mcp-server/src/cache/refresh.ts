@@ -133,8 +133,8 @@ export async function warmUpBillsCache(
       const settled = await Promise.allSettled(
         batch.map((billId) => provider.getBillDetail(billId, session))
       )
-      batch.forEach((billId, idx) => {
-        const result = settled[idx]
+      settled.forEach((result, idx) => {
+        const billId = batch[idx]!
         if (result.status === 'fulfilled') {
           fetchedBills.push(result.value)
         } else {
