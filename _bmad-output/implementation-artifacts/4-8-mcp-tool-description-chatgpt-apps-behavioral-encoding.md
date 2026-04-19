@@ -147,8 +147,25 @@ Files NOT touched:
 
 ### Agent Model Used
 
+claude-sonnet-4-6
+
 ### Debug Log References
+
+None — straightforward description-only change, no issues encountered.
 
 ### Completion Notes List
 
+- Updated `resolve_address` tool description to include behavioral precondition (call only after acknowledging concern, never as opener) and post-call instruction (present both legislators by name, ask which one before proceeding). Verbatim string from Dev Notes applied exactly.
+- Updated `lookup_legislator` tool description to include ordering instruction (call after constituent shares concern) and post-call instruction (ask which legislator before searching bills). Verbatim string from Dev Notes applied exactly.
+- Updated `search_bills` tool description to include: data boundary statement (NOT voting record), ordering instruction (call once legislator selected), sponsorId-alone guidance, confirmation gate before drafting, and zero-result instruction (no fabricated citations). Verbatim string from Dev Notes applied exactly.
+- All Zod parameter `.describe()` strings, handler logic, annotations, and test files left unchanged.
+- `pnpm --filter mcp-server typecheck` — zero errors.
+- `pnpm --filter mcp-server test` — 199 tests across 13 files, all pass.
+
 ### File List
+
+- `apps/mcp-server/src/tools/resolve-address.ts` (modified — description string only)
+- `apps/mcp-server/src/tools/legislator-lookup.ts` (modified — description string only)
+- `apps/mcp-server/src/tools/search-bills.ts` (modified — description string only)
+- `_bmad-output/implementation-artifacts/4-8-mcp-tool-description-chatgpt-apps-behavioral-encoding.md` (modified — story status, tasks, Dev Agent Record)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified — story status updated to review)
