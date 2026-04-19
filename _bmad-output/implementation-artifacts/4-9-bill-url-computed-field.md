@@ -171,3 +171,8 @@ None — straightforward computed field, no issues encountered.
 - `apps/mcp-server/src/cache/bills.test.ts` — added `describe('billUrl computation', ...)` block with 2 tests
 - `_bmad-output/implementation-artifacts/4-9-bill-url-computed-field.md` (this file — story tracking)
 - `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified — story status)
+
+## Review Findings
+
+- [x] [Review][Defer] `session.slice(0, 4)` trusts upstream session format with no validation [apps/mcp-server/src/cache/bills.ts:40] — deferred, pre-existing data-trust pattern used throughout codebase
+- [x] [Review][Defer] `billUrl` URL scheme hardcodes Utah Legislature URI pattern with no change-detection — deferred, pre-existing architectural assumption documented in research
