@@ -1,6 +1,6 @@
 # Story 4.8: MCP Tool Description Behavioral Encoding for ChatGPT Apps
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -24,24 +24,24 @@ so that the conversation follows the right flow and respects data constraints in
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Update `resolve_address` tool description (AC: 1, 6)
-  - [ ] In `apps/mcp-server/src/tools/resolve-address.ts`, replace the second argument to `server.tool()` (the description string) with the exact string specified in Dev Notes below
-  - [ ] Leave all Zod parameter `.describe()` strings unchanged
-  - [ ] Leave handler logic, annotations, and all other code unchanged
+- [x] Task 1: Update `resolve_address` tool description (AC: 1, 6)
+  - [x] In `apps/mcp-server/src/tools/resolve-address.ts`, replace the second argument to `server.tool()` (the description string) with the exact string specified in Dev Notes below
+  - [x] Leave all Zod parameter `.describe()` strings unchanged
+  - [x] Leave handler logic, annotations, and all other code unchanged
 
-- [ ] Task 2: Update `lookup_legislator` tool description (AC: 2, 6)
-  - [ ] In `apps/mcp-server/src/tools/legislator-lookup.ts`, replace the description string (second argument to `server.tool()`) with the exact string specified in Dev Notes below
-  - [ ] Leave all Zod parameter `.describe()` strings unchanged
-  - [ ] Leave handler logic, annotations, and all other code unchanged
+- [x] Task 2: Update `lookup_legislator` tool description (AC: 2, 6)
+  - [x] In `apps/mcp-server/src/tools/legislator-lookup.ts`, replace the description string (second argument to `server.tool()`) with the exact string specified in Dev Notes below
+  - [x] Leave all Zod parameter `.describe()` strings unchanged
+  - [x] Leave handler logic, annotations, and all other code unchanged
 
-- [ ] Task 3: Update `search_bills` tool description (AC: 3, 6)
-  - [ ] In `apps/mcp-server/src/tools/search-bills.ts`, replace the description string (second argument to `server.tool()`) with the exact string specified in Dev Notes below
-  - [ ] Leave all Zod parameter `.describe()` strings unchanged
-  - [ ] Leave handler logic, annotations, and all other code unchanged
+- [x] Task 3: Update `search_bills` tool description (AC: 3, 6)
+  - [x] In `apps/mcp-server/src/tools/search-bills.ts`, replace the description string (second argument to `server.tool()`) with the exact string specified in Dev Notes below
+  - [x] Leave all Zod parameter `.describe()` strings unchanged
+  - [x] Leave handler logic, annotations, and all other code unchanged
 
-- [ ] Task 4: Verify no regressions (AC: 4, 5)
-  - [ ] `pnpm --filter mcp-server typecheck` — zero errors
-  - [ ] `pnpm --filter mcp-server test` — all tests pass
+- [x] Task 4: Verify no regressions (AC: 4, 5)
+  - [x] `pnpm --filter mcp-server typecheck` — zero errors
+  - [x] `pnpm --filter mcp-server test` — all tests pass (199 tests across 13 files)
 
 ## Dev Notes
 
