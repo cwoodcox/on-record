@@ -28,6 +28,7 @@ export interface Bill {
   floorSponsorId?: string // populated from API's floorSponsor field when present (Story 3.7)
   voteResult?: string
   voteDate?: string // ISO 8601 date string: "2024-03-04"
+  billUrl?: string // computed from id + session; not stored in DB
 }
 
 // BillDetail — used by LegislatureDataProvider.getBillDetail() (Story 2.2)
