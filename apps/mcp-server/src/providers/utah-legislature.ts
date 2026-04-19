@@ -73,7 +73,7 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
         try {
           rawJson = JSON.parse(text)
         } catch {
-          throw new Error(`Legislature API returned non-JSON response: ${text}`)
+          throw new Error(`Legislature API returned non-JSON response (HTTP ${res.status}): ${text.slice(0, 200)}`)
         }
         return rawJson
       }, 2, 1000)
@@ -130,12 +130,12 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
         try {
           rawJson = JSON.parse(text)
         } catch {
-          throw new Error(`Legislature API returned non-JSON response: ${text}`)
+          throw new Error(`Legislature API returned non-JSON response (HTTP ${res.status}): ${text.slice(0, 200)}`)
         }
         return rawJson
       }, 2, 1000)
     } catch (err) {
-      logger.error({ source: 'legislature-api', err }, 'getBillStubsForSession failed after retries')
+      logger.error({ source: 'legislature-api', session, err }, 'getBillStubsForSession failed after retries')
       throw createAppError(
         'legislature-api',
         'Failed to fetch bill stubs for session from Utah Legislature API',
@@ -214,12 +214,12 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
         try {
           rawJson = JSON.parse(text)
         } catch {
-          throw new Error(`Legislature API returned non-JSON response: ${text}`)
+          throw new Error(`Legislature API returned non-JSON response (HTTP ${res.status}): ${text.slice(0, 200)}`)
         }
         return rawJson
       }, 2, 1000)
     } catch (err) {
-      logger.error({ source: 'legislature-api', err }, 'getBillDetail failed after retries')
+      logger.error({ source: 'legislature-api', billId, session, err }, 'getBillDetail failed after retries')
       throw createAppError(
         'legislature-api',
         `Failed to fetch bill detail for ${billId} from Utah Legislature API`,

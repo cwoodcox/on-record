@@ -109,9 +109,15 @@ export async function warmUpBillsCache(
       continue
     }
 
+    logger.info(
+      { source: 'cache', session, total: allStubIds.length, fresh: freshIds.size, stale: staleIds.length },
+      'bill refresh starting',
+    )
+
     // Fetch stale bills in batches, respecting the wall-time budget
     const fetchedBills: import('@on-record/types').BillDetail[] = []
     let exitedEarly = false
+    let failedCount = 0
 
     for (let i = 0; i < staleIds.length; i += BATCH_SIZE) {
       if (Date.now() - startTime >= wallTimeLimitMs) {
@@ -127,16 +133,18 @@ export async function warmUpBillsCache(
       const settled = await Promise.allSettled(
         batch.map((billId) => provider.getBillDetail(billId, session))
       )
-      for (const result of settled) {
+      batch.forEach((billId, idx) => {
+        const result = settled[idx]
         if (result.status === 'fulfilled') {
           fetchedBills.push(result.value)
         } else {
           logger.error(
-            { source: 'cache', err: result.reason, session },
-            'getBillDetail failed for individual bill — skipping',
+            { source: 'cache', session, billId, err: result.reason },
+            'getBillDetail failed — skipping',
           )
+          failedCount++
         }
-      }
+      })
     }
 
     // Write all fetched bills (even on early exit — no partial batch is silently dropped)
@@ -153,6 +161,18 @@ export async function warmUpBillsCache(
         ...(detail.voteDate !== undefined && { voteDate: detail.voteDate }),
       })))
     }
+
+    logger.info(
+      {
+        source: 'cache',
+        session,
+        fetched: fetchedBills.length,
+        failed: failedCount,
+        remaining: staleIds.length - fetchedBills.length - failedCount,
+        exitedEarly,
+      },
+      'bill refresh complete',
+    )
 
     refreshedSessions.push(session)
 
