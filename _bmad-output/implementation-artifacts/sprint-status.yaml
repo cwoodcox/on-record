@@ -106,6 +106,10 @@ development_status:
   4-5-draft-revision-loop: backlog
   4-6-progressstrip-and-draftcard-ui-components: dropped
   4-7-system-prompt-token-footprint-optimization: backlog
+  # ─── ChatGPT Apps: Tier 1 No-Widget Improvements (research 2026-04-18) ─────
+  # Encodes behavioral preconditions + data boundary rules into tool descriptions
+  # so conversation flow holds in ChatGPT Apps context (no system prompt available)
+  4-8-mcp-tool-description-chatgpt-apps-behavioral-encoding: ready-for-dev
   4-x-chatgpt-app-configuration-and-publishing: backlog
   epic-4-retrospective: optional
 
