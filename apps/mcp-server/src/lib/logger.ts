@@ -15,8 +15,18 @@ let _logger: pino.Logger | undefined
 
 export function getLogger(): pino.Logger {
   if (!_logger) {
-    // eslint-disable-next-line no-console
-    _logger = pino({ level: 'info' }, { write: (msg) => console.log(msg) })
+    _logger = pino({ level: 'info' }, {
+      // CF Workers observability captures console.* only — process.stdout is not monitored.
+      // Parse pino's level number to dispatch to the matching console method.
+      write: (msg) => {
+        const level = (JSON.parse(msg) as { level: number }).level
+        if (level >= 50) console.error(msg)
+        // eslint-disable-next-line no-console
+        else if (level >= 40) console.warn(msg)
+        // eslint-disable-next-line no-console
+        else console.log(msg)
+      },
+    })
   }
   return _logger
 }
