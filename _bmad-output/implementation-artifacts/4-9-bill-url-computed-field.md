@@ -1,6 +1,6 @@
 # Story 4.9: Add Computed `billUrl` Field to Bill Type and search_bills Responses
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -24,23 +24,23 @@ so that I can verify the legislation cited in my letter and the model can includ
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add `billUrl` to `Bill` interface (AC: 1, 5)
-  - [ ] In `packages/types/index.ts`, add `billUrl?: string` as a new optional field in the `Bill` interface, after `voteDate?: string`
-  - [ ] Leave all other fields and interfaces unchanged
+- [x] Task 1: Add `billUrl` to `Bill` interface (AC: 1, 5)
+  - [x] In `packages/types/index.ts`, add `billUrl?: string` as a new optional field in the `Bill` interface, after `voteDate?: string`
+  - [x] Leave all other fields and interfaces unchanged
 
-- [ ] Task 2: Compute `billUrl` in `rowToBill` (AC: 2, 3)
-  - [ ] In `apps/mcp-server/src/cache/bills.ts`, in `rowToBill()`, add: `bill.billUrl = \`https://le.utah.gov/~${row.session.slice(0, 4)}/bills/static/${row.id}.html\``
-  - [ ] Add the assignment unconditionally (id and session are never null)
-  - [ ] Do NOT add a new column to `BillRow`, do NOT change any SQL queries, do NOT touch `writeBills`
+- [x] Task 2: Compute `billUrl` in `rowToBill` (AC: 2, 3)
+  - [x] In `apps/mcp-server/src/cache/bills.ts`, in `rowToBill()`, add: `bill.billUrl = \`https://le.utah.gov/~${row.session.slice(0, 4)}/bills/static/${row.id}.html\``
+  - [x] Add the assignment unconditionally (id and session are never null)
+  - [x] Do NOT add a new column to `BillRow`, do NOT change any SQL queries, do NOT touch `writeBills`
 
-- [ ] Task 3: Add `billUrl` correctness tests (AC: 4, 6)
-  - [ ] In `apps/mcp-server/src/cache/bills.test.ts`, within the existing `describe('bills cache', ...)` block, add a new `describe('billUrl computation', ...)` block with:
+- [x] Task 3: Add `billUrl` correctness tests (AC: 4, 6)
+  - [x] In `apps/mcp-server/src/cache/bills.test.ts`, within the existing `describe('bills cache', ...)` block, add a new `describe('billUrl computation', ...)` block with:
     - A test for a standard General Session bill: write `{ id: 'HB0001', session: '2026GS', ... }`, read back via `getBillsBySponsor` or `searchBills`, assert `billUrl === 'https://le.utah.gov/~2026/bills/static/HB0001.html'`
     - A test for a special session bill: write `{ id: 'SB0013', session: '2025S1', ... }`, read back, assert `billUrl === 'https://le.utah.gov/~2025/bills/static/SB0013.html'`
 
-- [ ] Task 4: Verify no regressions (AC: 5, 6)
-  - [ ] `pnpm --filter mcp-server typecheck` — zero errors
-  - [ ] `pnpm --filter mcp-server test` — all tests pass
+- [x] Task 4: Verify no regressions (AC: 5, 6)
+  - [x] `pnpm --filter mcp-server typecheck` — zero errors
+  - [x] `pnpm --filter mcp-server test` — all tests pass
 
 ## Dev Notes
 
@@ -152,20 +152,22 @@ After 4.8, the test suite has 199 tests across 13 files. The new `billUrl` tests
 
 ### Agent Model Used
 
-_to be filled_
+claude-sonnet-4-6
 
 ### Debug Log References
 
-_to be filled_
+None — straightforward computed field, no issues encountered.
 
 ### Completion Notes List
 
-_to be filled_
+- `billUrl` flows through `searchBills` automatically via `rowToBill()` — no changes needed to `search-bills.ts` or its tests.
+- The year is extracted with `row.session.slice(0, 4)` — works for both regular (`2026GS`) and special sessions (`2025S1`).
+- Straightforward computed field. No DB changes, no SQL changes. All 201 tests pass, typecheck clean.
 
-### File List
+## File List
 
-- `packages/types/index.ts` (modified — add `billUrl?: string` to `Bill`)
-- `apps/mcp-server/src/cache/bills.ts` (modified — compute `billUrl` in `rowToBill()`)
-- `apps/mcp-server/src/cache/bills.test.ts` (modified — add 2 `billUrl` tests)
+- `packages/types/index.ts` — added `billUrl?: string` to `Bill` interface
+- `apps/mcp-server/src/cache/bills.ts` — added `billUrl` computation in `rowToBill()`
+- `apps/mcp-server/src/cache/bills.test.ts` — added `describe('billUrl computation', ...)` block with 2 tests
 - `_bmad-output/implementation-artifacts/4-9-bill-url-computed-field.md` (this file — story tracking)
 - `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified — story status)

@@ -110,7 +110,7 @@ development_status:
   # Encodes behavioral preconditions + data boundary rules into tool descriptions
   # so conversation flow holds in ChatGPT Apps context (no system prompt available)
   4-8-mcp-tool-description-chatgpt-apps-behavioral-encoding: done
-  4-9-bill-url-computed-field: ready-for-dev
+  4-9-bill-url-computed-field: review
   4-x-chatgpt-app-configuration-and-publishing: backlog
   epic-4-retrospective: optional
 
