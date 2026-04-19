@@ -22,7 +22,7 @@ import {
 export function registerLookupLegislatorTool(server: McpServer, db: D1Database): void {
   server.tool(
     'lookup_legislator',
-    'Retrieves legislator contact info by legislator ID (use sponsorId from bill search results), by partial name (when constituent knows their rep by name), or by legislative chamber and district number (use houseDistrict/senateDistrict from resolve_address). Returns structured JSON with legislator name, chamber, district, email, and phone.',
+    'Retrieves legislator contact info by legislator ID (use sponsorId from bill search results), by partial name (when constituent knows their rep by name), or by legislative chamber and district number (use houseDistrict/senateDistrict from resolve_address). Returns structured JSON with legislator name, chamber, district, email, and phone. Call this after the constituent has shared their concern. After returning results, ask which legislator the constituent wants to write to before searching for bills.',
     {
       id: z
         .string()

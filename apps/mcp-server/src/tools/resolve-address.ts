@@ -20,7 +20,7 @@ const PO_BOX_PATTERN = /^p\.?o\.?\s*box\b/i
 export function registerResolveAddressTool(server: McpServer, apiKey: string): void {
   server.tool(
     'resolve_address',
-    'Resolves a Utah street address to House and Senate legislative district numbers via GIS lookup. Returns structured JSON with houseDistrict, senateDistrict, and the geocoder\'s canonical form of the input address.',
+    'Resolves a Utah street address to House and Senate legislative district numbers via GIS lookup. Returns structured JSON with houseDistrict, senateDistrict, and the geocoder\'s canonical form of the input address. Call this only after acknowledging the constituent\'s concern and asking for their address naturally within that conversation — never as a conversation opener. After returning results, present both legislators by name and ask which one the constituent wants to write to before proceeding.',
     {
       street: z
         .string()

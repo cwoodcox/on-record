@@ -18,7 +18,7 @@ import { retryWithDelay } from '../lib/retry.js'
 export function registerSearchBillsTool(server: McpServer, db: D1Database): void {
   server.tool(
     'search_bills',
-    'Searches the Utah Legislature bill cache. All parameters are optional — omitting all returns all cached bills. Filters compose: providing sponsorId + session returns that legislator\'s bills from that session. Useful for: (1) loading all bills by a known sponsor, (2) finding a specific bill by number, (3) full-text searching across all bills by topic. Returns paginated results with total count.',
+    'Searches the Utah Legislature bill cache. Returns bills a legislator introduced or co-sponsored only — this is NOT voting record data and does not reveal how a legislator voted on bills they did not sponsor. All parameters are optional and compose as filters; omitting all returns all cached bills paginated. Call this once a specific legislator has been selected. When a legislator is known and no specific bill was mentioned, call with sponsorId alone to load their full bill list for semantic reasoning. After returning results, present 2–3 relevant bills and wait for explicit confirmation of a specific bill — or explicit choice to proceed without one — before drafting. Do not draft until the constituent confirms. If no bills are found, offer to write a message grounded in the constituent\'s concern without a bill citation — do not fabricate citations.',
     {
       query: z.string().optional().describe(
         'Freeform search term derived from the constituent\'s stated concern — passed directly to FTS5. Do not present this as a menu; infer from conversation context.',
