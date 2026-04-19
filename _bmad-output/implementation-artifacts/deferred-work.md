@@ -1,4 +1,9 @@
 
+## Deferred from: code review of 4-9-bill-url-computed-field.md (2026-04-18)
+
+- `session.slice(0, 4)` trusts upstream session format with no length/format validation [`apps/mcp-server/src/cache/bills.ts`] — session values come from the Utah Legislature API; trust-the-upstream pattern used throughout the codebase.
+- `billUrl` URL scheme hardcodes `https://le.utah.gov/~{year}/bills/static/{id}.html` with no change-detection — pre-existing architectural assumption documented in the 2026-04-18 research; no mechanism to detect Utah Legislature URL scheme changes.
+
 ## Deferred from: code review of 4-8-mcp-tool-description-chatgpt-apps-behavioral-encoding.md (2026-04-19)
 
 - `apps/web/src/app/layout.tsx` metadata says "surfaces their voting record" — contradicts the `search_bills` data-boundary statement that results are sponsored bills only, NOT voting record data. Pre-existing inconsistency; story 4.8 makes it more conspicuous but did not introduce it.

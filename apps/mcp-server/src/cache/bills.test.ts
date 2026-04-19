@@ -483,6 +483,24 @@ describe('bills cache', () => {
     })
   })
 
+  // ── billUrl computation ──────────────────────────────────────────────────
+
+  describe('billUrl computation', () => {
+    it('computes billUrl for a GS session — year extracted from first 4 chars', async () => {
+      await writeBills(env.DB, [makeBill({ id: 'HB0001', session: '2026GS', sponsorId: 'leg-001' })])
+
+      const result = await getBillsBySponsor(env.DB, 'leg-001')
+      expect(result[0]?.billUrl).toBe('https://le.utah.gov/~2026/bills/static/HB0001.html')
+    })
+
+    it('computes billUrl for a special session — year extracted from first 4 chars', async () => {
+      await writeBills(env.DB, [makeBill({ id: 'SB0013', session: '2025S1', sponsorId: 'leg-002' })])
+
+      const result = await getBillsBySponsor(env.DB, 'leg-002')
+      expect(result[0]?.billUrl).toBe('https://le.utah.gov/~2025/bills/static/SB0013.html')
+    })
+  })
+
   // ── parseBillId (via searchBills) ────────────────────────────────────────
 
   describe('parseBillId (via searchBills)', () => {

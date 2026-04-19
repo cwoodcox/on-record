@@ -37,6 +37,7 @@ function rowToBill(row: BillRow): Bill {
   if (row.vote_date !== null) {
     bill.voteDate = row.vote_date
   }
+  bill.billUrl = `https://le.utah.gov/~${row.session.slice(0, 4)}/bills/static/${row.id}.html`
   return bill
 }
 
