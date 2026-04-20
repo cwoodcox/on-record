@@ -1,9 +1,9 @@
 // apps/mcp-server/src/providers/utah-legislature.ts
+import { logger } from '../lib/logger.js'
 import { z } from 'zod'
 import type { Legislator, Bill, BillDetail } from '@on-record/types'
 import { createAppError } from '@on-record/types'
 import { retryWithDelay } from '../lib/retry.js'
-import { logger } from '../lib/logger.js'
 import type { LegislatureDataProvider } from './types.js'
 
 // ── Zod schemas for API response validation ───────────────────────────────────

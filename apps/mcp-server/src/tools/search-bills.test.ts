@@ -192,10 +192,7 @@ describe('registerSearchBillsTool', () => {
     await promise
 
     expect(vi.mocked(logger.info)).toHaveBeenCalledWith(
-      expect.objectContaining({
-        source: 'mcp-tool',
-        billCount: 1,
-      }),
+      expect.objectContaining({ source: 'mcp-tool', billCount: 1 }),
       'search_bills succeeded',
     )
   })

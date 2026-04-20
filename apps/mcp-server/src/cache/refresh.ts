@@ -1,11 +1,11 @@
 // apps/mcp-server/src/cache/refresh.ts
 // Legislators and bills cache warm-up functions.
 // Scheduling is handled by Cloudflare Workers Cron Triggers (wrangler.toml) via worker.ts.
+import { logger } from '../lib/logger.js'
 import type { LegislatureDataProvider } from '../providers/types.js'
 import { writeLegislators } from './legislators.js'
 import { writeBills } from './bills.js'
 import { getSessionsForRefresh, isInSession } from './sessions.js'
-import { logger } from '../lib/logger.js'
 
 // Utah legislative districts:
 //   House:  1–75  (75 districts)
@@ -133,18 +133,32 @@ export async function warmUpBillsCache(
       const settled = await Promise.allSettled(
         batch.map((billId) => provider.getBillDetail(billId, session))
       )
+
+      const overTime = Date.now() - startTime >= wallTimeLimitMs
+
       settled.forEach((result, idx) => {
         const billId = batch[idx]!
         if (result.status === 'fulfilled') {
           fetchedBills.push(result.value)
         } else {
-          logger.error(
-            { source: 'cache', session, billId, err: result.reason },
-            'getBillDetail failed — skipping',
-          )
+          if (!overTime) {
+            logger.error(
+              { source: 'cache', session, billId, err: result.reason },
+              'getBillDetail failed — skipping',
+            )
+          }
           failedCount++
         }
       })
+
+      if (overTime) {
+        logger.warn(
+          { source: 'cache', elapsed: Date.now() - startTime, session },
+          'wall-time budget reached — stopping early',
+        )
+        exitedEarly = true
+        break
+      }
     }
 
     // Write all fetched bills (even on early exit — no partial batch is silently dropped)
