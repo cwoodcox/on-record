@@ -141,12 +141,10 @@ export async function warmUpBillsCache(
         if (result.status === 'fulfilled') {
           fetchedBills.push(result.value)
         } else {
-          if (!overTime) {
-            logger.error(
-              { source: 'cache', session, billId, err: result.reason },
-              'getBillDetail failed — skipping',
-            )
-          }
+          logger.debug(
+            { source: 'cache', session, billId, err: result.reason },
+            'getBillDetail failed — skipping (counted in summary)',
+          )
           failedCount++
         }
       })
