@@ -210,7 +210,7 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
     let rawData: unknown
     try {
       rawData = await retryWithDelay(async () => {
-        const res = await fetch(url, { signal })
+        const res = await fetch(url, signal ? { signal } : undefined)
         if (!res.ok) throw new Error(`Legislature API responded with HTTP ${res.status}`)
         const text = await res.text()
         let rawJson: unknown
