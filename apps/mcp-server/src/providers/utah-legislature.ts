@@ -201,13 +201,16 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
     return bills
   }
 
-  async getBillDetail(billId: string, session: string): Promise<BillDetail> {
+  async getBillDetail(billId: string, session: string, signal?: AbortSignal): Promise<BillDetail> {
     const url = this.url('bills', session, billId)
+
+    const isAbortError = (err: unknown): boolean =>
+      (err instanceof DOMException || err instanceof Error) && err.name === 'AbortError'
 
     let rawData: unknown
     try {
       rawData = await retryWithDelay(async () => {
-        const res = await fetch(url)
+        const res = await fetch(url, { signal })
         if (!res.ok) throw new Error(`Legislature API responded with HTTP ${res.status}`)
         const text = await res.text()
         let rawJson: unknown
@@ -217,9 +220,11 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
           throw new Error(`Legislature API returned non-JSON response (HTTP ${res.status}): ${text.slice(0, 200)}`)
         }
         return rawJson
-      }, 2, 1000)
+      }, 2, 1000, (err) => !isAbortError(err))
     } catch (err) {
-      logger.error({ source: 'legislature-api', billId, session, err }, 'getBillDetail failed after retries')
+      if (!signal?.aborted && !isAbortError(err)) {
+        logger.error({ source: 'legislature-api', billId, session, err }, 'getBillDetail failed after retries')
+      }
       throw createAppError(
         'legislature-api',
         `Failed to fetch bill detail for ${billId} from Utah Legislature API`,

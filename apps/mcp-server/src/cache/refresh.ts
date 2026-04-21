@@ -53,6 +53,11 @@ export interface BillRefreshConfig {
 
 const BATCH_SIZE = 20
 
+/** Thrown when a getBillDetail call is abandoned due to the wall-time budget. Never a real API failure. */
+class WallTimeBudgetExceeded extends Error {
+  constructor() { super('wall-time budget exceeded') }
+}
+
 /**
  * Fetches bills for the active session (or the 2 most recent completed sessions during
  * inter-session periods) and writes results to cache.
@@ -114,13 +119,20 @@ export async function warmUpBillsCache(
       'bill refresh starting',
     )
 
-    // Fetch stale bills in batches, respecting the wall-time budget
+    // Fetch stale bills in batches, respecting the wall-time budget.
+    // An AbortController fires at the wall-time limit so in-flight fetches are
+    // cancelled cleanly and don't log spurious "failed after retries" errors.
+    const controller = new AbortController()
+    if (wallTimeLimitMs !== Infinity) {
+      setTimeout(() => controller.abort(), wallTimeLimitMs)
+    }
+
     const fetchedBills: import('@on-record/types').BillDetail[] = []
     let exitedEarly = false
     let failedCount = 0
 
     for (let i = 0; i < staleIds.length; i += BATCH_SIZE) {
-      if (Date.now() - startTime >= wallTimeLimitMs) {
+      if (controller.signal.aborted || Date.now() - startTime >= wallTimeLimitMs) {
         logger.warn(
           { source: 'cache', elapsed: Date.now() - startTime, session },
           'wall-time budget reached — stopping early',
@@ -131,25 +143,34 @@ export async function warmUpBillsCache(
 
       const batch = staleIds.slice(i, i + BATCH_SIZE)
       const settled = await Promise.allSettled(
-        batch.map((billId) => provider.getBillDetail(billId, session))
+        batch.map(async (billId) => {
+          try {
+            return await provider.getBillDetail(billId, session, controller.signal)
+          } catch (err) {
+            // Reclassify as wall-time abandonment — not a real API failure
+            if (controller.signal.aborted) throw new WallTimeBudgetExceeded()
+            throw err
+          }
+        }),
       )
 
-      const overTime = Date.now() - startTime >= wallTimeLimitMs
-
+      let hitDeadline = false
       settled.forEach((result, idx) => {
         const billId = batch[idx]!
         if (result.status === 'fulfilled') {
           fetchedBills.push(result.value)
+        } else if (result.reason instanceof WallTimeBudgetExceeded) {
+          hitDeadline = true
         } else {
-          logger.debug(
+          logger.error(
             { source: 'cache', session, billId, err: result.reason },
-            'getBillDetail failed — skipping (counted in summary)',
+            'getBillDetail failed — skipping',
           )
           failedCount++
         }
       })
 
-      if (overTime) {
+      if (hitDeadline) {
         logger.warn(
           { source: 'cache', elapsed: Date.now() - startTime, session },
           'wall-time budget reached — stopping early',

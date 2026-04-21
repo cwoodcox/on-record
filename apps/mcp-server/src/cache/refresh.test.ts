@@ -279,7 +279,7 @@ describe('warmUpBillsCache', () => {
 
     // Only HB0002 should be fetched
     expect(getBillDetail).toHaveBeenCalledTimes(1)
-    expect(getBillDetail).toHaveBeenCalledWith('HB0002', '2026GS')
+    expect(getBillDetail).toHaveBeenCalledWith('HB0002', '2026GS', expect.any(AbortSignal))
   })
 
   it('exits after first batch and writes fetched bills when wall-time budget expires', async () => {
