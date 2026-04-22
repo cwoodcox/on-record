@@ -83,6 +83,12 @@ export async function warmUpBillsCache(
     : Infinity
   const startTime = Date.now()
 
+  // Single AbortController for the entire run — fires once at the wall-time deadline.
+  const controller = new AbortController()
+  if (wallTimeLimitMs !== Infinity) {
+    setTimeout(() => controller.abort(), wallTimeLimitMs)
+  }
+
   const inSession = await isInSession(db)
   const staleTtlMs = (inSession ? staleSecondsInSession : staleSecondsOutOfSession) * 1000
 
@@ -120,13 +126,8 @@ export async function warmUpBillsCache(
     )
 
     // Fetch stale bills in batches, respecting the wall-time budget.
-    // An AbortController fires at the wall-time limit so in-flight fetches are
-    // cancelled cleanly and don't log spurious "failed after retries" errors.
-    const controller = new AbortController()
-    if (wallTimeLimitMs !== Infinity) {
-      setTimeout(() => controller.abort(), wallTimeLimitMs)
-    }
-
+    // The shared AbortController (created above) fires at the wall-time deadline;
+    // in-flight fetches are cancelled cleanly rather than logging spurious errors.
     const fetchedBills: import('@on-record/types').BillDetail[] = []
     let exitedEarly = false
     let failedCount = 0
