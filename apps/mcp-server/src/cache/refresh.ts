@@ -96,12 +96,20 @@ export async function warmUpBillsCache(
   const refreshedSessions: string[] = []
 
   for (const session of sessions) {
+    if (controller.signal.aborted || Date.now() - startTime >= wallTimeLimitMs) {
+      logger.warn(
+        { source: 'cache', elapsed: Date.now() - startTime, session },
+        'wall-time budget reached — skipping remaining sessions',
+      )
+      break
+    }
+
     // Fetch all bill IDs for this session from the provider
     let allStubIds: string[]
     try {
       allStubIds = await provider.getBillStubsForSession(session)
     } catch (err) {
-      logger.error({ source: 'cache', err, session }, 'Failed to fetch bill stubs for session — skipping')
+      logger.warn({ source: 'cache', err, session }, 'Failed to fetch bill stubs for session — skipping')
       continue
     }
 
@@ -114,16 +122,17 @@ export async function warmUpBillsCache(
     const freshIds = new Set(freshRows.results.map((r) => r.id))
     const staleIds = allStubIds.filter((id) => !freshIds.has(id))
 
+    logger.info(
+      { source: 'cache', session, total: allStubIds.length, fresh: freshIds.size, stale: staleIds.length },
+      'bill cache check',
+    )
+
     // All bills are fresh — skip this session entirely
     if (staleIds.length === 0) {
+      logger.info({ source: 'cache', session }, 'all bills fresh — skipping')
       refreshedSessions.push(session)
       continue
     }
-
-    logger.info(
-      { source: 'cache', session, total: allStubIds.length, fresh: freshIds.size, stale: staleIds.length },
-      'bill refresh starting',
-    )
 
     // Fetch stale bills in batches, respecting the wall-time budget.
     // The shared AbortController (created above) fires at the wall-time deadline;
@@ -163,7 +172,7 @@ export async function warmUpBillsCache(
         } else if (result.reason instanceof WallTimeBudgetExceeded) {
           hitDeadline = true
         } else {
-          logger.error(
+          logger.debug(
             { source: 'cache', session, billId, err: result.reason },
             'getBillDetail failed — skipping',
           )

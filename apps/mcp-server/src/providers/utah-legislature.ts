@@ -211,12 +211,16 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
     try {
       rawData = await retryWithDelay(async () => {
         const res = await fetch(url, signal ? { signal } : undefined)
-        if (!res.ok) throw new Error(`Legislature API responded with HTTP ${res.status}`)
+        if (!res.ok) {
+          logger.error({ source: 'legislature-api', billId, session, status: res.status }, 'Utah Legislature API returned non-OK status')
+          throw new Error(`Legislature API responded with HTTP ${res.status}`)
+        }
         const text = await res.text()
         let rawJson: unknown
         try {
           rawJson = JSON.parse(text)
         } catch {
+          logger.error({ source: 'legislature-api', billId, session, status: res.status, body: text.slice(0, 200) }, 'Utah Legislature API returned non-JSON response')
           throw new Error(`Legislature API returned non-JSON response (HTTP ${res.status}): ${text.slice(0, 200)}`)
         }
         return rawJson

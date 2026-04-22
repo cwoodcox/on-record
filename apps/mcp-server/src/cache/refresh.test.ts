@@ -220,7 +220,7 @@ describe('warmUpBillsCache', () => {
     // Should not throw — skips the session and returns empty array
     const sessions = await warmUpBillsCache(env.DB, provider)
     expect(sessions).toEqual([])
-    expect(logger.error).toHaveBeenCalledWith(
+    expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({ source: 'cache' }),
       expect.stringContaining('fetch bill stubs'),
     )
