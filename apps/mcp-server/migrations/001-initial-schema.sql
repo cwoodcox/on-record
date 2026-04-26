@@ -24,7 +24,6 @@ CREATE TABLE IF NOT EXISTS bills (
   floor_sponsor_id TEXT,
   vote_result      TEXT,
   vote_date        TEXT,
-  full_text        TEXT,
   cached_at        TEXT    NOT NULL,
   PRIMARY KEY (id, session)
 );
@@ -33,7 +32,6 @@ CREATE VIRTUAL TABLE IF NOT EXISTS bill_fts
 USING fts5(
   title,
   summary,
-  full_text,
   content='bills',
   content_rowid='rowid'
 );

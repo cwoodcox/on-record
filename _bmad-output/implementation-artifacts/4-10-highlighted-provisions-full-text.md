@@ -12,9 +12,9 @@ so that the model has more context for drafting a substantive, well-grounded con
 
 1. **`Bill` interface updated**: `packages/types/index.ts` has `fullText?: string` added to the `Bill` interface (after `billUrl?`). It is removed from `BillDetail` (since `BillDetail extends Bill`, it inherits the field).
 
-2. **`full_text` column added to `bills` table**: `migrations/001-initial-schema.sql` and `src/cache/schema.ts` `SCHEMA_SQL` both declare `full_text TEXT` as an optional column in the `bills` table.
+2. **`full_text` column added to `bills` table**: `src/cache/schema.ts` `SCHEMA_SQL` (the cumulative schema used by tests/local Node.js paths) declares `full_text TEXT` as an optional column in the `bills` table. `migrations/001-initial-schema.sql` is **not** modified — migrations are append-only.
 
-3. **`full_text` added to `bill_fts` virtual table**: `bill_fts` FTS5 virtual table includes `full_text` as a third indexed column (after `title` and `summary`).
+3. **`full_text` added to `bill_fts` virtual table**: In `src/cache/schema.ts`, the `bill_fts` FTS5 virtual table includes `full_text` as a third indexed column (after `title` and `summary`). The production schema gets the same shape via migration 002 (DROP + CREATE).
 
 4. **Production D1 migration file created**: `migrations/002-add-full-text-to-bills.sql` adds the `full_text` column to the existing `bills` table, drops and recreates `bill_fts` with `full_text`, and rebuilds the FTS5 index.
 
@@ -51,10 +51,10 @@ so that the model has more context for drafting a substantive, well-grounded con
   - [x] Remove `fullText?: string` from `BillDetail` (it inherits from `Bill` via `extends`)
   - [x] Leave all other fields and interfaces unchanged
 
-- [x] Task 2: Update schema files with `full_text` column and FTS5 (AC: 2, 3, 4)
-  - [x] In `apps/mcp-server/migrations/001-initial-schema.sql`, add `full_text TEXT` after `vote_date TEXT` in the `bills` table; add `full_text` to `bill_fts` FTS5 definition after `summary`
-  - [x] In `apps/mcp-server/src/cache/schema.ts` (`SCHEMA_SQL`), make identical changes
-  - [x] Create `apps/mcp-server/migrations/002-add-full-text-to-bills.sql` with: `ALTER TABLE bills ADD COLUMN full_text TEXT;`, DROP + CREATE `bill_fts` with `full_text`, REBUILD
+- [x] Task 2: Update schema artifacts (AC: 2, 3, 4)
+  - [x] In `apps/mcp-server/src/cache/schema.ts` (`SCHEMA_SQL`), add `full_text TEXT` to `bills` after `vote_date`; add `full_text` to `bill_fts` after `summary`. This is the cumulative schema used by tests and local Node.js paths.
+  - [x] Do **not** modify `apps/mcp-server/migrations/001-initial-schema.sql` — migrations are append-only. Modifying 001 is dead-code for already-applied DBs and conflicts with 002 on fresh installs (SQLite has no `ADD COLUMN IF NOT EXISTS`).
+  - [x] Create `apps/mcp-server/migrations/002-add-full-text-to-bills.sql` with: `ALTER TABLE bills ADD COLUMN full_text TEXT;`, DROP + CREATE `bill_fts` with `full_text`, REBUILD. Applies to both fresh installs and existing prod D1.
 
 - [x] Task 3: Update `bills.ts` — BillRow, rowToBill, writeBills, SELECT queries (AC: 5, 6, 7, 8)
   - [x] Add `full_text: string | null` to `BillRow` interface
@@ -134,16 +134,18 @@ highlightedProvisions: 'This bill amends weighted pupil unit provisions...',
 
 The existing test mock (and the `getBillDetail` test at line 516 that verifies `fullText: 'This bill amends weighted pupil unit provisions...'`) confirms the format is plain text. However, the official API docs do not specify format, so HTML stripping is applied as a defensive measure — it is a no-op for plain text.
 
-### CRITICAL: Schema Migration Strategy
+### Schema Migration Strategy
 
-**Two schema files must be kept in sync:**
-- `migrations/001-initial-schema.sql` — for fresh installs (new environments)
-- `src/cache/schema.ts` (`SCHEMA_SQL`) — for tests and local Node.js dev
+**Migrations are append-only.** `migrations/001-initial-schema.sql` is **not** modified for this story:
+- D1 databases that already applied 001 won't re-run it, so editing 001 has no effect on existing prod.
+- A fresh D1 environment runs 001 *and* 002 in order. If 001 is edited to include `full_text`, then 002's `ALTER TABLE bills ADD COLUMN full_text TEXT` fails (SQLite has no `ADD COLUMN IF NOT EXISTS`). Edited-001 + 002 is a broken combination for fresh installs.
 
-**The production migration file:**
-- `migrations/002-add-full-text-to-bills.sql` — for existing D1 databases
+**File responsibilities:**
+- `migrations/001-initial-schema.sql` — the original create statements (unchanged in this story).
+- `migrations/002-add-full-text-to-bills.sql` — the additive migration: `ALTER TABLE bills ADD COLUMN full_text TEXT`, then DROP/CREATE `bill_fts` with the new third column, then `INSERT INTO bill_fts(bill_fts) VALUES('rebuild')`. Runs on both fresh installs and existing prod.
+- `src/cache/schema.ts` (`SCHEMA_SQL`) — cumulative current-state schema used by tests and local Node.js dev (not by the migration runner). Updated to reflect what a database looks like after all migrations apply.
 
-The FTS5 virtual table CANNOT be altered. To add `full_text` to FTS5:
+The FTS5 virtual table CANNOT be altered. To add `full_text` to FTS5 in 002:
 1. `DROP TABLE IF EXISTS bill_fts`
 2. `CREATE VIRTUAL TABLE bill_fts USING fts5(title, summary, full_text, content='bills', content_rowid='rowid')`
 3. `INSERT INTO bill_fts(bill_fts) VALUES('rebuild')`
@@ -359,7 +361,7 @@ claude-sonnet-4-6
 ## File List
 
 - `packages/types/index.ts` — added `fullText?: string` to `Bill` interface; removed from `BillDetail` (inherited)
-- `apps/mcp-server/migrations/001-initial-schema.sql` — added `full_text TEXT` to `bills` table; added `full_text` to `bill_fts` FTS5 definition
+- `apps/mcp-server/migrations/001-initial-schema.sql` — **unchanged** (migrations are append-only; previously edited in error, reverted post-review)
 - `apps/mcp-server/migrations/002-add-full-text-to-bills.sql` — **new file**: production D1 migration (ALTER TABLE + DROP/CREATE FTS5 + REBUILD); post-review: header documents post-deploy count-parity verification
 - `apps/mcp-server/src/cache/schema.ts` — updated `SCHEMA_SQL` identically to `001-initial-schema.sql`
 - `apps/mcp-server/src/cache/bills.ts` — added `full_text` to `BillRow`; added `stripHtml()` helper; updated `rowToBill()`, `getBillsBySponsor()`, `getBillsBySession()`, `searchBillsByTheme()`, `searchBills()` (both paths), `writeBills()`. Post-review: tightened `stripHtml` regex + added entity-decoding pass; introduced `normalizeFullText` helper (used in `writeBills` bind); imported `logger` and wrapped `bill_fts` rebuild in try/catch
@@ -377,3 +379,4 @@ claude-sonnet-4-6
 - 2026-04-26: Implementation complete. All 210 tests pass. Story status set to review.
 - 2026-04-26: Branch rebased on main (PR 30 had landed with logger / AbortController refactors that were stale on this branch). Apparent scope creep in initial review collapsed.
 - 2026-04-26: Code review complete. 6 patches applied (CRITICAL `warmUpBillsCache` fullText propagation + 5 others), 5 deferred items recorded. 215 tests pass. Story status set to done.
+- 2026-04-26: Reverted incorrect edit to `migrations/001-initial-schema.sql` — migrations are append-only and editing 001 broke the fresh-install path (001's `full_text` plus 002's `ALTER TABLE` is incompatible because SQLite lacks `ADD COLUMN IF NOT EXISTS`). AC 2/3 and Task 2 reworded so the cumulative schema lives only in `src/cache/schema.ts` and `migrations/002`. Existing prod D1 was already on the correct path (002 supplies the column).
