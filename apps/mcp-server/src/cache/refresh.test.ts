@@ -220,7 +220,7 @@ describe('warmUpBillsCache', () => {
     // Should not throw — skips the session and returns empty array
     const sessions = await warmUpBillsCache(env.DB, provider)
     expect(sessions).toEqual([])
-    expect(logger.error).toHaveBeenCalledWith(
+    expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({ source: 'cache' }),
       expect.stringContaining('fetch bill stubs'),
     )
@@ -279,7 +279,7 @@ describe('warmUpBillsCache', () => {
 
     // Only HB0002 should be fetched
     expect(getBillDetail).toHaveBeenCalledTimes(1)
-    expect(getBillDetail).toHaveBeenCalledWith('HB0002', '2026GS')
+    expect(getBillDetail).toHaveBeenCalledWith('HB0002', '2026GS', expect.any(AbortSignal))
   })
 
   it('exits after first batch and writes fetched bills when wall-time budget expires', async () => {

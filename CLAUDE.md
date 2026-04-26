@@ -18,14 +18,14 @@ pnpm workspaces monorepo:
 - Node.js 20+, TypeScript ^5.7, `strict: true` everywhere
 - Next.js 16.1.6, React 19.2.3, Tailwind v4
 - Hono 4.12.1, @modelcontextprotocol/sdk 1.26.0
-- pino 10.3.1, hono-rate-limiter 0.4.2, zod (latest)
+- hono-rate-limiter 0.4.2, zod (latest)
 - better-sqlite3 12.6.2
 - Vitest 4.0.18, Playwright 1.58.2
 - node-cron 4.2.1
 
 ## Architectural Rules
 
-- `console.log` FORBIDDEN in `apps/mcp-server/` — only `console.error` (ESLint enforced)
+- Logging in `apps/mcp-server/`: call `console.log/warn/error` directly with a structured object — `console.log({ time: Date.now(), source: 'subsystem', ...context, msg: 'description' })`. No logger abstraction, no pino.
 - No barrel files in `components/` or `tools/`
 - All shared types in `packages/types/` only — never define shared types elsewhere
 - No `any`, no `@ts-ignore`

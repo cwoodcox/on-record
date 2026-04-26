@@ -14,7 +14,6 @@
     "@modelcontextprotocol/sdk": "1.29.0",
     "@on-record/types": "workspace:*",
     "agents": "^0.9.0",
-    "pino": "10.3.1",
     "zod": "^3.0.0"
   },
   "devDependencies": {

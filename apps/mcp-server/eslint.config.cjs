@@ -20,8 +20,6 @@ module.exports = [
       '@typescript-eslint': tsPlugin,
     },
     rules: {
-      // Critical: console.log corrupts the MCP JSON-RPC stdout stream (architecture.md)
-      'no-console': ['error', { allow: ['error'] }],
       // TypeScript quality rules
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],

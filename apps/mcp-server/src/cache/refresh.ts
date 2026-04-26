@@ -1,11 +1,11 @@
 // apps/mcp-server/src/cache/refresh.ts
 // Legislators and bills cache warm-up functions.
 // Scheduling is handled by Cloudflare Workers Cron Triggers (wrangler.toml) via worker.ts.
+import { logger } from '../lib/logger.js'
 import type { LegislatureDataProvider } from '../providers/types.js'
 import { writeLegislators } from './legislators.js'
 import { writeBills } from './bills.js'
 import { getSessionsForRefresh, isInSession } from './sessions.js'
-import { logger } from '../lib/logger.js'
 
 // Utah legislative districts:
 //   House:  1–75  (75 districts)
@@ -53,6 +53,11 @@ export interface BillRefreshConfig {
 
 const BATCH_SIZE = 20
 
+/** Thrown when a getBillDetail call is abandoned due to the wall-time budget. Never a real API failure. */
+class WallTimeBudgetExceeded extends Error {
+  constructor() { super('wall-time budget exceeded') }
+}
+
 /**
  * Fetches bills for the active session (or the 2 most recent completed sessions during
  * inter-session periods) and writes results to cache.
@@ -78,6 +83,12 @@ export async function warmUpBillsCache(
     : Infinity
   const startTime = Date.now()
 
+  // Single AbortController for the entire run — fires once at the wall-time deadline.
+  const controller = new AbortController()
+  if (wallTimeLimitMs !== Infinity) {
+    setTimeout(() => controller.abort(), wallTimeLimitMs)
+  }
+
   const inSession = await isInSession(db)
   const staleTtlMs = (inSession ? staleSecondsInSession : staleSecondsOutOfSession) * 1000
 
@@ -85,12 +96,20 @@ export async function warmUpBillsCache(
   const refreshedSessions: string[] = []
 
   for (const session of sessions) {
+    if (controller.signal.aborted || Date.now() - startTime >= wallTimeLimitMs) {
+      logger.warn(
+        { source: 'cache', elapsed: Date.now() - startTime, session },
+        'wall-time budget reached — skipping remaining sessions',
+      )
+      break
+    }
+
     // Fetch all bill IDs for this session from the provider
     let allStubIds: string[]
     try {
       allStubIds = await provider.getBillStubsForSession(session)
     } catch (err) {
-      logger.error({ source: 'cache', err, session }, 'Failed to fetch bill stubs for session — skipping')
+      logger.warn({ source: 'cache', err, session }, 'Failed to fetch bill stubs for session — skipping')
       continue
     }
 
@@ -103,24 +122,27 @@ export async function warmUpBillsCache(
     const freshIds = new Set(freshRows.results.map((r) => r.id))
     const staleIds = allStubIds.filter((id) => !freshIds.has(id))
 
+    logger.info(
+      { source: 'cache', session, total: allStubIds.length, fresh: freshIds.size, stale: staleIds.length },
+      'bill cache check',
+    )
+
     // All bills are fresh — skip this session entirely
     if (staleIds.length === 0) {
+      logger.info({ source: 'cache', session }, 'all bills fresh — skipping')
       refreshedSessions.push(session)
       continue
     }
 
-    logger.info(
-      { source: 'cache', session, total: allStubIds.length, fresh: freshIds.size, stale: staleIds.length },
-      'bill refresh starting',
-    )
-
-    // Fetch stale bills in batches, respecting the wall-time budget
+    // Fetch stale bills in batches, respecting the wall-time budget.
+    // The shared AbortController (created above) fires at the wall-time deadline;
+    // in-flight fetches are cancelled cleanly rather than logging spurious errors.
     const fetchedBills: import('@on-record/types').BillDetail[] = []
     let exitedEarly = false
     let failedCount = 0
 
     for (let i = 0; i < staleIds.length; i += BATCH_SIZE) {
-      if (Date.now() - startTime >= wallTimeLimitMs) {
+      if (controller.signal.aborted || Date.now() - startTime >= wallTimeLimitMs) {
         logger.warn(
           { source: 'cache', elapsed: Date.now() - startTime, session },
           'wall-time budget reached — stopping early',
@@ -131,20 +153,41 @@ export async function warmUpBillsCache(
 
       const batch = staleIds.slice(i, i + BATCH_SIZE)
       const settled = await Promise.allSettled(
-        batch.map((billId) => provider.getBillDetail(billId, session))
+        batch.map(async (billId) => {
+          try {
+            return await provider.getBillDetail(billId, session, controller.signal)
+          } catch (err) {
+            // Reclassify as wall-time abandonment — not a real API failure
+            if (controller.signal.aborted) throw new WallTimeBudgetExceeded()
+            throw err
+          }
+        }),
       )
+
+      let hitDeadline = false
       settled.forEach((result, idx) => {
         const billId = batch[idx]!
         if (result.status === 'fulfilled') {
           fetchedBills.push(result.value)
+        } else if (result.reason instanceof WallTimeBudgetExceeded) {
+          hitDeadline = true
         } else {
-          logger.error(
+          logger.debug(
             { source: 'cache', session, billId, err: result.reason },
             'getBillDetail failed — skipping',
           )
           failedCount++
         }
       })
+
+      if (hitDeadline) {
+        logger.warn(
+          { source: 'cache', elapsed: Date.now() - startTime, session },
+          'wall-time budget reached — stopping early',
+        )
+        exitedEarly = true
+        break
+      }
     }
 
     // Write all fetched bills (even on early exit — no partial batch is silently dropped)

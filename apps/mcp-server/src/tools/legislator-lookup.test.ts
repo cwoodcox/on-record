@@ -13,7 +13,6 @@ vi.mock('../cache/legislators.js', () => ({
 }))
 
 // ── Mock: lib/logger.js ──────────────────────────────────────────────────────
-// Required because logger is a Proxy — vi.spyOn fails on Proxies.
 vi.mock('../lib/logger.js', () => ({
   logger: { info: vi.fn(), error: vi.fn(), debug: vi.fn(), warn: vi.fn() },
 }))
