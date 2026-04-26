@@ -202,6 +202,7 @@ export async function warmUpBillsCache(
         ...(detail.floorSponsorId !== undefined && { floorSponsorId: detail.floorSponsorId }),
         ...(detail.voteResult !== undefined && { voteResult: detail.voteResult }),
         ...(detail.voteDate !== undefined && { voteDate: detail.voteDate }),
+        ...(detail.fullText !== undefined && { fullText: detail.fullText }),
       })))
     }
 

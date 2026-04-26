@@ -3,6 +3,7 @@
 // All functions accept db: D1Database as first parameter (dependency injection).
 // Column-to-type mapping (snake_case DB → camelCase Bill) is confined here.
 import type { Bill, SearchBillsParams, SearchBillsResult } from '@on-record/types'
+import { logger } from '../lib/logger.js'
 import { getActiveSession } from './sessions.js'
 
 // ── Row shape returned from D1 ───────────────────────────────────────────────
@@ -21,8 +22,27 @@ interface BillRow {
 
 // Strip HTML tags from highlightedProvisions before storage — applied defensively
 // since the Utah Legislature API does not document the field format.
+// Tag pattern requires `<` (with optional `/`) immediately followed by a letter, so
+// inequalities and stray angle brackets in plain text ("A < B and C > D") survive.
 function stripHtml(s: string): string {
-  return s.replace(/<[^>]+>/g, ' ').replace(/\s{2,}/g, ' ').trim()
+  const withoutTags = s.replace(/<\/?[a-zA-Z][^>]*>/g, ' ')
+  const decoded = withoutTags
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&')
+  return decoded.replace(/\s{2,}/g, ' ').trim()
+}
+
+// Normalize fullText for storage: undefined / empty / whitespace-only / pure-tag inputs all
+// collapse to null so absence semantics survive the round-trip through the DB.
+function normalizeFullText(value: string | undefined): string | null {
+  if (value === undefined) return null
+  const cleaned = stripHtml(value)
+  return cleaned === '' ? null : cleaned
 }
 
 function rowToBill(row: BillRow): Bill {
@@ -314,7 +334,7 @@ export async function writeBills(db: D1Database, bills: Bill[]): Promise<void> {
         bill.floorSponsorId ?? null,
         bill.voteResult ?? null,
         bill.voteDate ?? null,
-        bill.fullText !== undefined ? stripHtml(bill.fullText) : null,
+        normalizeFullText(bill.fullText),
         cachedAt,
       ),
   )
@@ -324,6 +344,13 @@ export async function writeBills(db: D1Database, bills: Bill[]): Promise<void> {
     await db.batch(stmts.slice(i, i + 100))
   }
 
-  // Rebuild FTS5 index after bulk inserts (must run after batch commits)
-  await db.prepare("INSERT INTO bill_fts(bill_fts) VALUES('rebuild')").run()
+  // Rebuild FTS5 index after bulk inserts (must run after batch commits).
+  // A failure here leaves bills rows committed but the FTS5 index stale; surface it
+  // for ops rather than rejecting the whole writeBills call (the rows are still useful
+  // for non-FTS reads, and the next refresh will re-attempt the rebuild).
+  try {
+    await db.prepare("INSERT INTO bill_fts(bill_fts) VALUES('rebuild')").run()
+  } catch (err) {
+    logger.error({ source: 'cache', err }, 'bill_fts rebuild failed after writeBills — index may be stale until next refresh')
+  }
 }

@@ -1,6 +1,6 @@
 # Story 4.10: Store `highlightedProvisions` as `full_text` in Bills Cache
 
-Status: review
+Status: done
 
 ## Story
 
@@ -85,6 +85,37 @@ so that the model has more context for drafting a substantive, well-grounded con
 - [x] Task 7: Typecheck and test run (AC: 13, 14)
   - [x] `pnpm --filter mcp-server typecheck` — pre-existing errors only (Cloudflare Workers + DOM type conflicts, unrelated to this story)
   - [x] `pnpm --filter mcp-server test` — all 210 tests pass (201 pre-existing + 6 new + 3 already in suite)
+
+### Review Findings
+
+PR 31 review (2026-04-26). Three reviewers: Blind Hunter (adversarial, no context), Edge Case Hunter (boundary analysis with project read), Acceptance Auditor (spec/AC + conventions).
+
+**Initial review** flagged 12 patches, 1 multi-part decision-needed (apparent scope creep: pino logger refactor, AbortController removal, log-level changes), 6 deferred, 5 dismissed as noise.
+
+**After rebase on main** (PR 31 branch was forked before PR 30 landed and was therefore stale on `apps/mcp-server/src/lib/logger.ts`, `apps/mcp-server/src/cache/refresh.ts`, and `apps/mcp-server/src/providers/{types,utah-legislature}.ts`): the apparent scope creep collapsed entirely. The PR now modifies exactly the 10 files declared in the File List. The decision-needed and 5 contingent patches are dropped.
+
+**Net findings:** 6 patches (all fixed), 5 deferred (pre-existing).
+
+**Patches (all applied):**
+
+- [x] [Review][Patch] **CRITICAL — `warmUpBillsCache` does not propagate `fullText` to `writeBills`** [`apps/mcp-server/src/cache/refresh.ts:200-205`] — The provider `getBillsBySession` was updated per AC 9, but it is **not the production refresh path**. `warmUpBillsCache` (the cron-triggered refresh) calls `getBillDetail` per bill and maps `BillDetail` → `Bill` field-by-field, omitting `fullText`. Fixed: added `...(detail.fullText !== undefined && { fullText: detail.fullText }),` after the `voteDate` spread. New regression test in `refresh.test.ts` (`propagates fullText from BillDetail into cached bills row`).
+- [x] [Review][Patch] **Empty-string `fullText` violates absence semantics** [`apps/mcp-server/src/cache/bills.ts`] — Fixed: introduced `normalizeFullText(value)` that returns `null` for `undefined`, empty string, whitespace-only, or pure-tag inputs. Used in the `writeBills` bind. New tests cover empty string and pure-tag/whitespace inputs.
+- [x] [Review][Patch] **`stripHtml` regex destroys non-tag `<`/`>` text and ignores HTML entities** [`apps/mcp-server/src/cache/bills.ts`] — Fixed: tightened tag regex to `/<\/?[a-zA-Z][^>]*>/g` so inequalities like `'A < B and C > D'` survive. Added entity-decoding pass for `&nbsp;`, `&lt;`, `&gt;`, `&quot;`, `&#39;`, `&apos;`, `&amp;` (decoded last to avoid double-decode). New tests cover both behaviors.
+- [x] [Review][Patch] **FTS5-only-on-fullText test does not actually prove `full_text` was the matching column** [`apps/mcp-server/src/cache/bills.test.ts`] — Fixed: existing test now writes a control bill (HB0002) with the same title/summary but no `fullText`, and asserts the search returns only HB0001.
+- [x] [Review][Patch] **`writeBills` FTS5 rebuild has no failure handling** [`apps/mcp-server/src/cache/bills.ts`] — Fixed: wrapped the rebuild call in try/catch; on failure, logs an `error`-level entry noting the index is stale until the next refresh. Bill rows themselves are committed (still useful for non-FTS reads).
+- [x] [Review][Patch] **Migration 002 rebuild can hit D1 per-statement timeout silently** [`apps/mcp-server/migrations/002-add-full-text-to-bills.sql`] — Fixed: added a "POST-DEPLOY VERIFICATION" header note instructing operators to compare `SELECT COUNT(*) FROM bill_fts` vs `SELECT COUNT(*) FROM bills` and re-run rebuild or trigger a refresh if counts differ.
+
+**Deferred (pre-existing or out-of-scope):**
+
+- [x] [Review][Defer] HTML stripping at write time is destructive — originals unrecoverable [`apps/mcp-server/src/cache/bills.ts`] — design choice in story spec; deferred, accepted as-is for MVP.
+- [x] [Review][Defer] `BillDetail` and `Bill` are now structurally indistinguishable when `subjects` is absent [`packages/types/index.ts`] — pre-existing optional discriminator pattern; deferred.
+- [x] [Review][Defer] `wallTimeSeconds` configured to 1 or 2 silently no-ops the entire refresh [`apps/mcp-server/src/cache/refresh.ts`] — pre-existing `(wallTimeSeconds - 2) * 1000` arithmetic; deferred.
+- [x] [Review][Defer] Migration 002 doesn't drop FTS5 triggers if any are added later [`apps/mcp-server/migrations/002-add-full-text-to-bills.sql`] — current schema has no triggers; brittleness is forward-looking; deferred.
+- [x] [Review][Defer] `searchBills` FTS5 path lacks try/catch around `prepare().first()`/`.all()` — invalid FTS5 syntax in a user query becomes a hard 'temporarily unavailable' instead of empty results [`apps/mcp-server/src/cache/bills.ts` FTS5 path] — pre-existing; `searchBillsByTheme` has the guard; this path does not. Mirror that guard. Deferred, pre-existing.
+
+**Rebase note (2026-04-26):** PR 31 branch `claude/e5z-chatgpt-research-emMvr` was rebased onto current `main` (force-update from `4219b13` to a fresh commit on top of `86b0839`). Resulting diff is exactly the 10 declared File List paths.
+
+**Test results after patches:** `pnpm --filter mcp-server test` → 215 passed (210 pre-existing + 5 new). `pnpm --filter mcp-server typecheck` → clean. `pnpm --filter mcp-server lint` → clean.
 
 ## Dev Notes
 
@@ -323,16 +354,19 @@ claude-sonnet-4-6
 - FTS5 table DROP/CREATE/REBUILD pattern works: the content table approach means no bill data is stored in `bill_fts` itself — the rebuild reads from `bills`.
 - `migration/002-add-full-text-to-bills.sql` created for production D1 deployment; `001-initial-schema.sql` and `schema.ts` updated for fresh installs and tests.
 - All 210 tests pass. 6 new tests added: 4 in `bills.test.ts` (fullText round-trip, null handling, HTML stripping, FTS5 search) and 2 in `utah-legislature.test.ts` (fullText propagation present/absent).
+- Post-review patches (2026-04-26): added `normalizeFullText` helper to collapse empty/whitespace/pure-tag inputs to NULL; tightened `stripHtml` regex (`/<\/?[a-zA-Z][^>]*>/g`) so plain-text inequalities survive; added entity-decoding pass; wrapped `bill_fts` rebuild in try/catch so a stale-index failure doesn't reject the whole `writeBills` call. Critical fix: `warmUpBillsCache` (the cron path in `refresh.ts`) now propagates `fullText` from `BillDetail` to the written `Bill` — previous behavior wrote NULL on every refresh, breaking the story's deliverable in production despite all ACs literally passing. Migration 002 header now documents post-deploy verification (count parity check) for D1 timeouts.
 
 ## File List
 
 - `packages/types/index.ts` — added `fullText?: string` to `Bill` interface; removed from `BillDetail` (inherited)
 - `apps/mcp-server/migrations/001-initial-schema.sql` — added `full_text TEXT` to `bills` table; added `full_text` to `bill_fts` FTS5 definition
-- `apps/mcp-server/migrations/002-add-full-text-to-bills.sql` — **new file**: production D1 migration (ALTER TABLE + DROP/CREATE FTS5 + REBUILD)
+- `apps/mcp-server/migrations/002-add-full-text-to-bills.sql` — **new file**: production D1 migration (ALTER TABLE + DROP/CREATE FTS5 + REBUILD); post-review: header documents post-deploy count-parity verification
 - `apps/mcp-server/src/cache/schema.ts` — updated `SCHEMA_SQL` identically to `001-initial-schema.sql`
-- `apps/mcp-server/src/cache/bills.ts` — added `full_text` to `BillRow`; added `stripHtml()` helper; updated `rowToBill()`, `getBillsBySponsor()`, `getBillsBySession()`, `searchBillsByTheme()`, `searchBills()` (both paths), `writeBills()`
+- `apps/mcp-server/src/cache/bills.ts` — added `full_text` to `BillRow`; added `stripHtml()` helper; updated `rowToBill()`, `getBillsBySponsor()`, `getBillsBySession()`, `searchBillsByTheme()`, `searchBills()` (both paths), `writeBills()`. Post-review: tightened `stripHtml` regex + added entity-decoding pass; introduced `normalizeFullText` helper (used in `writeBills` bind); imported `logger` and wrapped `bill_fts` rebuild in try/catch
 - `apps/mcp-server/src/providers/utah-legislature.ts` — added `fullText` propagation in `getBillsBySession()`
-- `apps/mcp-server/src/cache/bills.test.ts` — added `describe('fullText storage and retrieval', ...)` with 4 tests
+- `apps/mcp-server/src/cache/refresh.ts` — **post-review (CRITICAL fix):** added `fullText` spread in the `BillDetail` → `Bill` mapping inside `warmUpBillsCache`, so the cron refresh actually persists the new field
+- `apps/mcp-server/src/cache/bills.test.ts` — added `describe('fullText storage and retrieval', ...)` with 4 tests; post-review: FTS5 test gained a control bill; added tests for non-tag angle-bracket preservation, entity decoding, empty-string input, and pure-tag/whitespace input
+- `apps/mcp-server/src/cache/refresh.test.ts` — **post-review:** new test asserts `warmUpBillsCache` writes `full_text` to the `bills` row when `BillDetail.fullText` is provided
 - `apps/mcp-server/src/providers/utah-legislature.test.ts` — added 2 fullText propagation tests to `getBillsBySession` block
 - `_bmad-output/implementation-artifacts/4-10-highlighted-provisions-full-text.md` (this file — story tracking)
 - `_bmad-output/implementation-artifacts/sprint-status.yaml` (modified — story status)
@@ -341,3 +375,5 @@ claude-sonnet-4-6
 
 - 2026-04-26: Story created from E5-z entry in ChatGPT Apps research (technical-chatgpt-apps-on-record-research-2026-04-18.md). E5-z-spike incorporated inline: format is plain text per existing test mock at utah-legislature.test.ts:49; HTML stripping applied defensively.
 - 2026-04-26: Implementation complete. All 210 tests pass. Story status set to review.
+- 2026-04-26: Branch rebased on main (PR 30 had landed with logger / AbortController refactors that were stale on this branch). Apparent scope creep in initial review collapsed.
+- 2026-04-26: Code review complete. 6 patches applied (CRITICAL `warmUpBillsCache` fullText propagation + 5 others), 5 deferred items recorded. 215 tests pass. Story status set to done.

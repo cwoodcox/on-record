@@ -525,13 +525,50 @@ describe('bills cache', () => {
       expect(result[0]?.fullText).toBe('Amends Section 53G-7-218 to require plans')
     })
 
+    it('preserves non-tag angle brackets (inequalities, math) in fullText', async () => {
+      await writeBills(env.DB, [makeBill({ fullText: 'When A < B and C > D the rate applies' })])
+
+      const result = await getBillsBySponsor(env.DB, 'leg-001')
+      expect(result[0]?.fullText).toBe('When A < B and C > D the rate applies')
+    })
+
+    it('decodes common HTML entities in fullText before storing', async () => {
+      await writeBills(env.DB, [makeBill({ fullText: 'Amends &amp; revises school&#39;s policy &lt;5%&gt;' })])
+
+      const result = await getBillsBySponsor(env.DB, 'leg-001')
+      expect(result[0]?.fullText).toBe("Amends & revises school's policy <5%>")
+    })
+
+    it('returns fullText as undefined when API value is empty string', async () => {
+      await writeBills(env.DB, [makeBill({ fullText: '' })])
+
+      const result = await getBillsBySponsor(env.DB, 'leg-001')
+      expect(result[0]?.fullText).toBeUndefined()
+    })
+
+    it('returns fullText as undefined when API value is only HTML tags / whitespace', async () => {
+      await writeBills(env.DB, [makeBill({ fullText: '<br/><br/>   ' })])
+
+      const result = await getBillsBySponsor(env.DB, 'leg-001')
+      expect(result[0]?.fullText).toBeUndefined()
+    })
+
     it('FTS5 query matches content only in fullText — bill surfaces in search results', async () => {
-      await writeBills(env.DB, [makeBill({
-        id: 'HB0001',
-        title: 'School Funding Act',
-        summary: 'General school funding amendments',
-        fullText: 'uniqueprovisionterm that appears nowhere else in this bill',
-      })])
+      // Control bill: same title/summary as the target, but no fullText. Must NOT match,
+      // proving the match against `uniqueprovisionterm` came from `full_text` specifically.
+      await writeBills(env.DB, [
+        makeBill({
+          id: 'HB0001',
+          title: 'School Funding Act',
+          summary: 'General school funding amendments',
+          fullText: 'uniqueprovisionterm that appears nowhere else in this bill',
+        }),
+        makeBill({
+          id: 'HB0002',
+          title: 'School Funding Act',
+          summary: 'General school funding amendments',
+        }),
+      ])
 
       const result = await searchBills(env.DB, { query: 'uniqueprovisionterm' })
       expect(result.total).toBe(1)
