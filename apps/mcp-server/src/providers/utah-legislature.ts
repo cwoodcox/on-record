@@ -188,6 +188,7 @@ export class UtahLegislatureProvider implements LegislatureDataProvider {
             ...(detail.floorSponsorId !== undefined && { floorSponsorId: detail.floorSponsorId }),
             ...(detail.voteResult !== undefined && { voteResult: detail.voteResult }),
             ...(detail.voteDate !== undefined && { voteDate: detail.voteDate }),
+            ...(detail.fullText !== undefined && { fullText: detail.fullText }),
           })
         } else {
           logger.error(

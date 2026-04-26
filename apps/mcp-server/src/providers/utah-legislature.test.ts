@@ -492,6 +492,32 @@ describe('UtahLegislatureProvider', () => {
       await vi.runAllTimersAsync()
       await rejectionPromise
     })
+
+    it('includes fullText on returned Bill when API provides highlightedProvisions', async () => {
+      fetchMock
+        .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify([{ number: 'HB0001', trackingID: 'TUBFCRPIYI' }]) })
+        .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockBillDetailResponse) })
+
+      const promise = provider.getBillsBySession('2026GS')
+      await vi.runAllTimersAsync()
+      const result = await promise
+
+      expect(result).toHaveLength(1)
+      expect(result[0]?.fullText).toBe('This bill amends weighted pupil unit provisions...')
+    })
+
+    it('omits fullText (property absent) when API lacks highlightedProvisions', async () => {
+      fetchMock
+        .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify([{ number: 'HB0002', trackingID: 'BKSTYLLAEC' }]) })
+        .mockResolvedValueOnce({ ok: true, text: async () => JSON.stringify(mockBillDetail2Response) })
+
+      const promise = provider.getBillsBySession('2026GS')
+      await vi.runAllTimersAsync()
+      const result = await promise
+
+      expect(result).toHaveLength(1)
+      expect('fullText' in (result[0] ?? {})).toBe(false)
+    })
   })
 
   describe('getBillDetail', () => {
