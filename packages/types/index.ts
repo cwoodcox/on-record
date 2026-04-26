@@ -29,12 +29,12 @@ export interface Bill {
   voteResult?: string
   voteDate?: string // ISO 8601 date string: "2024-03-04"
   billUrl?: string // computed from id + session; not stored in DB
+  fullText?: string // highlightedProvisions from Utah Legislature API; stored in DB
 }
 
 // BillDetail — used by LegislatureDataProvider.getBillDetail() (Story 2.2)
 // Full shape finalized in Story 2.2 when the provider interface is implemented.
 export interface BillDetail extends Bill {
-  fullText?: string
   subjects?: string[]
 }
 

@@ -16,6 +16,13 @@ interface BillRow {
   floor_sponsor_id: string | null
   vote_result: string | null
   vote_date: string | null
+  full_text: string | null
+}
+
+// Strip HTML tags from highlightedProvisions before storage — applied defensively
+// since the Utah Legislature API does not document the field format.
+function stripHtml(s: string): string {
+  return s.replace(/<[^>]+>/g, ' ').replace(/\s{2,}/g, ' ').trim()
 }
 
 function rowToBill(row: BillRow): Bill {
@@ -37,6 +44,9 @@ function rowToBill(row: BillRow): Bill {
   if (row.vote_date !== null) {
     bill.voteDate = row.vote_date
   }
+  if (row.full_text !== null) {
+    bill.fullText = row.full_text
+  }
   bill.billUrl = `https://le.utah.gov/~${row.session.slice(0, 4)}/bills/static/${row.id}.html`
   return bill
 }
@@ -50,7 +60,7 @@ function rowToBill(row: BillRow): Bill {
 export async function getBillsBySponsor(db: D1Database, sponsorId: string): Promise<Bill[]> {
   const result = await db
     .prepare(
-      'SELECT id, session, title, summary, status, sponsor_id, floor_sponsor_id, vote_result, vote_date FROM bills WHERE sponsor_id = ?',
+      'SELECT id, session, title, summary, status, sponsor_id, floor_sponsor_id, vote_result, vote_date, full_text FROM bills WHERE sponsor_id = ?',
     )
     .bind(sponsorId)
     .all<BillRow>()
@@ -66,7 +76,7 @@ export async function getBillsBySponsor(db: D1Database, sponsorId: string): Prom
 export async function getBillsBySession(db: D1Database, session: string): Promise<Bill[]> {
   const result = await db
     .prepare(
-      'SELECT id, session, title, summary, status, sponsor_id, floor_sponsor_id, vote_result, vote_date FROM bills WHERE session = ?',
+      'SELECT id, session, title, summary, status, sponsor_id, floor_sponsor_id, vote_result, vote_date, full_text FROM bills WHERE session = ?',
     )
     .bind(session)
     .all<BillRow>()
@@ -92,7 +102,7 @@ export async function searchBillsByTheme(
   try {
     const result = await db
       .prepare(
-        `SELECT b.id, b.session, b.title, b.summary, b.status, b.sponsor_id, b.floor_sponsor_id, b.vote_result, b.vote_date
+        `SELECT b.id, b.session, b.title, b.summary, b.status, b.sponsor_id, b.floor_sponsor_id, b.vote_result, b.vote_date, b.full_text
          FROM bill_fts
          JOIN bills b ON b.rowid = bill_fts.rowid
          WHERE bill_fts MATCH ?
@@ -213,7 +223,7 @@ export async function searchBills(
       ${nonFtsWhere}
     `
     const pageSql = `
-      SELECT b.id, b.session, b.title, b.summary, b.status, b.sponsor_id, b.floor_sponsor_id, b.vote_result, b.vote_date
+      SELECT b.id, b.session, b.title, b.summary, b.status, b.sponsor_id, b.floor_sponsor_id, b.vote_result, b.vote_date, b.full_text
       FROM bill_fts
       JOIN bills b ON b.rowid = bill_fts.rowid
       WHERE bill_fts MATCH ?
@@ -240,7 +250,7 @@ export async function searchBills(
       ${whereClause}
     `
     const pageSql = `
-      SELECT id, session, title, summary, status, sponsor_id, floor_sponsor_id, vote_result, vote_date
+      SELECT id, session, title, summary, status, sponsor_id, floor_sponsor_id, vote_result, vote_date, full_text
       FROM bills
       ${whereClause}
       ORDER BY session DESC, id ASC
@@ -291,8 +301,8 @@ export async function writeBills(db: D1Database, bills: Bill[]): Promise<void> {
     db
       .prepare(
         `INSERT OR REPLACE INTO bills
-          (id, session, title, summary, status, sponsor_id, floor_sponsor_id, vote_result, vote_date, cached_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          (id, session, title, summary, status, sponsor_id, floor_sponsor_id, vote_result, vote_date, full_text, cached_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         bill.id,
@@ -304,6 +314,7 @@ export async function writeBills(db: D1Database, bills: Bill[]): Promise<void> {
         bill.floorSponsorId ?? null,
         bill.voteResult ?? null,
         bill.voteDate ?? null,
+        bill.fullText !== undefined ? stripHtml(bill.fullText) : null,
         cachedAt,
       ),
   )

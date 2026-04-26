@@ -111,6 +111,7 @@ development_status:
   # so conversation flow holds in ChatGPT Apps context (no system prompt available)
   4-8-mcp-tool-description-chatgpt-apps-behavioral-encoding: done
   4-9-bill-url-computed-field: done
+  4-10-highlighted-provisions-full-text: review
   4-x-chatgpt-app-configuration-and-publishing: backlog
   epic-4-retrospective: optional
 
