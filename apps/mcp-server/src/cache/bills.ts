@@ -3,6 +3,7 @@
 // All functions accept db: D1Database as first parameter (dependency injection).
 // Column-to-type mapping (snake_case DB → camelCase Bill) is confined here.
 import type { Bill, SearchBillsParams, SearchBillsResult } from '@on-record/types'
+import { logger } from '../lib/logger.js'
 import { getActiveSession } from './sessions.js'
 
 // ── Row shape returned from D1 ───────────────────────────────────────────────
@@ -16,6 +17,32 @@ interface BillRow {
   floor_sponsor_id: string | null
   vote_result: string | null
   vote_date: string | null
+  full_text: string | null
+}
+
+// Strip HTML tags from highlightedProvisions before storage — applied defensively
+// since the Utah Legislature API does not document the field format.
+// Tag pattern requires `<` (with optional `/`) immediately followed by a letter, so
+// inequalities and stray angle brackets in plain text ("A < B and C > D") survive.
+function stripHtml(s: string): string {
+  const withoutTags = s.replace(/<\/?[a-zA-Z][^>]*>/g, ' ')
+  const decoded = withoutTags
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&')
+  return decoded.replace(/\s{2,}/g, ' ').trim()
+}
+
+// Normalize fullText for storage: undefined / empty / whitespace-only / pure-tag inputs all
+// collapse to null so absence semantics survive the round-trip through the DB.
+function normalizeFullText(value: string | undefined): string | null {
+  if (value === undefined) return null
+  const cleaned = stripHtml(value)
+  return cleaned === '' ? null : cleaned
 }
 
 function rowToBill(row: BillRow): Bill {
@@ -37,6 +64,9 @@ function rowToBill(row: BillRow): Bill {
   if (row.vote_date !== null) {
     bill.voteDate = row.vote_date
   }
+  if (row.full_text !== null) {
+    bill.fullText = row.full_text
+  }
   bill.billUrl = `https://le.utah.gov/~${row.session.slice(0, 4)}/bills/static/${row.id}.html`
   return bill
 }
@@ -50,7 +80,7 @@ function rowToBill(row: BillRow): Bill {
 export async function getBillsBySponsor(db: D1Database, sponsorId: string): Promise<Bill[]> {
   const result = await db
     .prepare(
-      'SELECT id, session, title, summary, status, sponsor_id, floor_sponsor_id, vote_result, vote_date FROM bills WHERE sponsor_id = ?',
+      'SELECT id, session, title, summary, status, sponsor_id, floor_sponsor_id, vote_result, vote_date, full_text FROM bills WHERE sponsor_id = ?',
     )
     .bind(sponsorId)
     .all<BillRow>()
@@ -66,7 +96,7 @@ export async function getBillsBySponsor(db: D1Database, sponsorId: string): Prom
 export async function getBillsBySession(db: D1Database, session: string): Promise<Bill[]> {
   const result = await db
     .prepare(
-      'SELECT id, session, title, summary, status, sponsor_id, floor_sponsor_id, vote_result, vote_date FROM bills WHERE session = ?',
+      'SELECT id, session, title, summary, status, sponsor_id, floor_sponsor_id, vote_result, vote_date, full_text FROM bills WHERE session = ?',
     )
     .bind(session)
     .all<BillRow>()
@@ -92,7 +122,7 @@ export async function searchBillsByTheme(
   try {
     const result = await db
       .prepare(
-        `SELECT b.id, b.session, b.title, b.summary, b.status, b.sponsor_id, b.floor_sponsor_id, b.vote_result, b.vote_date
+        `SELECT b.id, b.session, b.title, b.summary, b.status, b.sponsor_id, b.floor_sponsor_id, b.vote_result, b.vote_date, b.full_text
          FROM bill_fts
          JOIN bills b ON b.rowid = bill_fts.rowid
          WHERE bill_fts MATCH ?
@@ -213,7 +243,7 @@ export async function searchBills(
       ${nonFtsWhere}
     `
     const pageSql = `
-      SELECT b.id, b.session, b.title, b.summary, b.status, b.sponsor_id, b.floor_sponsor_id, b.vote_result, b.vote_date
+      SELECT b.id, b.session, b.title, b.summary, b.status, b.sponsor_id, b.floor_sponsor_id, b.vote_result, b.vote_date, b.full_text
       FROM bill_fts
       JOIN bills b ON b.rowid = bill_fts.rowid
       WHERE bill_fts MATCH ?
@@ -240,7 +270,7 @@ export async function searchBills(
       ${whereClause}
     `
     const pageSql = `
-      SELECT id, session, title, summary, status, sponsor_id, floor_sponsor_id, vote_result, vote_date
+      SELECT id, session, title, summary, status, sponsor_id, floor_sponsor_id, vote_result, vote_date, full_text
       FROM bills
       ${whereClause}
       ORDER BY session DESC, id ASC
@@ -291,8 +321,8 @@ export async function writeBills(db: D1Database, bills: Bill[]): Promise<void> {
     db
       .prepare(
         `INSERT OR REPLACE INTO bills
-          (id, session, title, summary, status, sponsor_id, floor_sponsor_id, vote_result, vote_date, cached_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          (id, session, title, summary, status, sponsor_id, floor_sponsor_id, vote_result, vote_date, full_text, cached_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         bill.id,
@@ -304,6 +334,7 @@ export async function writeBills(db: D1Database, bills: Bill[]): Promise<void> {
         bill.floorSponsorId ?? null,
         bill.voteResult ?? null,
         bill.voteDate ?? null,
+        normalizeFullText(bill.fullText),
         cachedAt,
       ),
   )
@@ -313,6 +344,13 @@ export async function writeBills(db: D1Database, bills: Bill[]): Promise<void> {
     await db.batch(stmts.slice(i, i + 100))
   }
 
-  // Rebuild FTS5 index after bulk inserts (must run after batch commits)
-  await db.prepare("INSERT INTO bill_fts(bill_fts) VALUES('rebuild')").run()
+  // Rebuild FTS5 index after bulk inserts (must run after batch commits).
+  // A failure here leaves bills rows committed but the FTS5 index stale; surface it
+  // for ops rather than rejecting the whole writeBills call (the rows are still useful
+  // for non-FTS reads, and the next refresh will re-attempt the rebuild).
+  try {
+    await db.prepare("INSERT INTO bill_fts(bill_fts) VALUES('rebuild')").run()
+  } catch (err) {
+    logger.error({ source: 'cache', err }, 'bill_fts rebuild failed after writeBills — index may be stale until next refresh')
+  }
 }

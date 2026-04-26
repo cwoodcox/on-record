@@ -209,6 +209,32 @@ describe('warmUpBillsCache', () => {
     expect(sessions).toEqual(['2026GS'])
   })
 
+  it('propagates fullText from BillDetail into cached bills row', async () => {
+    const detail: BillDetail = {
+      id: 'HB0001',
+      session: '2026GS',
+      title: 'Test Bill',
+      summary: 'A test bill for unit testing',
+      status: 'enrolled',
+      sponsorId: 'leg-001',
+      fullText: 'Amends Section 53G-7-218 to require school cybersecurity plans',
+    }
+    const provider: LegislatureDataProvider = {
+      getLegislatorsByDistrict: vi.fn<() => Promise<Legislator[]>>().mockResolvedValue([]),
+      getBillStubsForSession: vi.fn<() => Promise<string[]>>().mockResolvedValue(['HB0001']),
+      getBillsBySession: vi.fn<() => Promise<Bill[]>>().mockResolvedValue([]),
+      getBillDetail: vi.fn<(billId: string, session: string) => Promise<BillDetail>>().mockResolvedValue(detail),
+    }
+
+    await warmUpBillsCache(env.DB, provider)
+
+    const row = await env.DB
+      .prepare('SELECT full_text FROM bills WHERE id = ?')
+      .bind('HB0001')
+      .first<{ full_text: string | null }>()
+    expect(row?.full_text).toBe('Amends Section 53G-7-218 to require school cybersecurity plans')
+  })
+
   it('logs error and skips session when getBillStubsForSession throws — does not propagate', async () => {
     const provider: LegislatureDataProvider = {
       getLegislatorsByDistrict: vi.fn<() => Promise<Legislator[]>>().mockResolvedValue([]),
