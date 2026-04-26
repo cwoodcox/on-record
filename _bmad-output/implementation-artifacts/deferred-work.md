@@ -30,3 +30,12 @@
 - Missing observability/notifications [.github/workflows/ci.yml:84] — No alerts for failed deployments.
 - Missing preview environments [.github/workflows/ci.yml:84] — Unlike the web app, the MCP server has no preview/staging deployment.
 - Missing post-deploy health check [.github/workflows/ci.yml:124] — No verification that the worker is functional after deployment.
+
+## Deferred from: code review of 4-10-highlighted-provisions-full-text (2026-04-26)
+
+- HTML stripping at write time is destructive [apps/mcp-server/src/cache/bills.ts:23-25] — originals unrecoverable if API ever ships meaningful HTML; design choice in story spec, accepted for MVP.
+- BillDetail / Bill structurally indistinguishable when `subjects` absent [packages/types/index.ts:34-37] — pre-existing optional discriminator pattern.
+- `wallTimeSeconds` of 1 or 2 silently no-ops refresh [apps/mcp-server/src/cache/refresh.ts:74-78] — pre-existing `(wallTimeSeconds - 2) * 1000` arithmetic.
+- `LegislatureDataProvider.getBillDetail` non-additive signature change (signal? removed) [apps/mcp-server/src/providers/types.ts:17] — no known out-of-tree consumers.
+- Migration 002 doesn't drop FTS5 triggers if any are added later [apps/mcp-server/migrations/002-add-full-text-to-bills.sql] — current schema has no triggers; forward-looking brittleness.
+- `searchBills` FTS5 path lacks try/catch around DB calls [apps/mcp-server/src/cache/bills.ts:238-241] — pre-existing; user queries with FTS5 special chars surface as 'temporarily unavailable'. Mirror the guard from `searchBillsByTheme`.
