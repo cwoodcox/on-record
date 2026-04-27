@@ -1,6 +1,6 @@
 -- migrations/001-initial-schema.sql
 -- Clean schema for D1 (no migration logic — fresh install).
--- Applied via: wrangler d1 migrations apply on-record-cache --local
+-- Applied via: wrangler d1 migrations apply on-record-cache --remote
 
 CREATE TABLE IF NOT EXISTS legislators (
   id          TEXT    PRIMARY KEY,
